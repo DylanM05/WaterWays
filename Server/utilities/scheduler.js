@@ -2,6 +2,7 @@ const cron = require('node-cron');
 const cheerio = require('cheerio');
 const { MongoClient } = require('mongodb');
 const StationCoordinates = require('../models/StationCoordinates');
+const logger = require('./logger');
 
 const uri = 'mongodb://localhost:27017';
 const dbName = 'waterways';
@@ -81,6 +82,7 @@ async function fetchData(stationId) {
     $('table').each((index, table) => {
         const caption = $(table).find('caption').text().trim();
         if (caption === 'This table provides real-time data in tabular format.') {
+            let firstItemLogged = false; 
             $(table).find('tbody tr').each((index, element) => {
                 const date_time = $(element).find('td').eq(0).text().trim();
                 const water_level = $(element).find('td').eq(1).attr('data-order') || $(element).find('td').eq(1).text().trim();
@@ -88,7 +90,11 @@ async function fetchData(stationId) {
 
                 // Ensure that the extracted data is valid
                 if (date_time && water_level) {
-                    console.log(`Extracted data for station ${stationId}:`, { date_time, water_level, discharge }); // Log the extracted data
+          // Only log the first extracted data point
+          if (!firstItemLogged) {
+            console.log(`Extracted data for station ${stationId} (first example):`, { date_time, water_level, discharge });
+            firstItemLogged = true;
+        }
                     data.push({ date_time, water_level, discharge, station_id: stationId });
                 }
             });
@@ -104,6 +110,7 @@ async function runScraper() {
     const client = new MongoClient(uri);
 
     const startTime = Date.now(); // Record start time
+    logger.info('Starting scraper run');
 
     try {
         await client.connect();
@@ -116,7 +123,8 @@ async function runScraper() {
                 await delay(index * 100); // Stagger requests
                 try {
                     const data = await fetchData(stationId);
-                    console.log(`Scraper ran successfully for station ${stationId}:`, data);
+                    console.log(`Scraper ran successfully for station ${stationId}. Example entry:`, 
+                        data.length > 0 ? data[0] : 'No data found');
                     await insertData(client, data);
                 } catch (error) {
                     console.error(`Error running scraper for station ${stationId}:`, error);
@@ -130,9 +138,16 @@ async function runScraper() {
         const endTime = Date.now(); // Record end time
         const duration = (endTime - startTime) / 1000;
         console.log(`Scraper run completed in ${duration} seconds.`);
+        logger.info(`Scraper run completed in ${duration} seconds.`);
     }
 }
 
-runScraper().then(() => console.log('Initial run of the scraper completed.'));
+runScraper().then(() => logger.info('Initial run of the scraper completed.'));
+
+cron.schedule('0 */6 * * *', async () => {
+    await runScraper();
+    console.log('Scheduled run of the scraper completed.');
+}); 
 
 console.log('Scheduler is set up to run every 6 hours.');
+logger.info('Scheduler is set up to run every 6 hours.');
