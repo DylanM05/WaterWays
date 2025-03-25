@@ -1,5 +1,3 @@
-optimize more for mobile
-
 
 add functionality:
 backend:
@@ -8,4 +6,4 @@ clear up logging, use actual file logging instead of console logging
 
 frontend:
 Display map from backend on StationInfo page I want it to be interactive.
-
+optimize more for mobile
