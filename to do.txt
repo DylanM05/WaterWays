@@ -1,19 +1,11 @@
-Style front end components:
-Landing
-Station Details
-River Sections
-Current Weather
-Hourly Forecast
-Pressure Data
-Weekly Forecast
+optimize more for mobile
 
 
 add functionality:
 backend:
-grab most recent water recording
-implement map in backend to preserve security of api key.
+better implement map in backend to preserve security of api key.
+clear up logging, use actual file logging instead of console logging
 
 frontend:
-Display most recent water recording on riversections
-Display map from backend on StationInfo page
+Display map from backend on StationInfo page I want it to be interactive.
 
