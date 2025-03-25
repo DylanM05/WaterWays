@@ -1,0 +1,19 @@
+Style front end components:
+Landing
+Station Details
+River Sections
+Current Weather
+Hourly Forecast
+Pressure Data
+Weekly Forecast
+
+
+add functionality:
+backend:
+grab most recent water recording
+implement map in backend to preserve security of api key.
+
+frontend:
+Display most recent water recording on riversections
+Display map from backend on StationInfo page
+

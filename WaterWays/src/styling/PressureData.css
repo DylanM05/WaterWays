@@ -1,0 +1,21 @@
+.card-bg {
+    background-color: var(--card-bg-colour);
+    border-color: var(--border-colour);
+  }
+  
+  .text-colour {
+    color: var(--text-colour);
+  }
+  
+  .nav-link {
+    color: var(--primary-colour);
+  }
+  
+  .nav-link:hover {
+    color: var(--hover-colour);
+  }
+
+  .no-bullets {
+    list-style-type: none;
+    text-align: left;
+  }

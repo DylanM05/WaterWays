@@ -1,0 +1,46 @@
+.river-title {
+    color: var(--primary-colour);
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  
+  .section-link {
+    text-decoration: none;
+  }
+  
+  .section-card {
+    background-color: var(--card-bg-colour);
+    border: 1px solid var(--border-colour);
+    transition: transform 0.2s, box-shadow 0.2s;
+    width: 100%; /* Make the card take full width */
+    min-width: 515px;
+  }
+  
+  .section-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .section-card .card-title {
+    color: var(--primary-colour);
+  }
+  
+  .section-card .card-text {
+    color: var(--text-colour);
+  }
+  
+  .containerP {
+    border: 1px solid var(--border-colour) !important;
+  }
+
+  .river-section-metric{
+    color: var(--primary-colour);
+    font-size: 1.5rem;
+    background-color: var(--background-colour);
+    border-radius: 5px;
+  }
+  .river-section-time {
+    color: var(--text-colour);
+    font-size: 0.75rem;
+    margin-top: 0.5rem;
+  }

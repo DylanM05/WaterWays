@@ -1,0 +1,115 @@
+*/
+:root {
+  font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+.light-theme {
+  /* Light theme colours (default) */
+  --background-colour: #ffffff;
+  --text-colour: #213547;
+  --primary-colour: #646cff;
+  --primary-text-colour: #ffffff;
+  --secondary-colour: #535bf2;
+  --hover-colour: #747bff;
+  --card-bg-colour: #f9f9f9;
+  --border-colour: #e0e0e0;
+  --button-bg: #f9f9f9;
+  --bg: #cfcdcd;
+  --sidebar-text:black;
+  --chart-bg: #f3f0f0;
+}
+/* Dark theme colours */
+.dark-theme {
+  --background-colour: #242424;
+  --text-colour: #ffffff;
+  --primary-colour: #646cff;
+  --primary-text-colour: #ffffff;
+  --secondary-colour: #535bf2;
+  --hover-colour: #535bf2;
+  --card-bg-colour: #1a1a1a;
+  --border-colour: #333;
+  --button-bg: #1a1a1a;
+  --bg: #797474;
+  --sidebar-text:white;
+  --chart-bg: #0c0c0c;
+}
+
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+  background-color: var(--background-colour);
+  color: var(--text-colour);
+}
+
+a {
+  font-weight: 500;
+  color: var(--primary-colour);
+  text-decoration: inherit;
+}
+
+a:hover {
+  color: var(--hover-colour);
+}
+
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
+
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: var(--button-bg);
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+
+button:hover {
+  border-color: var(--primary-colour);
+}
+
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
+
+/* Additional theme-specific styles */
+.card, .list-group-item {
+  background-color: var(--card-bg-colour);
+  border-color: var(--border-colour);
+}
+
+.nav-tabs .nav-link.active {
+  background-color: var(--card-bg-colour);
+  color: var(--text-colour);
+  border-color: var(--border-colour);
+}
+
+.dark-theme .table {
+  color: var(--text-colour);
+}
+
+.dark-theme .table-hover tbody tr:hover {
+  background-color: rgba(255, 255, 255, 0.075);
+}
+
+.dark-theme .card {
+  background-color: var(--card-bg-colour);
+}
+
+.dark-theme .modal-content {
+  background-color: var(--background-colour);
+  color: var(--text-colour);
+}

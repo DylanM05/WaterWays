@@ -1,0 +1,104 @@
+body {
+    background-color: var(--background-colour) !important;
+    color: var(--text-colour);
+  }
+  h5 {
+    color: var(--text-colour) !important;
+  }
+  
+  .chart-container {
+    background-color: var(--background-colour) !important;
+    color: var(--text-colour);
+  }
+  
+  .card {
+    background-color: var(--background-colour) !important;
+    border: 1px solid var(--border-colour);
+  }
+  
+  .nav-tabs .nav-link {
+    color: var(--text-colour);
+  }
+  .tabs .nav-link.active{
+    background-color: var(--primary-colour) !important;
+    color: var(--primary-text-colour) !important;
+  }
+
+  
+  .button-group .btn {
+    background-color: var(--button-bg);
+    color: var(--text-colour);
+  }
+  
+  .button-group .btn:hover {
+    background-color: var(--hover-colour);
+  }
+  
+  .label {
+    color: var(--text-colour);
+  }
+  .time-window-button {
+    color: var(--text-colour) !important;
+  }
+    .time-window-button.active {
+        color: var(--primary-text-colour) !important;
+    }
+
+  .pagination-container .page-item .page-link {
+    background-color: var(--button-bg);
+    color: var(--text-colour);
+    border: 1px solid var(--border-colour);
+  }
+
+  .pagination-container .page-item.active .page-link {
+    background-color: var(--primary-colour);
+    color: var(--primary-text-colour);
+    border: 1px solid var(--primary-colour);
+  }
+
+  .pagination-container .page-item .page-link:hover {
+    background-color: var(--hover-colour);
+    color: var(--text-colour);
+  }
+
+  /* Table Styling */
+.table {
+    background-color: var(--background-colour) ;
+    border: 1px solid var(--border-colour);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+
+
+/* Table Cells */
+.table-body td {
+    padding: 12px;
+    text-align: center;
+    color: var(--text-colour);
+}
+
+/* Borders */
+.table-header th, .table-body td {
+    border: 1px solid var(--border-colour);
+}
+
+/* Pagination Info */
+.text-muted.small {
+    color: var(--secondary-text-colour);
+}
+
+/* Form Select Styling */
+form .form-select {
+    background-color: var(--background-colour);
+    color: var(--text-colour);
+    border: 1px solid var(--border-colour);
+    border-radius: 5px;
+}
+
+form .form-select:focus {
+    border-color: var(--primary-colour);
+    box-shadow: 0 0 5px var(--primary-colour);
+}
+
+
