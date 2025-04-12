@@ -16,7 +16,7 @@ import {
 
 import StationInfo from './tabs/StationInfo';
 import HourlyForecast from './tabs/HourlyForecast';
-import CurrentWeatherTab from './tabs/currentWeather';
+import CurrentWeatherTab from './tabs/CurrentWeather';
 import PressureData from './tabs/PressureData';
 import WaterData from './tabs/WaterData';
 import WeeklyForecast from './tabs/WeeklyForecast';
@@ -32,7 +32,7 @@ ChartJS.register(
   Legend
 );
 
-const API_BASE_URL = 'http://localhost:3000';
+const API_BASE_URL = 'https://backend.dylansserver.top';
 const ENDPOINTS = {
   coordinates: (id) => `${API_BASE_URL}/details/coordinates/${id}`,
   waterData: (id) => `${API_BASE_URL}/details/${id}`,

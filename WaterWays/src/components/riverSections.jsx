@@ -29,7 +29,7 @@ const RiverSections = ({ rivers }) => {
         const dataPromises = sections.map(async (section) => {
           try {
             const response = await axios.get(
-              `http://localhost:3000/details/latest-water-data/${section.station_id}`
+              `https://backend.dylansserver.top/details/latest-water-data/${section.station_id}`
             );
             const dateTime = new Date(response.data.date_time);
             const formattedTime = dateTime.toLocaleString('en-US', {
@@ -91,42 +91,43 @@ const RiverSections = ({ rivers }) => {
               <Card className="h-100 section-card">
                 <Card.Body>
                   <Card.Title>{section.section}</Card.Title>
-                  <Card.Text as="div">
-                    <strong>Station ID:</strong> {section.station_id}
-                    <br />
-                    {latestWaterData[section.station_id] && latestWaterData[section.station_id].data ? (
-                      <Row>
-                        {latestWaterData[section.station_id].data.water_level !== null && (
-                          <Col>
-                            <div className="river-section-metric">
-                              Water Level
-                              <br />
-                              {latestWaterData[section.station_id].data.water_level.toFixed(2)} m
-                            </div>
-                          </Col>
-                        )}
-                        {latestWaterData[section.station_id].data.discharge !== null && (
-                          <Col>
-                            <div className="river-section-metric">
-                              Discharge
-                              <br />
-                              {latestWaterData[section.station_id].data.discharge.toFixed(2)} m³/s
-                            </div>
-                          </Col>
-                        )}
-                        {latestWaterData[section.station_id].time && (
-                          <Col xs={12}>
-                            <div className="river-section-time">
-                              <strong>Last updated:</strong>{' '}
-                              {latestWaterData[section.station_id].time}
-                            </div>
-                          </Col>
-                        )}
-                      </Row>
-                    ) : (
-<div></div>
-                    )}
-                  </Card.Text>
+<Card.Text as="div">
+  <strong>Station ID:</strong> {section.station_id}
+  <br />
+  {latestWaterData[section.station_id] && latestWaterData[section.station_id].data && (
+    <Row>
+      {latestWaterData[section.station_id].data.water_level !== undefined &&
+        latestWaterData[section.station_id].data.water_level !== null && (
+          <Col>
+            <div className="river-section-metric">
+              Water Level
+              <br />
+              {latestWaterData[section.station_id].data.water_level.toFixed(2)} m
+            </div>
+          </Col>
+        )}
+      {latestWaterData[section.station_id].data.discharge !== undefined &&
+        latestWaterData[section.station_id].data.discharge !== null && (
+          <Col>
+            <div className="river-section-metric">
+              Discharge
+              <br />
+              {latestWaterData[section.station_id].data.discharge.toFixed(2)} m³/s
+            </div>
+          </Col>
+        )}
+      {latestWaterData[section.station_id].time &&
+        latestWaterData[section.station_id].time !== "Invalid Date" && (
+          <Col xs={12}>
+            <div className="river-section-time">
+              <strong>Last updated:</strong> {latestWaterData[section.station_id].time}
+            </div>
+          </Col>
+        )}
+    </Row>
+  )}
+</Card.Text>
+
                 </Card.Body>
               </Card>
             </Link>

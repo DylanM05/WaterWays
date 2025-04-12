@@ -9,7 +9,7 @@ const Scheduler = require('./utilities/scheduler');
 require('dotenv').config();
 
 const app = express();
-const port = 3000;
+const port = 42069;
 
 // Connect to MongoDB
 mongoose.connect('mongodb://localhost:27017/waterways').then(() => {
@@ -19,7 +19,11 @@ mongoose.connect('mongodb://localhost:27017/waterways').then(() => {
 });
 
 app.use(express.json());
+const allowedOrigins = ['https://waterways.dylansserver.top', 'http://localhost:3000', '66.79.243.222']; // Include your local dev URL if necessary
+
 app.use(cors());
+
+
 
 app.use('/details', detailsRoute);
 app.use('/work', scrapeRoute);

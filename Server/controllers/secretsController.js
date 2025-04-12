@@ -14,7 +14,7 @@ const getMapProxyUrl = (req, res) => {
         expires: Date.now() + 2 * 60 * 1000 // 2-minute token
     });
 
-    const mapUrl = `http://localhost:${port}/api/proxy/map?token=${token}`;
+    const mapUrl = `https://backend.dylansserver.top/api/proxy/map?token=${token}`;
     res.json({ mapUrl });
 };
 

@@ -8,6 +8,30 @@ const uri = 'mongodb://localhost:27017';
 const dbName = 'waterways';
 const collectionName = 'stationdatas';
 
+
+// Ensure indexes are created
+async function ensureIndexes(client) {
+    const database = client.db(dbName);
+    const collection = database.collection(collectionName);
+    await collection.createIndex({ station_id: 1, date_time: 1 }, { unique: true });
+}
+
+// Call this function once when setting up your database
+async function setupDatabase() {
+    const client = new MongoClient(uri);
+    try {
+        await client.connect();
+        await ensureIndexes(client);
+        console.log('Indexes ensured.');
+    } catch (error) {
+        console.error('Error setting up database:', error);
+    } finally {
+        await client.close();
+    }
+}
+
+setupDatabase();
+
 async function insertData(client, dataArray) {
     if (dataArray.length === 0) return;
     const database = client.db(dbName);

@@ -38,7 +38,7 @@ const StationInfo = ({ stationInfo, stationId }) => {
       });
       
       setIsLoading(true);
-      fetch(`http://localhost:3000/api/proxy-maps/${stationInfo.latitude}/${stationInfo.longitude}`)
+      fetch(`https://backend.dylansserver.top/api/proxy-maps/${stationInfo.latitude}/${stationInfo.longitude}`)
         .then(res => res.json())
         .then(data => {
           if (data && data.mapUrl) {

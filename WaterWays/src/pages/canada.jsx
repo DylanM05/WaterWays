@@ -38,7 +38,7 @@ const Canada = ({ setRivers, rivers }) => {
       const fetchRivers = async () => {
         setLoading(true);
         try {
-          const response = await axios.get(`http://localhost:3000/details/rivers/${selectedProvince.abbreviation.toLowerCase()}`);
+          const response = await axios.get(`https://backend.dylansserver.top/details/rivers/${selectedProvince.abbreviation.toLowerCase()}`);
           setRivers(response.data);
           setLoading(false);
         } catch (err) {
@@ -91,7 +91,7 @@ const Canada = ({ setRivers, rivers }) => {
     setSearchQuery(e.target.value);
     if (e.target.value.length > 2) {
       try {
-        const response = await axios.get(`http://localhost:3000/search/search?name=${e.target.value}`);
+        const response = await axios.get(`https://backend.dylansserver.top/search/search?name=${e.target.value}`);
         setSearchResults(response.data);
       } catch (error) {
         console.error('Error searching for stations:', error);

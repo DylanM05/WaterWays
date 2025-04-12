@@ -48,14 +48,24 @@ const WaterData = ({
 const prepareChartData = (dataType) => {
   if (!sortedWaterData || sortedWaterData.length === 0) return null;
 
-  const mostRecentData = sortedWaterData[0];
+  // Get the most recent valid data point (not just the first one)
+  const validDataPoints = sortedWaterData.filter(entry => 
+    entry && entry.date_time && 
+    (dataType === 'level' ? 
+      (entry.water_level !== undefined && entry.water_level !== null) : 
+      (entry.discharge !== undefined && entry.discharge !== null))
+  );
+  
+  if (validDataPoints.length === 0) return null;
+  
+  const mostRecentData = validDataPoints[0];
   const mostRecentDate = new Date(mostRecentData.date_time);
   const cutoffDate = new Date(mostRecentDate);
   cutoffDate.setDate(cutoffDate.getDate() - timeWindow);
 
-  const filteredData = sortedWaterData.filter(entry => {
+  const filteredData = validDataPoints.filter(entry => {
     const entryDate = new Date(entry.date_time);
-    return entryDate >= cutoffDate && (dataType === 'level' ? entry.water_level !== undefined : entry.discharge !== undefined);
+    return entryDate >= cutoffDate;
   });
 
   if (filteredData.length === 0) return null;
@@ -195,15 +205,15 @@ const prepareChartData = (dataType) => {
                   <th>Discharge</th>
                 </tr>
               </thead>
-              <tbody className="table-body">
-                {currentWaterData.map((entry, index) => (
-                  <tr key={index}>
-                    <td>{moment(entry.date_time).format('MMMM Do YYYY, h:mm a')}</td>
-                    <td>{entry.water_level !== null ? `${entry.water_level} m` : 'N/A'}</td>
-                    <td>{entry.discharge !== null ? `${entry.discharge} m³/s` : 'N/A'}</td>
-                  </tr>
-                ))}
-              </tbody>
+          <tbody className="table-body">
+  {currentWaterData.filter(entry => entry && entry.date_time).map((entry, index) => (
+    <tr key={index}>
+      <td>{moment(entry.date_time).format('MMMM Do YYYY, h:mm a')}</td>
+      <td>{entry.water_level !== null && entry.water_level !== undefined ? `${entry.water_level} m` : 'N/A'}</td>
+      <td>{entry.discharge !== null && entry.discharge !== undefined ? `${entry.discharge} m³/s` : 'N/A'}</td>
+    </tr>
+  ))}
+</tbody>
             </Table>
           </div>
           <div className="d-flex justify-content-between align-items-center mb-2">
