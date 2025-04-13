@@ -262,8 +262,7 @@ exports.getWeeklyWeather = async (req, res) => {
     }
 
     const { latitude, longitude } = coordinates;
-    console.log(`Fetching weekly weather forecast for coordinates: ${latitude}, ${longitude}`);
-
+  
     const weeklyWeatherResponse = await axios.get(`https://api.open-meteo.com/v1/forecast`, {
       params: {
         latitude: parseFloat(latitude),
