@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Container, Nav, Tab, Spinner, Alert, Button } from 'react-bootstrap';
 import axios from 'axios';
 import moment from 'moment';
 import {
@@ -41,6 +40,63 @@ const ENDPOINTS = {
   pressure: (id) => `${API_BASE_URL}/details/pressure/${id}`,
 };
 
+const TabButton = ({ label, isActive, onClick }) => (
+  <button
+    onClick={onClick}
+    style={{
+      padding: '8px 16px',
+      fontSize: '0.875rem',
+      fontWeight: '500',
+      borderBottom: isActive 
+        ? '2px solid var(--primary-colour)' 
+        : '2px solid transparent',
+      color: isActive 
+        ? 'var(--primary-colour)' 
+        : 'var(--text-colour)',
+      background: 'transparent',
+      whiteSpace: 'nowrap',
+      transition: 'all 0.2s',
+      borderTop: 'none',
+      borderLeft: 'none',
+      borderRight: 'none',
+      cursor: 'pointer'
+    }}
+    onMouseOver={(e) => {
+      if (!isActive) e.currentTarget.style.color = 'var(--hover-colour)';
+    }}
+    onMouseOut={(e) => {
+      if (!isActive) e.currentTarget.style.color = 'var(--text-colour)';
+    }}
+  >
+    {label}
+  </button>
+);
+
+const ActionButton = ({ label, onClick, icon }) => (
+  <button 
+    onClick={onClick}
+    style={{
+      padding: '8px 16px',
+      backgroundColor: 'var(--primary-colour)',
+      color: 'var(--primary-text-colour)',
+      borderRadius: '4px',
+      border: 'none',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '6px',
+      transition: 'background-color 0.2s',
+      marginTop: '-8px',
+      marginBottom: '10px',
+    }}
+    onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--hover-colour)'}
+    onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'var(--primary-colour)'}
+  >
+    {icon && <span>{icon}</span>}
+    {label}
+  </button>
+);
+
 const StationDetails = () => {
   const { stationId } = useParams();
   const navigate = useNavigate();
@@ -63,7 +119,18 @@ const StationDetails = () => {
   const [pressureDataError, setPressureDataError] = useState(null);
   const [weeklyDataError, setWeeklyDataError] = useState(null);
   const [stationInfoError, setStationInfoError] = useState(null);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
 
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
 
   useEffect(() => {
     const fetchStationData = async () => {
@@ -71,7 +138,6 @@ const StationDetails = () => {
       setError(null);
       
       try {
-        // Fetch station info first as it's critical
         const coordinatesResponse = await axios.get(ENDPOINTS.coordinates(stationId));
         setStationInfo(coordinatesResponse.data);
       } catch (err) {
@@ -93,16 +159,12 @@ const StationDetails = () => {
             <br />
             We either have not retrieved any data for this station, or the station is not recording any data.
             <br />
-            You can view the master data <a href={`https://wateroffice.ec.gc.ca/report/real_time_e.html?stn=${stationId}&mode=Table&startDate=${startDate}&endDate=${endDate}`} target="_blank" rel="noopener noreferrer">here</a>!
+            You can view the master data <a href={`https://wateroffice.ec.gc.ca/report/real_time_e.html?stn=${stationId}&mode=Table&startDate=${startDate}&endDate=${endDate}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-secondary underline">here</a>!
           </>
         );
         setWaterData([]);
       }
 
-
-
-
-      // Fetch weather data
       try {
         const weatherResponse = await axios.get(ENDPOINTS.weather(stationId));
         setWeatherData(weatherResponse.data);
@@ -111,7 +173,6 @@ const StationDetails = () => {
         setWeatherDataError('Failed to load weather data.');
       }
 
-      // Fetch forecast data
       try {
         const forecastResponse = await axios.get(ENDPOINTS.forecast(stationId));
         if (forecastResponse.data && forecastResponse.data.time) {
@@ -123,7 +184,6 @@ const StationDetails = () => {
         setForecastDataError('Failed to load forecast data.');
       }
 
-      // Fetch pressure data
       try {
         const pressureResponse = await axios.get(ENDPOINTS.pressure(stationId));
         if (pressureResponse.data && pressureResponse.data.time) {
@@ -135,7 +195,6 @@ const StationDetails = () => {
         setPressureDataError('Failed to load pressure data.');
       }
 
-      // Fetch weekly data
       try {
         const weeklyResponse = await axios.get(`${API_BASE_URL}/details/weather/weekly/${stationId}`);
         setWeeklyData(weeklyResponse.data);
@@ -152,73 +211,120 @@ const StationDetails = () => {
 
   if (loading) {
     return (
-      <Container className="d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
-        <Spinner animation="border" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </Spinner>
-      </Container>
+      <div className="flex justify-center items-center min-h-[300px]">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      </div>
     );
   }
 
-  // Only show critical error if station info is missing
   if (stationInfoError) {
     return (
-      <Container className="mt-4">
-        <Alert variant="danger">{stationInfoError}</Alert>
-      </Container>
+      <div className="container mx-auto px-4 mt-6">
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          <p>{stationInfoError}</p>
+        </div>
+      </div>
     );
   }
 
   const localWeatherTime = weatherData?.time ? convertToLocalTime(weatherData.time) : '';
 
   return (
-    <Container className="mt-4">
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <Button variant="outline-secondary" onClick={() => navigate(-1)}>
-          &larr; Back
-        </Button>
-        <h2>{stationInfo?.stationName}</h2>
-        <div style={{ width: '85px' }}></div>
+    <div className="container mx-auto px-4 py-6">
+      <div className="flex justify-between items-center mb-6" style={{
+        padding: windowWidth < 768 ? '0 8px' : '0'
+      }}>
+        <div style={{ 
+          marginLeft: windowWidth < 480 ? '16px' : (windowWidth < 768 ? '8px' : '0'),
+          transition: 'margin 0.3s ease'
+        }}>
+          <ActionButton label="Back" onClick={() => navigate(-1)} icon="←" />
+        </div>
+        <h2 className="text-2xl font-bold" style={{ color: 'var(--text-colour)' }}>
+          {stationInfo?.stationName}
+        </h2>
+        <div className="w-[85px]"></div> {/* Spacer for alignment */}
       </div>
-      <Tab.Container activeKey={activeKey} onSelect={(k) => setActiveKey(k)}>
-        <Nav variant="tabs" className="mb-3">
-          <Nav.Item><Nav.Link eventKey="water">Water Data</Nav.Link></Nav.Item>
-          <Nav.Item><Nav.Link eventKey="pressure">Pressure Data</Nav.Link></Nav.Item>
-          <Nav.Item><Nav.Link eventKey="weather">Current Weather</Nav.Link></Nav.Item>
-          <Nav.Item><Nav.Link eventKey="hourlyforecast">Hourly Forecast</Nav.Link></Nav.Item>
-          <Nav.Item><Nav.Link eventKey="weeklyforecast">Weekly Forecast</Nav.Link></Nav.Item>
-          <Nav.Item><Nav.Link eventKey="map">Map</Nav.Link></Nav.Item>
-        </Nav>
 
-        <Tab.Content style={{ minHeight: '100vh', overflow: 'auto' }}>
-          <Tab.Pane eventKey="map"><StationInfo stationInfo={stationInfo} /></Tab.Pane>
-          <Tab.Pane eventKey="water">
-            <WaterData 
-              waterData={waterData} 
-              waterChartTab={waterChartTab} 
-              setWaterChartTab={setWaterChartTab} 
-              recordsPerPage={recordsPerPage} 
-              setRecordsPerPage={setRecordsPerPage} 
-              currentPage={currentPage} 
-              setCurrentPage={setCurrentPage}
-              error={waterDataError} 
-            />
-          </Tab.Pane>
-          <Tab.Pane eventKey="weather">
-            <CurrentWeatherTab weatherData={weatherData} localWeatherTime={localWeatherTime} error={weatherDataError} />
-          </Tab.Pane>
-          <Tab.Pane eventKey="hourlyforecast">
-            <HourlyForecast forecastData={forecastData} pressureData={pressureData} error={forecastDataError} />
-          </Tab.Pane>
-          <Tab.Pane eventKey="pressure">
-            <PressureData pressureData={pressureData} error={pressureDataError} />
-          </Tab.Pane>
-          <Tab.Pane eventKey="weeklyforecast">
-            <WeeklyForecast weeklyData={weeklyData} error={weeklyDataError} />
-          </Tab.Pane>
-        </Tab.Content>
-      </Tab.Container>
-    </Container>
+      {/* Tab Navigation */}
+      <div style={{ borderBottom: '1px solid var(--border-colour)', marginBottom: '1.5rem' }}>
+        <div className="flex overflow-x-auto hide-scrollbar">
+          <TabButton 
+            label="Water Data" 
+            isActive={activeKey === 'water'} 
+            onClick={() => setActiveKey('water')} 
+          />
+          <TabButton 
+            label="Pressure Data" 
+            isActive={activeKey === 'pressure'} 
+            onClick={() => setActiveKey('pressure')} 
+          />
+          <TabButton 
+            label="Current Weather" 
+            isActive={activeKey === 'weather'} 
+            onClick={() => setActiveKey('weather')} 
+          />
+          <TabButton 
+            label="Hourly Forecast" 
+            isActive={activeKey === 'hourlyforecast'} 
+            onClick={() => setActiveKey('hourlyforecast')} 
+          />
+          <TabButton 
+            label="Weekly Forecast" 
+            isActive={activeKey === 'weeklyforecast'} 
+            onClick={() => setActiveKey('weeklyforecast')} 
+          />
+          <TabButton 
+            label="Map" 
+            isActive={activeKey === 'map'} 
+            onClick={() => setActiveKey('map')} 
+          />
+        </div>
+      </div>
+
+      {/* Tab Content */}
+      <div className="mt-6 min-h-screen">
+        {activeKey === 'map' && <StationInfo stationInfo={stationInfo} />}
+        {activeKey === 'water' && (
+          <WaterData 
+            waterData={waterData} 
+            waterChartTab={waterChartTab} 
+            setWaterChartTab={setWaterChartTab} 
+            recordsPerPage={recordsPerPage} 
+            setRecordsPerPage={setRecordsPerPage} 
+            currentPage={currentPage} 
+            setCurrentPage={setCurrentPage}
+            error={waterDataError} 
+          />
+        )}
+        {activeKey === 'weather' && (
+          <CurrentWeatherTab 
+            weatherData={weatherData} 
+            localWeatherTime={localWeatherTime} 
+            error={weatherDataError} 
+          />
+        )}
+        {activeKey === 'hourlyforecast' && (
+          <HourlyForecast 
+            forecastData={forecastData} 
+            pressureData={pressureData} 
+            error={forecastDataError} 
+          />
+        )}
+        {activeKey === 'pressure' && (
+          <PressureData 
+            pressureData={pressureData} 
+            error={pressureDataError} 
+          />
+        )}
+        {activeKey === 'weeklyforecast' && (
+          <WeeklyForecast 
+            weeklyData={weeklyData} 
+            error={weeklyDataError} 
+          />
+        )}
+      </div>
+    </div>
   );
 };
 

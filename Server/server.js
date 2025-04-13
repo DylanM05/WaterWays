@@ -5,13 +5,12 @@ const detailsRoute = require('./routes/DetailsRoute');
 const scrapeRoute = require('./routes/ScrapeRoute');
 const searchRoute = require('./routes/SearchRoute');
 const secretRoute = require('./routes/SecretsRoute');
-const Scheduler = require('./utilities/scheduler');
 require('dotenv').config();
 
 const app = express();
 const port = 42069;
 
-// Connect to MongoDB
+
 mongoose.connect('mongodb://localhost:27017/waterways').then(() => {
     console.log('Connected to MongoDB');
 }).catch(err => {
@@ -19,11 +18,25 @@ mongoose.connect('mongodb://localhost:27017/waterways').then(() => {
 });
 
 app.use(express.json());
-const allowedOrigins = ['https://waterways.dylansserver.top', 'http://localhost:3000', '66.79.243.222']; // Include your local dev URL if necessary
+const allowedOrigins = [
+  'https://waterways.dylansserver.top', 
+  'http://localhost:3000', 
+  'http://localhost:5173', 
+  '66.79.243.222'
+];
 
-app.use(cors());
+app.use(cors({
+  origin: function(origin, callback) {
 
-
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true
+}));
 
 app.use('/details', detailsRoute);
 app.use('/work', scrapeRoute);

@@ -1,8 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { Card, Container, Row, Col } from 'react-bootstrap';
 import axios from 'axios';
-import '../styling/RiverSection.css'; // Import the CSS file for additional styles
 
 const RiverSections = ({ rivers }) => {
   const { riverName } = useParams();
@@ -10,7 +8,6 @@ const RiverSections = ({ rivers }) => {
   const [latestWaterData, setLatestWaterData] = useState({});
   const isMounted = useRef(true);
 
-  // Handle riverName and rivers loading properly
   useEffect(() => {
     if (rivers && rivers[riverName]) {
       setSections(rivers[riverName]);
@@ -23,7 +20,7 @@ const RiverSections = ({ rivers }) => {
     isMounted.current = true;
 
     const fetchLatestWaterData = async () => {
-      if (sections.length === 0) return; // Prevent fetching if no sections
+      if (sections.length === 0) return;
 
       try {
         const dataPromises = sections.map(async (section) => {
@@ -71,70 +68,69 @@ const RiverSections = ({ rivers }) => {
     };
   }, [sections]);
 
-  // Loading State
   if (!sections.length) {
     return (
-      <Container>
-        <h1 className="river-title">{riverName}</h1>
-        <p>Loading sections or no data available.</p>
-      </Container>
+      <div className="container mx-auto px-4 py-8">
+        <h1 className="text-3xl font-bold text-center mb-6" style={{ color: 'var(--primary-colour)' }}>{riverName}</h1>
+        <p className="text-center" style={{ color: 'var(--text-colour)', opacity: '0.7' }}>Loading sections or no data available.</p>
+      </div>
     );
   }
 
   return (
-    <Container>
-      <h1 className="river-title">{riverName}</h1>
-      <Row className="justify-content-center">
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold text-center mb-6" style={{ color: 'var(--primary-colour)' }}>{riverName}</h1>
+      <div className="space-y-6">
         {sections.map((section, index) => (
-          <Col key={index} xs={12} className="mb-4">
-            <Link to={`/canada/station-details/${section.station_id}`} className="section-link">
-              <Card className="h-100 section-card">
-                <Card.Body>
-                  <Card.Title>{section.section}</Card.Title>
-<Card.Text as="div">
-  <strong>Station ID:</strong> {section.station_id}
-  <br />
-  {latestWaterData[section.station_id] && latestWaterData[section.station_id].data && (
-    <Row>
-      {latestWaterData[section.station_id].data.water_level !== undefined &&
-        latestWaterData[section.station_id].data.water_level !== null && (
-          <Col>
-            <div className="river-section-metric">
-              Water Level
-              <br />
-              {latestWaterData[section.station_id].data.water_level.toFixed(2)} m
+          <Link 
+            key={index} 
+            to={`/canada/station-details/${section.station_id}`} 
+            className="block"
+            style={{ textDecoration: 'none' }}
+          >
+            <div className="bg-background-card rounded-lg shadow-md border border-border p-6 transition-all hover:-translate-y-1 hover:shadow-lg">
+              <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-colour)' }}>{section.section}</h2>
+              <p className="mb-2" style={{ color: 'var(--primary-colour)' }}>
+                <span className="font-bold">Station ID:</span> {section.station_id}
+              </p>
+              
+              {latestWaterData[section.station_id] && latestWaterData[section.station_id].data && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  {latestWaterData[section.station_id].data.water_level !== undefined &&
+                    latestWaterData[section.station_id].data.water_level !== null && (
+                      <div className="bg-bg rounded-md p-4 text-center">
+                        <div className="text-xl font-bold" style={{ color: 'var(--text-colour)' }}>
+                          Water Level
+                          <br />
+                          {latestWaterData[section.station_id].data.water_level.toFixed(2)} m
+                        </div>
+                      </div>
+                    )}
+                  
+                  {latestWaterData[section.station_id].data.discharge !== undefined &&
+                    latestWaterData[section.station_id].data.discharge !== null && (
+                      <div className="bg-bg rounded-md p-4 text-center">
+                        <div className="text-xl font-bold" style={{ color: 'var(--text-colour)' }}>
+                          Discharge
+                          <br />
+                          {latestWaterData[section.station_id].data.discharge.toFixed(2)} m³/s
+                        </div>
+                      </div>
+                    )}
+                  
+                  {latestWaterData[section.station_id].time &&
+                    latestWaterData[section.station_id].time !== "Invalid Date" && (
+                      <div className="col-span-1 md:col-span-2 mt-2 text-sm" style={{ color: 'var(--text-colour)', opacity: '0.7' }}>
+                        <span className="font-bold">Last updated:</span> {latestWaterData[section.station_id].time}
+                      </div>
+                    )}
+                </div>
+              )}
             </div>
-          </Col>
-        )}
-      {latestWaterData[section.station_id].data.discharge !== undefined &&
-        latestWaterData[section.station_id].data.discharge !== null && (
-          <Col>
-            <div className="river-section-metric">
-              Discharge
-              <br />
-              {latestWaterData[section.station_id].data.discharge.toFixed(2)} m³/s
-            </div>
-          </Col>
-        )}
-      {latestWaterData[section.station_id].time &&
-        latestWaterData[section.station_id].time !== "Invalid Date" && (
-          <Col xs={12}>
-            <div className="river-section-time">
-              <strong>Last updated:</strong> {latestWaterData[section.station_id].time}
-            </div>
-          </Col>
-        )}
-    </Row>
-  )}
-</Card.Text>
-
-                </Card.Body>
-              </Card>
-            </Link>
-          </Col>
+          </Link>
         ))}
-      </Row>
-    </Container>
+      </div>
+    </div>
   );
 };
 

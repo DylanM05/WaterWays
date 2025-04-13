@@ -2,6 +2,7 @@
     color: var(--primary-colour);
     text-align: center;
     margin-bottom: 2rem;
+    text-decoration: none;
   }
   
   .section-link {
@@ -12,7 +13,7 @@
     background-color: var(--card-bg-colour);
     border: 1px solid var(--border-colour);
     transition: transform 0.2s, box-shadow 0.2s;
-    width: 100%; /* Make the card take full width */
+    width: 100%;
     min-width: 515px;
   }
   

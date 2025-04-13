@@ -1,6 +1,5 @@
 import React, { createContext, useState, useEffect } from 'react';
 
-// Create the context with default values to avoid the "undefined" error
 export const ThemeContext = createContext({
   darkMode: false,
   toggleTheme: () => {}
@@ -8,7 +7,6 @@ export const ThemeContext = createContext({
 
 export const ThemeProvider = ({ children }) => {
   const [darkMode, setDarkMode] = useState(() => {
-    // Check localStorage or system preference
     const savedMode = localStorage.getItem('darkMode');
     return savedMode !== null 
       ? JSON.parse(savedMode) 
@@ -16,14 +14,29 @@ export const ThemeProvider = ({ children }) => {
   });
 
   useEffect(() => {
-    // Apply theme class to body
-    document.body.classList.toggle('dark-theme', darkMode);
-    document.body.classList.toggle('light-theme', !darkMode);
-    // Save preference
+    if (darkMode) {
+      document.documentElement.classList.add('dark');
+      document.body.classList.remove('light-theme');
+      document.body.classList.add('dark-theme');
+    } else {
+      document.documentElement.classList.remove('dark');
+      document.body.classList.remove('dark-theme');
+      document.body.classList.add('light-theme');
+    }
+    
     localStorage.setItem('darkMode', JSON.stringify(darkMode));
   }, [darkMode]);
 
-  const toggleTheme = () => setDarkMode(!darkMode);
+  const toggleTheme = () => {
+    setDarkMode(prev => !prev);
+    
+    const chartElements = document.querySelectorAll('canvas');
+    if (chartElements.length > 0) {
+          setTimeout(() => {
+        window.dispatchEvent(new Event('resize'));
+      }, 100);
+    }
+  };
 
   return (
     <ThemeContext.Provider value={{ darkMode, toggleTheme }}>

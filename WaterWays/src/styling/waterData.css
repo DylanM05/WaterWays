@@ -61,7 +61,6 @@ body {
     color: var(--text-colour);
   }
 
-  /* Table Styling */
 .table {
     background-color: var(--background-colour) ;
     border: 1px solid var(--border-colour);
@@ -69,26 +68,20 @@ body {
     overflow: hidden;
 }
 
-
-
-/* Table Cells */
 .table-body td {
     padding: 12px;
     text-align: center;
     color: var(--text-colour);
 }
 
-/* Borders */
 .table-header th, .table-body td {
     border: 1px solid var(--border-colour);
 }
 
-/* Pagination Info */
 .text-muted.small {
     color: var(--secondary-text-colour);
 }
 
-/* Form Select Styling */
 form .form-select {
     background-color: var(--background-colour);
     color: var(--text-colour);
@@ -99,6 +92,83 @@ form .form-select {
 form .form-select:focus {
     border-color: var(--primary-colour);
     box-shadow: 0 0 5px var(--primary-colour);
+}
+
+/* Responsive Styling */
+@media (max-width: 768px) {
+  .container-fluid {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+  }
+
+  .card {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+    border-left: none !important;
+    border-right: none !important;
+    border-radius: 0 !important;
+    min-width: 325px !important;
+  }
+
+  .card-body {
+    padding: 0.5rem !important;
+  }
+
+  .d-flex.justify-content-between {
+    flex-wrap: wrap !important;
+  }
+
+  .d-flex.gap-1 button {
+    padding: 4px 6px !important;
+    font-size: 0.7rem !important;
+  }
+
+  [class*="ToggleButton"] {
+    padding: 4px 8px !important;
+    font-size: 0.75rem !important;
+  }
+
+  .chart-container {
+    padding: 4px !important;
+  }
+
+  .table {
+    margin-bottom: 0;
+  }
+
+  .table td, .table th {
+    padding: 0.25rem 0.5rem;
+  }
+}
+
+@media (max-width: 576px) {
+  .d-flex.overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .d-flex.justify-content-between {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 8px !important;
+  }
+
+  .d-flex.gap-1 {
+    width: 100% !important;
+    justify-content: space-between !important;
+  }
+  
+  .table-responsive {
+    border: none !important;
+  }
+  
+  .table th, .table td {
+    padding: 0.25rem 0.3rem !important;
+    font-size: 0.75rem !important;
+  }
 }
 
 

@@ -1,4 +1,7 @@
-*/
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -8,6 +11,7 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
 .light-theme {
   /* Light theme colours (default) */
   --background-colour: #ffffff;
@@ -20,9 +24,10 @@
   --border-colour: #e0e0e0;
   --button-bg: #f9f9f9;
   --bg: #cfcdcd;
-  --sidebar-text:black;
+  --sidebar-text: black;
   --chart-bg: #f3f0f0;
 }
+
 /* Dark theme colours */
 .dark-theme {
   --background-colour: #242424;
@@ -35,18 +40,32 @@
   --border-colour: #333;
   --button-bg: #1a1a1a;
   --bg: #797474;
-  --sidebar-text:white;
+  --sidebar-text: white;
   --chart-bg: #0c0c0c;
 }
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+  padding: 0;
+  width: 100%;
+  height: 100vh;
+  overflow: hidden; 
   background-color: var(--background-colour);
   color: var(--text-colour);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+#root {
+  height: 100%;
+  width: 100%;
+}
+
+.card, .list-group-item {
+  background-color: var(--card-bg-colour);
+  border-color: var(--border-colour);
 }
 
 a {
@@ -85,7 +104,6 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
-/* Additional theme-specific styles */
 .card, .list-group-item {
   background-color: var(--card-bg-colour);
   border-color: var(--border-colour);
@@ -112,4 +130,13 @@ button:focus-visible {
 .dark-theme .modal-content {
   background-color: var(--background-colour);
   color: var(--text-colour);
+}
+
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none; 
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none; 
 }

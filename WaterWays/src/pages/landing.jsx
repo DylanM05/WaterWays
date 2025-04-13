@@ -1,14 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import canadaFlag from '../assets/canada-flag.jpg'; // Make sure to have the flag image in the specified path
+import canadaFlag from '../assets/canada-flag.jpg';
 
 const Landing = () => {
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-      <Link to="/canada" style={{ textDecoration: 'none' }}>
-        <button style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '150px', height: '150px', padding: '10px', fontSize: '16px', cursor: 'pointer', border: '1px solid #ccc', borderRadius: '8px' }}>
-          <img src={canadaFlag} alt="Canada Flag" style={{ width: '90%', height: 'auto', marginBottom: '10px' }} />
-          <span>Canada</span>
+    <div className="flex items-center justify-center h-screen bg-gray-50">
+      <Link to="/canada" className="no-underline">
+        <button className="flex flex-col items-center justify-center p-6 w-44 h-44 border border-gray-300 rounded-lg shadow-md hover:shadow-lg transition-all duration-300 bg-white">
+          <img src={canadaFlag} alt="Canada Flag" className="w-3/4 mb-3" />
+          <span className="text-lg font-medium text-gray-700">Canada</span>
         </button>
       </Link>
     </div>

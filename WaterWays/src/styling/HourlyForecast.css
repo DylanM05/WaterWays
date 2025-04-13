@@ -1,137 +1,79 @@
 .forecast-container {
-    display: flex;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    padding-bottom: 1rem;
-    gap: 1rem;
+  -webkit-overflow-scrolling: touch; 
+  scrollbar-width: thin;
+  scrollbar-color: var(--primary-colour) var(--card-bg-colour);
+  display: flex;
+  overflow-x: auto;
+}
+
+.forecast-container::-webkit-scrollbar {
+  height: 6px;
+}
+
+.forecast-container::-webkit-scrollbar-track {
+  background: var(--card-bg-colour);
+  border-radius: 10px;
+}
+
+.forecast-container::-webkit-scrollbar-thumb {
+  background-color: var(--border-colour);
+  border-radius: 10px;
+}
+
+.forecast-container::-webkit-scrollbar-thumb:hover {
+  background-color: var(--primary-colour);
+}
+
+.forecast-card {
+  height: 100%;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.forecast-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 3px 6px rgba(0,0,0,0.15);
+}
+
+@media (max-width: 576px) {
+  .forecast-container {
+    flex-direction: column;
+    overflow-x: hidden;
+    overflow-y: auto;
+    max-height: 500px;
+    padding-right: 6px;
+  }
+  
+  .forecast-container::-webkit-scrollbar {
+    width: 6px;
+    height: auto;
   }
   
   .forecast-card {
-    width: 11rem;
-    min-width: 11rem;
-    flex-shrink: 0;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-    transition: transform 0.3s ease;
+    width: 100% !important;
+    margin-right: 0 !important;
+    margin-bottom: 12px !important;
   }
   
-  .forecast-card:hover {
-    transform: translateY(-5px);
+  .scroll-indicator {
+    margin-top: 0.75rem;
   }
   
-  .forecast-card-header {
-    padding: 0.5rem;
-    background-color: #f8f9fa;
-    text-align: center;
-    font-size: 0.875rem;
+  .scroll-indicator i {
+    transform: rotate(90deg);
   }
-  
+}
+
+@media (max-width: 400px) {
   .forecast-card-body {
-    padding: 1rem;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
+    padding: 0.75rem !important;
   }
-  
-  .forecast-time {
-    font-size: 1rem;
-    font-weight: 500;
-    margin-bottom: 1rem;
-  }
-  
-  .temperature-section {
-    text-align: center;
-    margin-bottom: 1rem;
-  }
-  
-  .temperature {
-    font-size: 1.25rem;
-    font-weight: 700;
-  }
-  
-  .feels-like {
-    font-size: 0.875rem;
-    color: #6c757d;
-  }
-  
-  .metrics-section {
-    display: flex;
-    justify-content: space-around; /* Aligns the items evenly in the container */
-    gap: 20px;
-    flex-wrap: wrap; /* Allows the items to wrap if the container is too small */
-  }
-  
+
   .metric {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    padding: 10px;
-    background-color: var(--background-colour); /* Light background for each metric */
-    border-radius: 8px;
-    width: 100px; /* You can adjust the width to suit your design */
+    font-size: 0.7rem !important;
   }
   
-  .metric i {
-    font-size: 24px;
-    margin-bottom: 10px; /* Space between the icon and the title */  
-    color: #17a2b8;
+ 
+  .forecast-container {
+    max-height: 400px;
   }
-
-  .metric strong span {
-    display: block;
-    font-size: 14px;
-  }
-  
-.data {
-    font-size: 16px;
-    font-weight: bold;
-    color: #f7f7f7;
-  }
-
-  @media (max-width: 768px) {
-    .forecast-container {
-      flex-direction: column;
-      align-items: center;
-    }
-  
-    .forecast-card {
-      width: 100%;
-      min-width: 100%;
-      margin-bottom: 1rem;
-      box-shadow: none;
-      border-radius: 0;
-    }
-  
-    .forecast-card-header {
-      font-size: 1rem;
-    }
-  
-    .forecast-time {
-      font-size: 1.125rem;
-    }
-  
-    .temperature {
-      font-size: 1.5rem;
-    }
-  }
-  
-  @media (max-width: 576px) {
-    .forecast-card {
-      width: 100%;
-      min-width: 100%;
-      margin-bottom: 1rem;
-    }
-  
-    .forecast-time {
-      font-size: 1rem;
-    }
-  
-    .temperature {
-      font-size: 1.25rem;
-    }
-  }
-  
+}

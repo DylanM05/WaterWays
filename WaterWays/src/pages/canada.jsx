@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
-import { Navbar, ListGroup, Button, Container, FormControl, Form } from 'react-bootstrap';
 import { useNavigate, Outlet } from 'react-router-dom';
-import '../styling/canada.css';
 import ThemeToggle from '../components/buttons/ThemeToggle';
-
+import '../styling/canada.css';
 
 const provincesAndTerritories = [
   { name: 'Alberta', abbreviation: 'AB' },
@@ -27,7 +25,6 @@ const Canada = ({ setRivers, rivers }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [expanding, setExpanding] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const navigate = useNavigate();
@@ -75,18 +72,6 @@ const Canada = ({ setRivers, rivers }) => {
     setSidebarOpen(false);
   };
 
-  const handleToggleClick = () => {
-    if (!sidebarOpen) {
-      setExpanding(true);
-      setTimeout(() => {
-        setSidebarOpen(true);
-        setExpanding(false);
-      }, 300); // Match the duration of the animation
-    } else {
-      setSidebarOpen(false);
-    }
-  };
-
   const handleSearchChange = async (e) => {
     setSearchQuery(e.target.value);
     if (e.target.value.length > 2) {
@@ -108,94 +93,118 @@ const Canada = ({ setRivers, rivers }) => {
     setSidebarOpen(false);
   };
 
-  const handleClearSearch = () => {
-    setSearchQuery('');
-    setSearchResults([]);
-  };
-
   const filteredRivers = Object.keys(rivers).filter(riverName =>
     riverName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
-    <div className="canada-container">
-      {/* Navbar - Toggle button always fixed when sidebar is closed */}
-      {!sidebarOpen && (
-        <div className='fixed-controls'>
-        <Button className="sidebar-toggle fixed-toggle" onClick={handleToggleClick}>
-          ☰
-        </Button>
-        <ThemeToggle />
-        </div>
-      )}
-
+    <div className="flex min-h-screen bg-background-colour relative">
       {/* Sidebar */}
-      <div className={`sidebar ${sidebarOpen ? "visible" : "hidden"}`}>
-        {/* Move toggle button inside sidebar when open */}
-        {sidebarOpen && (
+      <div className={`sidebar ${sidebarOpen ? 'visible' : 'hidden'}`}>
         <div className="sidebar-header">
-        {sidebarOpen && (
-          <Button className="sidebar-toggle inside-sidebar" onClick={handleToggleClick}>
-            ☰
-          </Button>
-        )}
-        {sidebarOpen && <ThemeToggle />}
-      </div>
-        )}
-        <Form ref={searchRef} className="d-flex position-relative" style={{ padding: '10px 15px', marginTop: '40px' }}>
-          <FormControl
-            type="text"
-            placeholder="Search"
-            className="search-bar"
-            style={{ height: '38px', zIndex: 1, backgroundColor: 'white' }} // Set a fixed height and z-index
-            value={searchQuery}
-            onChange={handleSearchChange}
-          />
-          {searchQuery && (
-            <Button variant="link" className="clear-search" onClick={handleClearSearch} style={{ position: 'absolute', right: '20px', top: '10px', zIndex: 2 }}>
-              ✖
-            </Button>
-          )}
+          <div className="sidebar-header-center">
+            <ThemeToggle />
+          </div>
+          <div className="sidebar-header-right">
+            <button 
+              onClick={() => setSidebarOpen(false)}
+              className="sidebar-close-btn"
+              aria-label="Close sidebar"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+
+        {/* Search box */}
+        <div className="sidebar-search">
+          <div className="relative" ref={searchRef}>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={handleSearchChange}
+              placeholder="Search..."
+              className="w-full px-3 py-2 pr-8 rounded border border-border-colour bg-background-colour text-text-colour"
+            />
+            {searchQuery && (
+              <button 
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-text-colour"
+                onClick={() => setSearchQuery('')}
+                aria-label="Clear search"
+              >
+                ×
+              </button>
+            )}
+          </div>
+          
           {searchResults.length > 0 && (
-            <ListGroup className="search-results" style={{ position: 'absolute', top: '100%', width: '100%', zIndex: 1 }}>
+            <div className="search-results">
               {searchResults.map((result, index) => (
-                <ListGroup.Item key={index} onClick={() => handleSearchResultClick(result.station_id)}>
+                <div 
+                  key={index}
+                  className="p-2 hover:bg-hover-colour cursor-pointer text-text-colour"
+                  onClick={() => handleSearchResultClick(result.station_id)}
+                >
                   {result.stationName}
-                </ListGroup.Item>
+                </div>
               ))}
-            </ListGroup>
+            </div>
           )}
-        </Form>
-        <ListGroup className="sidebar-content">
+        </div>
+
+        <div className="sidebar-content">
           {selectedProvince ? (
-            <>
-              <ListGroup.Item className='sidebar-item'>
-                <Button variant="link" onClick={handleBackClick} className='sidebar-item-button'>Back</Button>
-              </ListGroup.Item>
+            <div>
+              <div 
+                className="sidebar-item"
+                onClick={handleBackClick}
+              >
+                <span>← Back</span>
+              </div>
+              
               {loading ? (
-                <ListGroup.Item>Loading...</ListGroup.Item>
+                <div className="p-4 text-center text-text-colour">Loading...</div>
               ) : error ? (
-                <ListGroup.Item>{error}</ListGroup.Item>
+                <div className="p-4 text-red-500">{error}</div>
               ) : (
                 filteredRivers.map((riverName, index) => (
-                  <ListGroup.Item key={index} className='sidebar-item'>
-                    <Button variant="link" onClick={() => handleLakeClick(riverName)} className='sidebar-item-button'>{riverName}</Button>
-                  </ListGroup.Item>
+                  <div 
+                    key={index}
+                    onClick={() => handleLakeClick(riverName)}
+                    className="sidebar-item"
+                  >
+                    {riverName}
+                  </div>
                 ))
               )}
-            </>
+            </div>
           ) : (
             provincesAndTerritories.map((province, index) => (
-              <ListGroup.Item key={index} className="sidebar-item">
-                <Button variant="link" onClick={() => setSelectedProvince(province)} className='sidebar-item-button'>{province.name}</Button>
-              </ListGroup.Item>
+              <div 
+                key={index}
+                onClick={() => setSelectedProvince(province)}
+                className="sidebar-item"
+              >
+                {province.name}
+              </div>
             ))
           )}
-        </ListGroup>
+        </div>
       </div>
 
-      {/* Content */}
-      <div className={`content ${sidebarOpen ? "" : "full-width"}`}>
+      {/* Toggle button when sidebar is closed */}
+      {!sidebarOpen && (
+        <button 
+          onClick={() => setSidebarOpen(true)}
+          className="sidebar-toggle fixed-toggle"
+          aria-label="Open sidebar"
+        >
+          ☰
+        </button>
+      )}
+
+      {/* Main content container */}
+      <div className={`content ${!sidebarOpen ? 'full-width' : ''}`}>
         <Outlet />
       </div>
     </div>

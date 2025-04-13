@@ -5,6 +5,21 @@
     <link rel="icon" type="image/svg+xml" href="/waterways.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WaterWays</title>
+    <script>
+      window.addEventListener('DOMContentLoaded', () => {
+        const savedMode = localStorage.getItem('darkMode');
+        const isDark = savedMode !== null 
+          ? JSON.parse(savedMode)
+          : window.matchMedia('(prefers-color-scheme: dark)').matches;
+    
+        if (isDark) {
+          document.documentElement.classList.add('dark');
+          document.body.classList.add('dark-theme');
+        } else {
+          document.documentElement.classList.add('light-theme');
+        }
+      });
+    </script>    
   </head>
   <body>
     <div id="root"></div>
