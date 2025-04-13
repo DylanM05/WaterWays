@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, Alert, Row, Col, Spinner } from 'react-bootstrap';
 import { useParams } from 'react-router-dom';
-import { useGoogleMaps } from '../contexts/GoogleMapsContext';
 
 const provinceMapping = {
   'MB': 'Manitoba',

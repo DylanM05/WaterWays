@@ -1,5 +1,3 @@
-const xlsx = require('xlsx');
-const path = require('path');
 const axios = require('axios');
 const moment = require('moment');
 const StationCoordinates = require('../models/StationCoordinates');

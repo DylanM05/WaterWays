@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { Card, Row, Col, Container } from 'react-bootstrap';
+import { Card, Row, Col } from 'react-bootstrap';
 import { ThemeContext } from '../contexts/Theme';
 
 const CurrentWeather = ({ weatherData, localWeatherTime }) => {

@@ -102,7 +102,7 @@ const StationDetails = () => {
   const navigate = useNavigate();
   const [activeKey, setActiveKey] = useState('water');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [setError] = useState(null);
   const [waterChartTab, setWaterChartTab] = useState('level');
   const [pressureChartTab, setPressureChartTab] = useState('both');
   const [recordsPerPage, setRecordsPerPage] = useState(10);

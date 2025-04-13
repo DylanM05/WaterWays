@@ -1,4 +1,3 @@
-const axios = require('axios');
 const crypto = require('crypto');
 const validTokens = new Map();
 

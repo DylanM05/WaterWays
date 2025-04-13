@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef, useContext } from 'react';
-import { Card, Nav, Table, ButtonGroup, Button, Form, Container, Alert } from 'react-bootstrap';
+import { Card, Table, Container, Alert } from 'react-bootstrap';
 import { Line } from 'react-chartjs-2';
 import { Chart, registerables } from 'chart.js';
 import zoomPlugin from 'chartjs-plugin-zoom';
