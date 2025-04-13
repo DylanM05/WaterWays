@@ -5,6 +5,7 @@ const detailsRoute = require('./routes/DetailsRoute');
 const scrapeRoute = require('./routes/ScrapeRoute');
 const searchRoute = require('./routes/SearchRoute');
 const secretRoute = require('./routes/SecretsRoute');
+const scheduler = require('./utilities/scheduler.js')
 require('dotenv').config();
 
 const app = express();
@@ -18,31 +19,21 @@ mongoose.connect('mongodb://localhost:27017/waterways').then(() => {
 });
 
 app.use(express.json());
-const allowedOrigins = [
-  'https://waterways.dylansserver.top', 
-  'http://localhost:3000', 
-  'http://localhost:5173', 
-  '66.79.243.222'
-];
+const allowedOrigins = ['https://waterways.dylansserver.top', 'http://localhost:3000', '66.79.243.222'];
+
 
 app.use(cors({
-  origin: function(origin, callback) {
-
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
-      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
-      return callback(new Error(msg), false);
-    }
-    return callback(null, true);
-  },
+  origin: true,
   credentials: true
 }));
+
 
 app.use('/details', detailsRoute);
 app.use('/work', scrapeRoute);
 app.use('/search', searchRoute);
 app.use('/api', secretRoute);
 
-app.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`);
+app.listen(port, '0.0.0.0', () => {
+  console.log(`Server is running on http://0.0.0.0:${port}`);
 });
+
