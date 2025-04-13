@@ -1,9 +1,4 @@
 
 add functionality:
-backend:
-better implement map in backend to preserve security of api key.
-clear up logging, use actual file logging instead of console logging
 
-frontend:
-Display map from backend on StationInfo page I want it to be interactive.
-optimize more for mobile
+Work on better way to display map
