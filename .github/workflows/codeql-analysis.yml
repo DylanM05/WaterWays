@@ -8,20 +8,42 @@ jobs:
   analyze:
     name: Analyze
     runs-on: ubuntu-latest
+    permissions:
+      # Required for all workflows
+      security-events: write
+      # Required to download CodeQL packages
+      packages: read
+      # Required to update PR status
+      contents: read
+
     strategy:
+      fail-fast: false
       matrix:
-        language: [ 'javascript', 'typescript' ]
-        build: [ 'none', 'npm' ]
+        language: [ 'javascript' ]
+
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v1
+        uses: github/codeql-action/init@v3
         with:
           languages: ${{ matrix.language }}
+          queries: security-and-quality
 
-      - name: Run CodeQL Analysis
-        uses: github/codeql-action/analyze@v1
+      - name: Autobuild
+        uses: github/codeql-action/autobuild@v3
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
         with:
-          category: 'security'
+          category: "/language:${{ matrix.language }}"
+          upload: true
