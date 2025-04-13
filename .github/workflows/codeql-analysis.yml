@@ -9,11 +9,8 @@ jobs:
     name: Analyze
     runs-on: ubuntu-latest
     permissions:
-      # Required for all workflows
       security-events: write
-      # Required to download CodeQL packages
       packages: read
-      # Required to update PR status
       contents: read
 
     strategy:
@@ -31,7 +28,24 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'npm'
+          # Removing the cache option since lock files are not at the root
+          # cache: 'npm'
+          
+      # Install dependencies for server
+      - name: Install server dependencies
+        run: |
+          if [ -f "./Server/package.json" ]; then
+            cd ./Server
+            npm ci || npm install
+          fi
+      
+      # Install dependencies for client
+      - name: Install client dependencies
+        run: |
+          if [ -f "./WaterWays/package.json" ]; then
+            cd ./WaterWays
+            npm ci || npm install
+          fi
           
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
