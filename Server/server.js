@@ -5,7 +5,8 @@ const detailsRoute = require('./routes/DetailsRoute');
 const scrapeRoute = require('./routes/ScrapeRoute');
 const searchRoute = require('./routes/SearchRoute');
 const secretRoute = require('./routes/SecretsRoute');
-const scheduler = require('./utilities/scheduler.js')
+const { lenientLimiter } = require('./utilities/ratelimiter');
+/* const scheduler = require('./utilities/scheduler.js') */
 require('dotenv').config();
 
 const app = express();
@@ -27,7 +28,7 @@ app.use(cors({
   credentials: true
 }));
 
-
+app.use(lenientLimiter);
 app.use('/details', detailsRoute);
 app.use('/work', scrapeRoute);
 app.use('/search', searchRoute);
