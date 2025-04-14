@@ -30,7 +30,6 @@ const Canada = ({ setRivers, rivers }) => {
   const navigate = useNavigate();
   const searchRef = useRef(null);
 
-
   //const API_BASE_URL = 'http://localhost:42069';
   const API_BASE_URL = 'https://backend.dylansserver.top'; // Uncomment this line to use the production server
   useEffect(() => {
@@ -51,27 +50,14 @@ const Canada = ({ setRivers, rivers }) => {
     }
   }, [selectedProvince, setRivers]);
 
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (searchRef.current && !searchRef.current.contains(event.target)) {
-        setSearchResults([]);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
 
   const handleBackClick = () => {
     setSelectedProvince(null);
-    setRivers({});
     setError(null);
   };
 
-  const handleLakeClick = (lakeName) => {
-    navigate(`/river/${lakeName}`);
+  const handleLakeClick = (riverName) => {
+    navigate(`/river/${riverName}`);
     setSidebarOpen(false);
   };
 
@@ -79,26 +65,65 @@ const Canada = ({ setRivers, rivers }) => {
     setSearchQuery(e.target.value);
     if (e.target.value.length > 2) {
       try {
-        const response = await axios.get(`${API_BASE_URL}/search/search?name=${e.target.value}`);
-        setSearchResults(response.data);
+        // If no province is selected, search across all provinces
+        if (!selectedProvince) {
+          const response = await axios.get(`${API_BASE_URL}/search/search-all-rivers?query=${e.target.value}`);
+          setSearchResults(response.data);
+        } else {
+          const filteredResults = Object.keys(rivers)
+            .filter(riverName => riverName.toLowerCase().includes(e.target.value.toLowerCase()))
+            .map(riverName => {
+              const firstSection = rivers[riverName][0];
+              return {
+                stationName: riverName,
+                baseName: riverName, 
+                station_id: firstSection.station_id,
+                province: selectedProvince.abbreviation
+              };
+            });
+          setSearchResults(filteredResults);
+        }
       } catch (error) {
         console.error('Error searching for stations:', error);
+        setError(error.response?.data?.error || 'Error searching for stations');
+        setSearchResults([]);
       }
     } else {
       setSearchResults([]);
     }
   };
 
-  const handleSearchResultClick = (stationId) => {
-    navigate(`/station-details/${stationId}`);
-    setSearchQuery('');
-    setSearchResults([]);
-    setSidebarOpen(false);
+  const handleSearchResultClick = (result) => {
+    try {
+      console.log("Search result clicked:", result);
+      
+      const riverName = result.stationName;
+      
+      if (!rivers[riverName] && result.province) {
+        const province = provincesAndTerritories.find(p => 
+          p.abbreviation === result.province);
+        
+        if (province) {
+          setSelectedProvince(province);
+        }
+      }
+      
+      navigate(`/river/${riverName}`);
+      
+      setSidebarOpen(false);
+      setSearchQuery('');
+      setSearchResults([]);
+    } catch (error) {
+      console.error("Error handling search result click:", error);
+      setError("Failed to navigate to river page");
+    }
   };
 
-  const filteredRivers = Object.keys(rivers).filter(riverName =>
-    riverName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+
+  const filteredRivers = selectedProvince && Object.keys(rivers).length > 0
+    ? Object.keys(rivers).filter(riverName =>
+        riverName.toLowerCase().includes(searchQuery.toLowerCase()))
+    : [];
 
   return (
     <div className="flex min-h-screen bg-background-colour relative">
@@ -127,11 +152,11 @@ const Canada = ({ setRivers, rivers }) => {
               value={searchQuery}
               onChange={handleSearchChange}
               placeholder="Search..."
-              className="w-full px-3 py-2 pr-8 rounded border border-border-colour bg-background-colour text-text-colour"
+              className="w-full px-3 py-2 pr-8 rounded border border-border-colour bg-background-colour text-text-colour search-text-box"
             />
             {searchQuery && (
               <button 
-                className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-text-colour"
+                className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-text-colour clear-search-btn"
                 onClick={() => setSearchQuery('')}
                 aria-label="Clear search"
               >
@@ -139,24 +164,26 @@ const Canada = ({ setRivers, rivers }) => {
               </button>
             )}
           </div>
-          
-          {searchResults.length > 0 && (
-            <div className="search-results">
-              {searchResults.map((result, index) => (
-                <div 
-                  key={index}
-                  className="p-2 hover:bg-hover-colour cursor-pointer text-text-colour"
-                  onClick={() => handleSearchResultClick(result.station_id)}
-                >
-                  {result.stationName}
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         <div className="sidebar-content">
-          {selectedProvince ? (
+          {searchQuery && searchQuery.length > 2 ? (
+            <div>
+              {searchResults.length > 0 ? (
+                searchResults.map((result, index) => (
+                  <div 
+                  key={index}
+                  onClick={() => handleSearchResultClick(result)}
+                  className="sidebar-item"
+                >
+                  {result.stationName} ({result.province})
+                </div>
+                ))
+              ) : (
+                <div className="p-4 text-center text-text-colour">No results found</div>
+              )}
+            </div>
+          ) : selectedProvince ? (
             <div>
               <div 
                 className="sidebar-item"
