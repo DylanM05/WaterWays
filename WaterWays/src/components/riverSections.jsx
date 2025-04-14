@@ -84,7 +84,7 @@ const RiverSections = ({ rivers }) => {
         {sections.map((section, index) => (
           <Link 
             key={index} 
-            to={`/canada/station-details/${section.station_id}`} 
+            to={`/station-details/${section.station_id}`} 
             className="block"
             style={{ textDecoration: 'none' }}
           >

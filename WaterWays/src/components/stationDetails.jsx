@@ -32,6 +32,8 @@ ChartJS.register(
 );
 
 const API_BASE_URL = 'https://backend.dylansserver.top';
+
+/* const API_BASE_URL = 'http://localhost:42069'; // For local development */
 const ENDPOINTS = {
   coordinates: (id) => `${API_BASE_URL}/details/coordinates/${id}`,
   waterData: (id) => `${API_BASE_URL}/details/${id}`,
@@ -102,7 +104,7 @@ const StationDetails = () => {
   const navigate = useNavigate();
   const [activeKey, setActiveKey] = useState('water');
   const [loading, setLoading] = useState(true);
-  const [setError] = useState(null);
+  const [error, setError] = useState(null);
   const [waterChartTab, setWaterChartTab] = useState('level');
   const [pressureChartTab, setPressureChartTab] = useState('both');
   const [recordsPerPage, setRecordsPerPage] = useState(10);

@@ -30,12 +30,15 @@ const Canada = ({ setRivers, rivers }) => {
   const navigate = useNavigate();
   const searchRef = useRef(null);
 
+
+  //const API_BASE_URL = 'http://localhost:42069';
+  const API_BASE_URL = 'https://backend.dylansserver.top'; // Uncomment this line to use the production server
   useEffect(() => {
     if (selectedProvince) {
       const fetchRivers = async () => {
         setLoading(true);
         try {
-          const response = await axios.get(`https://backend.dylansserver.top/details/rivers/${selectedProvince.abbreviation.toLowerCase()}`);
+          const response = await axios.get(`${API_BASE_URL}/details/rivers/${selectedProvince.abbreviation.toLowerCase()}`);
           setRivers(response.data);
           setLoading(false);
         } catch (err) {
@@ -68,7 +71,7 @@ const Canada = ({ setRivers, rivers }) => {
   };
 
   const handleLakeClick = (lakeName) => {
-    navigate(`/canada/river/${lakeName}`);
+    navigate(`/river/${lakeName}`);
     setSidebarOpen(false);
   };
 
@@ -76,7 +79,7 @@ const Canada = ({ setRivers, rivers }) => {
     setSearchQuery(e.target.value);
     if (e.target.value.length > 2) {
       try {
-        const response = await axios.get(`https://backend.dylansserver.top/search/search?name=${e.target.value}`);
+        const response = await axios.get(`${API_BASE_URL}/search/search?name=${e.target.value}`);
         setSearchResults(response.data);
       } catch (error) {
         console.error('Error searching for stations:', error);
@@ -87,7 +90,7 @@ const Canada = ({ setRivers, rivers }) => {
   };
 
   const handleSearchResultClick = (stationId) => {
-    navigate(`/canada/station-details/${stationId}`);
+    navigate(`/station-details/${stationId}`);
     setSearchQuery('');
     setSearchResults([]);
     setSidebarOpen(false);
