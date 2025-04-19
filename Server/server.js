@@ -6,7 +6,8 @@ const scrapeRoute = require('./routes/ScrapeRoute');
 const searchRoute = require('./routes/SearchRoute');
 const secretRoute = require('./routes/SecretsRoute');
 const { lenientLimiter } = require('./utilities/ratelimiter');
-/* const scheduler = require('./utilities/scheduler.js') */
+const loggingRoute = require('./routes/LoggingRoute');
+const scheduler = require('./utilities/scheduler.js')
 require('dotenv').config();
 
 const app = express();
@@ -33,6 +34,8 @@ app.use('/details', detailsRoute);
 app.use('/work', scrapeRoute);
 app.use('/search', searchRoute);
 app.use('/api', secretRoute);
+app.use('/l', loggingRoute);
+
 
 app.listen(port, '0.0.0.0', () => {
   console.log(`Server is running on http://0.0.0.0:${port}`);

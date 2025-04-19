@@ -6,9 +6,12 @@ import RiverSections from './components/riverSections';
 import StationDetails from './components/stationDetails';
 import Home from './components/home';
 import './App.css';
+import useTrackUser from './components/utility/useTrackUser';
 
 function App() {
   const [rivers, setRivers] = useState({});
+
+  useTrackUser();
 
   return (
     <ThemeProvider>
