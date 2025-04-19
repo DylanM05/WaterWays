@@ -70,3 +70,39 @@ exports.getUniqueVisitorsAllTime = async (req, res) => {
         res.status(500).json({ error: 'Failed to retrieve unique visitor count' });
     }
 };
+
+exports.getAllVisitorStats = async (req, res) => {
+    try {
+        // Daily calculation
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+        const uniqueDailyIds = await UserVisit.distinct('userId', {
+            timestamp: { $gte: startOfDay, $lte: endOfDay }
+        });
+
+        // Weekly calculation
+        const now = new Date();
+        const sevenDaysAgo = new Date(now);
+        sevenDaysAgo.setDate(now.getDate() - 7);
+        sevenDaysAgo.setHours(0, 0, 0, 0);
+        const uniqueWeeklyIds = await UserVisit.distinct('userId', {
+            timestamp: { $gte: sevenDaysAgo, $lte: now }
+        });
+
+        // All-time calculation
+        const uniqueAllTimeIds = await UserVisit.distinct('userId');
+
+        // Combine results
+        res.status(200).json({
+            uniqueVisitorsToday: uniqueDailyIds.length,
+            uniqueVisitorsLast7Days: uniqueWeeklyIds.length,
+            uniqueVisitorsAllTime: uniqueAllTimeIds.length
+        });
+
+    } catch (error) {
+        console.error('Error getting combined visitor stats:', error);
+        res.status(500).json({ error: 'Failed to retrieve combined visitor stats' });
+    }
+};
