@@ -242,8 +242,6 @@ const Canada = ({ setRivers, rivers }) => {
       {/* Main content container */}
       <div className={`content ${!sidebarOpen ? 'full-width' : ''}`}>
         <Outlet />
-                {/* Footer */}
-                <FooterAd />
       </div>
     </div>
   );
