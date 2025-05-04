@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate, Outlet } from 'react-router-dom';
 import ThemeToggle from '../components/buttons/ThemeToggle';
+import FooterAd from '../components/ads/FooterAd';
 import '../styling/canada.css';
 
 const provincesAndTerritories = [
@@ -222,6 +223,12 @@ const Canada = ({ setRivers, rivers }) => {
         </div>
       </div>
 
+      {/* Add this new overlay div */}
+      <div 
+        className={`sidebar-overlay ${sidebarOpen ? 'visible' : ''}`} 
+        onClick={() => setSidebarOpen(false)}
+      ></div>
+
       {/* Toggle button when sidebar is closed */}
       {!sidebarOpen && (
         <button 
@@ -236,6 +243,8 @@ const Canada = ({ setRivers, rivers }) => {
       {/* Main content container */}
       <div className={`content ${!sidebarOpen ? 'full-width' : ''}`}>
         <Outlet />
+                {/* Footer */}
+                <FooterAd />
       </div>
     </div>
   );

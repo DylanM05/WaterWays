@@ -196,11 +196,11 @@
 }
 
 .content {
-    margin-left: 250px; 
+    margin-left: 0;  /* Changed from 250px */
+    width: 100%;     /* Changed from calc(100% - 250px) */
     min-height: 100vh;
     height: 100vh;
-    overflow-y: auto; 
-    width: calc(100% - 250px);
+    overflow-y: auto;
     transition: margin-left 0.3s ease-in-out, width 0.3s ease-in-out;
     padding: 20px;
     position: relative;
@@ -244,16 +244,27 @@
 /* Mobile responsive behavior */
 @media (max-width: 768px) {
     .sidebar {
-        width: 200px;
+        width: 250px;  /* Keep consistent width */
     }
     
     .content {
         margin-left: 0;
         width: 100%;
     }
-    
-    .sidebar.visible + .content {
-        margin-left: 200px;
-        width: calc(100% - 200px);
-    }
+}
+
+/* Add this rule if you want an overlay effect when sidebar is open */
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    z-index: 999;
+}
+
+.sidebar.visible + .sidebar-overlay {
+    display: block;
 }

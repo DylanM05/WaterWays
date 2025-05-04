@@ -8,6 +8,11 @@ const Home = () => {
     <div className="p-6 md:p-8 max-w-4xl mx-auto">
       <h1 className="text-3xl md:text-4xl font-bold mb-8 text-text-colour text-center">WaterWays</h1>
       
+      <div className="mb-6 p-4 bg-background-card border border-primary rounded-lg shadow-sm text-sm mobile-only-instructions">
+      <p className="font-medium text-text">⚠️ If installed before April 25th, please re-add WaterWays to your home screen for improved functionality.</p>
+      </div>
+    
+
       <section className="mb-10 mobile-only-instructions">
         <h2 className="text-2xl font-semibold mb-4 text-text-colour border-b border-border-colour pb-2"></h2>
         <div className="bg-card-background rounded-lg p-6 shadow-md text-text-colour">
