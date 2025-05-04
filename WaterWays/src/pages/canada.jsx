@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { useNavigate, Outlet } from 'react-router-dom';
 import ThemeToggle from '../components/buttons/ThemeToggle';
-import FooterAd from '../components/ads/FooterAd';
 import '../styling/canada.css';
 
 const provincesAndTerritories = [
