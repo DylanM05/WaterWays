@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import moment from 'moment';
 import { useSettings } from '../contexts/SettingsContext';
+import { useAuth, useUser } from '@clerk/clerk-react';
+import { FaHeart, FaRegHeart } from 'react-icons/fa';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -107,6 +109,8 @@ const StationDetails = () => {
   const [activeKey, setActiveKey] = useState(settings.defaultTab);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [waterChartTab, setWaterChartTab] = useState('level');
   const [pressureChartTab, setPressureChartTab] = useState('both');
   const [recordsPerPage, setRecordsPerPage] = useState(10);
@@ -124,6 +128,9 @@ const StationDetails = () => {
   const [weeklyDataError, setWeeklyDataError] = useState(null);
   const [stationInfoError, setStationInfoError] = useState(null);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+  const { isSignedIn, getToken } = useAuth();
+  const { user } = useUser();
 
   useEffect(() => {
     const handleResize = () => {
@@ -213,6 +220,58 @@ const StationDetails = () => {
     fetchStationData();
   }, [stationId]);
 
+  useEffect(() => {
+    const checkFavoriteStatus = async () => {
+      if (!isSignedIn || !stationId) return;
+      
+      try {
+        setFavoriteLoading(true);
+        const token = await getToken();
+        const response = await axios.get(`${API_BASE_URL}/u/favorites/check/${stationId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setIsFavorite(response.data.isFavorite);
+      } catch (err) {
+        console.error('Error checking favorite status:', err);
+      } finally {
+        setFavoriteLoading(false);
+      }
+    };
+    
+    checkFavoriteStatus();
+  }, [isSignedIn, stationId, getToken]);
+
+  const toggleFavorite = async () => {
+    if (!isSignedIn) {
+      return;
+    }
+    
+    try {
+      setFavoriteLoading(true);
+      const token = await getToken();
+      
+      if (isFavorite) {
+        await axios.delete(`${API_BASE_URL}/u/favorites/${stationId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } else {
+        await axios.post(`${API_BASE_URL}/u/favorites`, {
+          stationId,
+          stationName: stationInfo?.stationName || `Station ${stationId}`,
+          province: stationInfo?.province || 'Unknown'
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+      
+      setIsFavorite(!isFavorite);
+    } catch (err) {
+      console.error('Error toggling favorite:', err);
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[300px]">
@@ -247,7 +306,41 @@ const StationDetails = () => {
         <h2 className="text-2xl font-bold" style={{ color: 'var(--text-colour)' }}>
           {stationInfo?.stationName}
         </h2>
-        <div className="w-[85px]"></div> {/* Spacer for alignment */}
+        
+        {isSignedIn && (
+          <button
+            onClick={toggleFavorite}
+            disabled={favoriteLoading}
+            className="favorite-btn mr-2"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              padding: '8px',
+              cursor: favoriteLoading ? 'default' : 'pointer',
+              color: isFavorite ? 'var(--primary-colour)' : 'var(--text-colour)',
+              opacity: favoriteLoading ? 0.6 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '40px',
+              height: '40px',
+              borderRadius: '50%',
+              transition: 'all 0.2s'
+            }}
+            aria-label={isFavorite ? "Remove from favorites" : "Add to favorites"}
+            onMouseOver={(e) => {
+              if (!favoriteLoading) {
+                e.currentTarget.style.backgroundColor = 'rgba(var(--primary-colour-rgb), 0.1)';
+              }
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.backgroundColor = 'transparent';
+            }}
+          >
+            {isFavorite ? <FaHeart size={22} /> : <FaRegHeart size={22} />}
+          </button>
+        )}
+        {!isSignedIn && <div className="w-10"></div>}
       </div>
 
       {/* Tab Navigation */}

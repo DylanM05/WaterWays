@@ -8,6 +8,7 @@ const secretRoute = require('./routes/SecretsRoute');
 const settingsRoute = require('./routes/settingsRoutes');
 const { lenientLimiter } = require('./utilities/ratelimiter');
 const loggingRoute = require('./routes/LoggingRoute');
+const favoritesRoutes = require('./routes/favoritesRoutes');
 require('dotenv').config();
 
 const app = express();
@@ -36,6 +37,7 @@ app.use('/search', searchRoute);
 app.use('/api', secretRoute);
 app.use('/s', settingsRoute);
 app.use('/l', loggingRoute);
+app.use('/u/favorites', favoritesRoutes);
 
 
 app.listen(port, '0.0.0.0', () => {

@@ -1,0 +1,29 @@
+.favorite-btn {
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.favorite-btn:hover {
+  transform: scale(1.15);
+}
+
+.favorite-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.favorite-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 768px) {
+  /* Change this to position the delete button on the right */
+  .delete-button {
+    margin-left: auto !important;
+    margin-right: 0 !important;
+  }
+  
+  /* Add padding to ensure there's space between the badge and button */
+  .card-header {
+    padding-right: 10px !important;
+  }
+}

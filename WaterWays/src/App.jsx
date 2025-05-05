@@ -7,6 +7,7 @@ import StationDetails from './components/stationDetails';
 import Home from './components/Home';
 import Settings from './components/Settings';
 import ProtectedRoute from './components/utility/ProtectedRoute'; // Import the new component
+import Favorites from './pages/Favorites';
 import './App.css';
 import useTrackUser from './components/utility/useTrackUser';
 
@@ -32,7 +33,7 @@ function App() {
               } />
               <Route path="/favourites" element={
                 <ProtectedRoute>
-                  <div>Favourites</div>
+                  <Favorites />
                 </ProtectedRoute>
               } />
             </Route>

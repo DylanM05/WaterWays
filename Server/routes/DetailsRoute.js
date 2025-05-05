@@ -1,10 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const DetailsController = require('../controllers/detailsController');
-const { defaultLimiter } = require('../utilities/ratelimiter');
+const { defaultLimiter, lenientLimiter } = require('../utilities/ratelimiter');
 
 router.get('/:id', defaultLimiter, DetailsController.populateData);
-router.get('/coordinates/:id', defaultLimiter, DetailsController.getCoordinates);
+router.get('/coordinates/:id', lenientLimiter, DetailsController.getCoordinates);
 router.get('/weather/:id', defaultLimiter, DetailsController.getWeather);
 router.get('/pressure/:id', defaultLimiter, DetailsController.getPressure);
 router.get('/weather/hourly/:id', defaultLimiter, DetailsController.getHourlyWeather);

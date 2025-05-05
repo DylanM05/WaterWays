@@ -1,12 +1,23 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
+import { useAuth, useUser } from '@clerk/clerk-react';
+import { FaHeart, FaRegHeart } from 'react-icons/fa';
+
+const API_BASE_URL = process.env.NODE_ENV === 'production' 
+  ? 'https://backend.dylansserver.top'
+  : 'http://localhost:42069';
 
 const RiverSections = ({ rivers }) => {
   const { riverName } = useParams();
   const [sections, setSections] = useState([]);
   const [latestWaterData, setLatestWaterData] = useState({});
+  const [favorites, setFavorites] = useState({});
+  const [favoriteLoading, setFavoriteLoading] = useState({});
   const isMounted = useRef(true);
+  
+  const { isSignedIn, getToken } = useAuth(); // Destructure getToken from useAuth
+  const { user } = useUser();
 
   useEffect(() => {
     if (rivers && rivers[riverName]) {
@@ -15,6 +26,79 @@ const RiverSections = ({ rivers }) => {
       setSections([]);
     }
   }, [rivers, riverName]);
+
+  useEffect(() => {
+    if (!isSignedIn || !sections.length) return;
+
+    const checkFavorites = async () => {
+      try {
+        const token = await getToken(); // Use getToken from useAuth
+        
+        const favoritesStatus = {};
+        for (const section of sections) {
+          try {
+            setFavoriteLoading(prev => ({ ...prev, [section.station_id]: true }));
+            const response = await axios.get(`${API_BASE_URL}/u/favorites/check/${section.station_id}`, {
+              headers: { Authorization: `Bearer ${token}` } // Use the token from getToken
+            });
+            favoritesStatus[section.station_id] = response.data.isFavorite;
+          } catch (err) {
+            console.error(`Error checking favorite for ${section.station_id}:`, err);
+            favoritesStatus[section.station_id] = false;
+          } finally {
+            if (isMounted.current) {
+              setFavoriteLoading(prev => ({ ...prev, [section.station_id]: false }));
+            }
+          }
+        }
+        
+        if (isMounted.current) {
+          setFavorites(favoritesStatus);
+        }
+      } catch (err) {
+        console.error('Error checking favorites status:', err);
+      }
+    };
+    
+    checkFavorites();
+  }, [isSignedIn, sections, getToken]); // Add getToken to dependency array
+
+  const toggleFavorite = async (e, section) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!isSignedIn) return;
+    
+    const stationId = section.station_id;
+    
+    try {
+      setFavoriteLoading(prev => ({ ...prev, [stationId]: true }));
+      const token = await getToken(); // Use getToken from useAuth
+      
+      if (favorites[stationId]) {
+        await axios.delete(`${API_BASE_URL}/u/favorites/${stationId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } else {
+        await axios.post(`${API_BASE_URL}/u/favorites`, {
+          stationId,
+          stationName: section.section || `Station ${stationId}`,
+          province: section.province || 'Unknown'
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+      
+      setFavorites(prev => ({
+        ...prev,
+        [stationId]: !prev[stationId]
+      }));
+    } catch (err) {
+      console.error('Error toggling favorite:', err);
+    } finally {
+      setFavoriteLoading(prev => ({ ...prev, [stationId]: false }));
+    }
+  };
 
   useEffect(() => {
     isMounted.current = true;
@@ -82,52 +166,77 @@ const RiverSections = ({ rivers }) => {
       <h1 className="text-3xl font-bold text-center mb-6" style={{ color: 'var(--primary-colour)' }}>{riverName}</h1>
       <div className="space-y-6">
         {sections.map((section, index) => (
-          <Link 
-            key={index} 
-            to={`/station-details/${section.station_id}`} 
-            className="block"
-            style={{ textDecoration: 'none' }}
-          >
-            <div className="bg-background-card rounded-lg shadow-md border border-border p-6 transition-all hover:-translate-y-1 hover:shadow-lg">
-              <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-colour)' }}>{section.section}</h2>
-              <p className="mb-2" style={{ color: 'var(--primary-colour)' }}>
-                <span className="font-bold">Station ID:</span> {section.station_id}
-              </p>
-              
-              {latestWaterData[section.station_id] && latestWaterData[section.station_id].data && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                  {latestWaterData[section.station_id].data.water_level !== undefined &&
-                    latestWaterData[section.station_id].data.water_level !== null && (
-                      <div className="bg-bg rounded-md p-4 text-center">
-                        <div className="text-xl font-bold" style={{ color: 'var(--text-colour)' }}>
-                          Water Level
-                          <br />
-                          {latestWaterData[section.station_id].data.water_level.toFixed(2)} m
-                        </div>
-                      </div>
-                    )}
+          <div key={index} className="relative">
+            <Link 
+              to={`/station-details/${section.station_id}`} 
+              className="block"
+              style={{ textDecoration: 'none' }}
+            >
+              <div className="bg-background-card rounded-lg shadow-md border border-border p-6 transition-all hover:-translate-y-1 hover:shadow-lg">
+                <div className="flex justify-between items-start">
+                  <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-colour)' }}>{section.section}</h2>
                   
-                  {latestWaterData[section.station_id].data.discharge !== undefined &&
-                    latestWaterData[section.station_id].data.discharge !== null && (
-                      <div className="bg-bg rounded-md p-4 text-center">
-                        <div className="text-xl font-bold" style={{ color: 'var(--text-colour)' }}>
-                          Discharge
-                          <br />
-                          {latestWaterData[section.station_id].data.discharge.toFixed(2)} m³/s
-                        </div>
-                      </div>
-                    )}
-                  
-                  {latestWaterData[section.station_id].time &&
-                    latestWaterData[section.station_id].time !== "Invalid Date" && (
-                      <div className="col-span-1 md:col-span-2 mt-2 text-sm" style={{ color: 'var(--text-colour)', opacity: '0.7' }}>
-                        <span className="font-bold">Last updated:</span> {latestWaterData[section.station_id].time}
-                      </div>
-                    )}
+                  {isSignedIn && (
+                    <button
+                      onClick={(e) => toggleFavorite(e, section)}
+                      disabled={favoriteLoading[section.station_id]}
+                      className="favorite-btn"
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        padding: '8px',
+                        cursor: 'pointer',
+                        color: favorites[section.station_id] ? 'var(--primary-colour)' : 'var(--text-colour)',
+                        opacity: favoriteLoading[section.station_id] ? 0.6 : 1,
+                        position: 'relative',
+                        zIndex: 10
+                      }}
+                      aria-label={favorites[section.station_id] ? "Remove from favorites" : "Add to favorites"}
+                    >
+                      {favorites[section.station_id] ? <FaHeart size={20} /> : <FaRegHeart size={20} />}
+                    </button>
+                  )}
                 </div>
-              )}
-            </div>
-          </Link>
+                
+                <p className="mb-2" style={{ color: 'var(--primary-colour)' }}>
+                  <span className="font-bold">Station ID:</span> {section.station_id}
+                </p>
+                
+                {latestWaterData[section.station_id] && latestWaterData[section.station_id].data && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                    {latestWaterData[section.station_id].data.water_level !== undefined &&
+                      latestWaterData[section.station_id].data.water_level !== null && (
+                        <div className="bg-bg rounded-md p-4 text-center">
+                          <div className="text-xl font-bold" style={{ color: 'var(--text-colour)' }}>
+                            Water Level
+                            <br />
+                            {latestWaterData[section.station_id].data.water_level.toFixed(2)} m
+                          </div>
+                        </div>
+                      )}
+                    
+                    {latestWaterData[section.station_id].data.discharge !== undefined &&
+                      latestWaterData[section.station_id].data.discharge !== null && (
+                        <div className="bg-bg rounded-md p-4 text-center">
+                          <div className="text-xl font-bold" style={{ color: 'var(--text-colour)' }}>
+                            Discharge
+                            <br />
+                            {latestWaterData[section.station_id].data.discharge.toFixed(2)} m³/s
+                          </div>
+                        </div>
+                      )}
+                    
+                    {latestWaterData[section.station_id].time &&
+                      latestWaterData[section.station_id].time !== "Invalid Date" && (
+                        <div className="col-span-1 md:col-span-2 mt-2 text-sm" style={{ color: 'var(--text-colour)', opacity: '0.7' }}>
+                          <span className="font-bold">Last updated:</span> {latestWaterData[section.station_id].time}
+                        </div>
+                      )}
+                  </div>
+                )}
+              </div>
+            </Link>
+          </div>
         ))}
       </div>
     </div>
