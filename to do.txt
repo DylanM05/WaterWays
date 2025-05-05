@@ -2,3 +2,8 @@
 add functionality:
 
 Work on better way to display map
+
+
+Implement settings usage from logged in user
+Favourites page
+Paywall?

@@ -37,7 +37,7 @@
 
 .sidebar-header-center {
     display: flex;
-    align-items: center;
+    align-items: center !important;
 }
 
 .sidebar-header-right {
@@ -85,7 +85,29 @@
 .search-results::-webkit-scrollbar-thumb:hover {
     background-color: var(--primary-colour);
 }
+.auth-buttons{
+    margin-left:30px;
+}
+.auth-controls{
+    display: flex;
+    align-items: center ;
+    justify-content: space-between;
+    margin-left: auto; 
+    background-color: var(--card-bg-colour);
+    color: var(--text-colour);
+}
 
+.auth-controls .auth-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.auth-controls .sidebar-item {
+    border: none;
+    padding: 6px 10px;
+    font-size: 14px;
+}
 
 .sidebar-content {
     flex-grow: 1;
@@ -196,8 +218,8 @@
 }
 
 .content {
-    margin-left: 0;  /* Changed from 250px */
-    width: 100%;     /* Changed from calc(100% - 250px) */
+    margin-left: 0;  
+    width: 100%;   
     min-height: 100vh;
     height: 100vh;
     overflow-y: auto;
@@ -244,7 +266,7 @@
 /* Mobile responsive behavior */
 @media (max-width: 768px) {
     .sidebar {
-        width: 250px;  /* Keep consistent width */
+        width: 250px; 
     }
     
     .content {
@@ -252,8 +274,6 @@
         width: 100%;
     }
 }
-
-/* Add this rule if you want an overlay effect when sidebar is open */
 .sidebar-overlay {
     display: none;
     position: fixed;
@@ -267,4 +287,29 @@
 
 .sidebar.visible + .sidebar-overlay {
     display: block;
+}
+
+.icon-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px;
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    color: var(--text-colour);
+    background-color: var(--card-bg-colour);
+    border: 1px solid var(--border-colour);
+    transition: all 0.2s ease;
+}
+
+.icon-button:hover {
+    background-color: var(--primary-colour);
+    color: var(--primary-text-colour);
+}
+
+.auth-buttons {
+    display: flex;
+    gap: 8px;
+    align-items: center;
 }

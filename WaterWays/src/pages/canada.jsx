@@ -3,6 +3,9 @@ import axios from 'axios';
 import { useNavigate, Outlet } from 'react-router-dom';
 import ThemeToggle from '../components/buttons/ThemeToggle';
 import '../styling/canada.css';
+import { SignedIn, SignedOut, SignInButton, UserButton } from '@clerk/clerk-react';
+import { FaHeart, FaCog } from 'react-icons/fa';
+
 
 const provincesAndTerritories = [
   { name: 'Alberta', abbreviation: 'AB' },
@@ -130,8 +133,55 @@ const Canada = ({ setRivers, rivers }) => {
       {/* Sidebar */}
       <div className={`sidebar ${sidebarOpen ? 'visible' : 'hidden'}`}>
         <div className="sidebar-header">
-          <div className="sidebar-header-center">
+          <div className="sidebar-header-left">
             <ThemeToggle />
+          </div>
+          <div className="sidebar-header-center">
+            <div className="auth-controls">
+              <SignedOut>
+                <SignInButton 
+                  className="custom-sign-in-button" 
+                  style={{
+                    backgroundColor: 'var(--card-bg-colour)',
+                    color: 'var(--text-colour)',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    marginLeft: '28px'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--primary-colour)';
+                    e.currentTarget.style.color = 'var(--primary-text-colour)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.backgroundColor = 'var(--card-bg-colour)';
+                    e.currentTarget.style.color = 'var(--text-colour)';
+                  }}
+                />
+              </SignedOut>
+              <SignedIn>
+  <div className="auth-buttons">
+    <button 
+      onClick={() => navigate('/favourites')} 
+      className="sidebar-item icon-button"
+      title="Favourites"
+      aria-label="Favourites"
+    >
+      <FaHeart size={18} />
+    </button>
+    <button 
+      onClick={() => navigate('/settings')} 
+      className="sidebar-item icon-button"
+      title="Settings"
+      aria-label="Settings"
+    >
+      <FaCog size={18} />
+    </button>
+    <UserButton />
+  </div>
+</SignedIn>
+            </div>
           </div>
           <div className="sidebar-header-right">
             <button 

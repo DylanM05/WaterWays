@@ -1,0 +1,131 @@
+.settings-select {
+  background-color: var(--background-colour);
+  color: var(--text-colour) !important;
+  border: 1px solid var(--border-colour);
+  margin: 0 auto;
+  max-width: 300px;
+  text-align: center;
+  font-size: 1rem;
+  height: 45px;
+}
+
+.settings-select:focus {
+  border-color: var(--primary-colour);
+  box-shadow: 0 0 0 0.25rem rgba(var(--primary-colour-rgb), 0.25);
+}
+
+.settings-button {
+  background-color: var(--primary-colour);
+  border-color: var(--primary-colour);
+  color: var(--primary-text-colour);
+  margin-top: 15px;
+}
+
+.settings-button:hover {
+  background-color: var(--hover-colour);
+  border-color: var(--hover-colour);
+}
+
+.theme-toggle-btn {
+  transition: all 0.3s ease;
+}
+
+.user-avatar {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--primary-colour);
+  margin-bottom: 15px;
+}
+
+
+.d-flex.justify-content-between.align-items-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+}
+
+.toggle-description {
+  color: var(--text-colour);
+  opacity: 0.8;
+  font-size: 1rem;
+  margin-bottom: 10px;
+  text-align: center;
+}
+.user-info{
+    color: var(--text-colour) !important;
+}
+.about-section{
+    color: var(--text-colour) !important;
+}
+.settings-card-header{
+    color: var(--text-colour) !important;
+}
+
+
+.custom-switch .form-check-input {
+  height: 34px;
+  width: 68px !important;
+  cursor: pointer;
+  background-color: var(--background-colour);
+  border: 2px solid var(--border-colour);
+  margin: 0;
+}
+
+.custom-switch .form-check-input:checked {
+  background-color: var(--primary-colour);
+  border: 2px solid var(--primary-colour);
+}
+
+
+.form-label {
+  text-align: center;
+  display: block;
+  font-weight: 600;
+  font-size: 1.1rem;
+  margin-bottom: 10px;
+  color: var(--text-colour) !important;
+}
+
+/* Center other content */
+.card-body {
+  text-align: center;
+  background-color: var(--cardbg-colour);
+  border: 1px solid var(--border-colour);
+}
+
+.user-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.user-info .mb-3 {
+  flex-direction: column;
+  text-align: center;
+}
+.bottom-button{
+    margin-top: 5px;
+    color: var(--text-colour) !important;
+}
+
+@media (max-width: 768px) {
+    .d-flex.justify-content-between.align-items-center {
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+  
+    .toggle-label,
+    .toggle-description {
+      text-align: center;
+      width: 100%;
+    }
+  
+    .toggle-container, 
+    .d-flex.justify-content-between.align-items-center > div {
+      width: 100%;
+    }
+}
