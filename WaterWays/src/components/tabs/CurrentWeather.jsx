@@ -1,9 +1,14 @@
 import React, { useContext } from 'react';
 import { Card, Row, Col } from 'react-bootstrap';
 import { ThemeContext } from '../contexts/Theme';
+import { useSettings } from '../../contexts/SettingsContext';
 
 const CurrentWeather = ({ weatherData, localWeatherTime }) => {
   const { darkMode } = useContext(ThemeContext);
+  const { formatTemperature } = useSettings();
+  
+  // Add the isValidNumber function
+  const isValidNumber = (value) => value !== undefined && value !== null && !isNaN(value);
   
   return (
     <Card className="mb-4" style={{ 
@@ -33,19 +38,19 @@ const CurrentWeather = ({ weatherData, localWeatherTime }) => {
             >
               <h2 className="my-0" style={{ 
                 color: weatherData?.isDay ? 'var(--text-colour)' : 'var(--primary-text-colour)',
-                fontSize: window.innerWidth < 576 ? '2rem' : '2.5rem',
+                fontSize: window.innerWidth < 576 ? '3.5rem' : '4rem',  // Increased font size here
                 fontWeight: '600'
               }}>
-                {weatherData?.temperature !== undefined ? `${weatherData.temperature}°C` : 'N/A'}
+                {isValidNumber(weatherData?.temperature) ? formatTemperature(weatherData.temperature) : 'N/A'}
               </h2>
 
               {weatherData?.apparentTemperature !== undefined && (
                 <p className="mb-2" style={{ 
                   color: weatherData?.isDay ? 'var(--text-colour)' : 'var(--primary-text-colour)',
                   opacity: 0.85,
-                  fontSize: window.innerWidth < 576 ? '0.9rem' : '1rem'
+                  fontSize: window.innerWidth < 576 ? '1rem' : '1.2rem'  // Slightly increased from before
                 }}>
-                  Feels like {weatherData.apparentTemperature}°C
+                  Feels like {isValidNumber(weatherData.apparentTemperature) ? formatTemperature(weatherData.apparentTemperature) : 'N/A'}
                 </p>
               )}
 

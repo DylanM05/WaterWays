@@ -2,9 +2,11 @@ import React from 'react';
 import { Card, Alert, Container } from 'react-bootstrap';
 import moment from 'moment';
 import '../../styling/HourlyForecast.css';
+import { useSettings } from '../../contexts/SettingsContext'; // Add this import
 
 const HourlyForecast = ({ forecastData, pressureData, error }) => {
   const now = moment();
+  const { formatTemperature } = useSettings(); // Add this hook
 
   const futureForecasts = forecastData?.localTime?.map((timeString, index) => {
     const forecastTime = moment(timeString, 'MMMM Do YYYY, h:mm:ss a');
@@ -81,7 +83,7 @@ const HourlyForecast = ({ forecastData, pressureData, error }) => {
                 display: 'block'
               }}
             >
-              {forecastData.temperature[index]}°C
+              {formatTemperature(forecastData.temperature[index])}
             </span>
             {forecastData.apparentTemperature && (
               <div 
@@ -92,7 +94,7 @@ const HourlyForecast = ({ forecastData, pressureData, error }) => {
                   opacity: 0.85
                 }}
               >
-                Feels like {forecastData.apparentTemperature[index]}°C
+                Feels like {formatTemperature(forecastData.apparentTemperature[index])}
               </div>
             )}
           </div>

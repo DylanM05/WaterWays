@@ -178,7 +178,6 @@ const Canada = ({ setRivers, rivers }) => {
     >
       <FaCog size={18} />
     </button>
-    <UserButton />
   </div>
 </SignedIn>
             </div>

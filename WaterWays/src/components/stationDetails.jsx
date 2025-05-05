@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import moment from 'moment';
+import { useSettings } from '../contexts/SettingsContext';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -102,7 +103,8 @@ const ActionButton = ({ label, onClick, icon }) => (
 const StationDetails = () => {
   const { stationId } = useParams();
   const navigate = useNavigate();
-  const [activeKey, setActiveKey] = useState('water');
+  const { settings } = useSettings();
+  const [activeKey, setActiveKey] = useState(settings.defaultTab);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [waterChartTab, setWaterChartTab] = useState('level');

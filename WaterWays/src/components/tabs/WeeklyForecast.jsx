@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Badge, Container, Alert } from 'react-bootstrap';
 import moment from 'moment';
 import '../../styling/WeeklyForecast.css';
-
+import { useSettings } from '../../contexts/SettingsContext'; // Add this import
 
 const weatherCodeMapping = {
   0: 'Clear sky',
@@ -39,7 +39,7 @@ function WeeklyForecast({ weeklyData, error }) {
   const [windowWidth, setWindowWidth] = useState(
     typeof window !== 'undefined' ? window.innerWidth : 768
   );
-  
+  const { formatTemperature } = useSettings(); // Add this hook
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -49,7 +49,6 @@ function WeeklyForecast({ weeklyData, error }) {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-
   const getTempColor = (temp) => {
     if (temp < 0) return '#e0f3ff'; 
     if (temp < 10) return '#e6f2ff'; 
@@ -58,7 +57,6 @@ function WeeklyForecast({ weeklyData, error }) {
     return '#ffdbdb'; 
   };
 
-  
   const getUvIndexColor = (uvIndex) => {
     if (uvIndex < 3) return 'success';    
     if (uvIndex < 6) return 'warning';    
@@ -161,10 +159,10 @@ function WeeklyForecast({ weeklyData, error }) {
                                 fontWeight: '600',
                                 fontSize: windowWidth < 576 ? '1rem' : '1.1rem'
                               }}>
-                                {weeklyData.temperature.max[index]}{weeklyData.temperature.units}
+                                {formatTemperature(weeklyData.temperature.max[index])}
                               </span>
                               <small className="ms-1 label">
-                                (feels {weeklyData.temperature.min[index]}{weeklyData.temperature.units})
+                                (feels {formatTemperature(weeklyData.temperature.min[index])})
                               </small>
                             </span>
                           </div>

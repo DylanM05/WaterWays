@@ -1,23 +1,24 @@
 import React, { useContext, useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Form, Button, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Card, Form, Button, Alert, Modal } from 'react-bootstrap';
 import { ThemeContext } from './contexts/Theme';
-import { useUser, useClerk, useAuth } from '@clerk/clerk-react';
+import { useUser, useClerk, useAuth, UserProfile } from '@clerk/clerk-react';
 import axios from 'axios';
 import '../styling/settings.css';
+import { useSettings } from '../contexts/SettingsContext'; // Import the useSettings hook
 
 /* const BACKEND_URL = 'https://backend.dylansserver.top'; */
-    const BACKEND_URL = 'http://localhost:42069'; 
+const BACKEND_URL = 'http://localhost:42069'; 
 
 const Settings = () => {
   const { darkMode, toggleTheme } = useContext(ThemeContext);
   const { user } = useUser();
   const { signOut } = useClerk();
   const { getToken } = useAuth();
+  const { updateSettings } = useSettings(); // Get the updateSettings function
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
+  const [showProfileModal, setShowProfileModal] = useState(false); // State for controlling the profile modal
   const [preferences, setPreferences] = useState({
-    distanceUnit: localStorage.getItem('distanceUnit') === 'imperial',
     temperatureUnit: localStorage.getItem('temperatureUnit') === 'fahrenheit',
-    timeFormat: localStorage.getItem('timeFormat') === '12h',
     defaultTab: localStorage.getItem('defaultTab') || 'water'
   });
 
@@ -41,14 +42,10 @@ const Settings = () => {
         const serverSettings = response.data.settings;
 
         localStorage.setItem('temperatureUnit', serverSettings.temperatureUnit || 'celsius');
-        localStorage.setItem('distanceUnit', serverSettings.distanceUnit || 'metric');
-        localStorage.setItem('timeFormat', serverSettings.timeFormat || '24h');
         localStorage.setItem('defaultTab', serverSettings.defaultTab || 'water');
 
         setPreferences({
           temperatureUnit: serverSettings.temperatureUnit === 'fahrenheit',
-          distanceUnit: serverSettings.distanceUnit === 'imperial',
-          timeFormat: serverSettings.timeFormat === '12h',
           defaultTab: serverSettings.defaultTab || 'water'
         });
 
@@ -85,6 +82,7 @@ const Settings = () => {
         type: 'warning'
       });
     }
+    fetchUserSettings();
   };
 
   const handleToggleChange = (e) => {
@@ -93,10 +91,9 @@ const Settings = () => {
 
     if (name === 'temperatureUnit') {
       value = checked ? 'fahrenheit' : 'celsius';
-    } else if (name === 'distanceUnit') {
-      value = checked ? 'imperial' : 'metric';
-    } else if (name === 'timeFormat') {
-      value = checked ? '12h' : '24h';
+      
+      // Update the global context immediately
+      updateSettings({ temperatureUnit: value });
     }
 
     setPreferences(prev => ({ ...prev, [name]: checked }));
@@ -105,8 +102,6 @@ const Settings = () => {
     if (user) {
       const settingsToSave = {
         temperatureUnit: name === 'temperatureUnit' ? value : (preferences.temperatureUnit ? 'fahrenheit' : 'celsius'),
-        distanceUnit: name === 'distanceUnit' ? value : (preferences.distanceUnit ? 'imperial' : 'metric'),
-        timeFormat: name === 'timeFormat' ? value : (preferences.timeFormat ? '12h' : '24h'),
         defaultTab: preferences.defaultTab,
         theme: darkMode ? 'dark' : 'light'
       };
@@ -128,14 +123,17 @@ const Settings = () => {
   const handleSelectChange = (e) => {
     const { name, value } = e.target;
 
+    if (name === 'defaultTab') {
+      // Update the global context immediately
+      updateSettings({ defaultTab: value });
+    }
+
     setPreferences(prev => ({ ...prev, [name]: value }));
     localStorage.setItem(name, value);
 
     if (user) {
       const settingsToSave = {
         temperatureUnit: preferences.temperatureUnit ? 'fahrenheit' : 'celsius',
-        distanceUnit: preferences.distanceUnit ? 'imperial' : 'metric',
-        timeFormat: preferences.timeFormat ? '12h' : '24h',
         defaultTab: value,
         theme: darkMode ? 'dark' : 'light'
       };
@@ -158,8 +156,6 @@ const Settings = () => {
     if (user) {
       const settingsToSave = {
         temperatureUnit: preferences.temperatureUnit ? 'fahrenheit' : 'celsius',
-        distanceUnit: preferences.distanceUnit ? 'imperial' : 'metric',
-        timeFormat: preferences.timeFormat ? '12h' : '24h',
         defaultTab: preferences.defaultTab,
         theme: darkMode ? 'dark' : 'light'
       };
@@ -216,10 +212,7 @@ const Settings = () => {
                     <Button 
                       variant="primary" 
                       className="settings-button"
-                      onClick={() => window.open(
-                        'https://accounts.clerk.dev/user',
-                        '_blank'
-                      )}
+                      onClick={() => setShowProfileModal(true)} // Open modal instead of external link
                     >
                       Manage Profile
                     </Button>
@@ -316,44 +309,6 @@ const Settings = () => {
                     </div>
                   </div>
                 </Form.Group>
-
-                <Form.Group className="mb-4 toggle-group">
-                  <div className="d-flex justify-content-between align-items-center">
-                    <div>
-                      <Form.Label className="mb-0 toggle-label">Distance Unit</Form.Label>
-                      <div className="toggle-description">
-                        {preferences.distanceUnit ? 'Imperial (miles)' : 'Metric (km)'}
-                      </div>
-                    </div>
-                    <Form.Check 
-                      type="switch"
-                      id="distance-switch"
-                      name="distanceUnit"
-                      checked={preferences.distanceUnit}
-                      onChange={handleToggleChange}
-                      className="custom-switch"
-                    />
-                  </div>
-                </Form.Group>
-
-                <Form.Group className="mb-4 toggle-group">
-                  <div className="d-flex justify-content-between align-items-center">
-                    <div>
-                      <Form.Label className="mb-0 toggle-label">Time Format</Form.Label>
-                      <div className="toggle-description">
-                        {preferences.timeFormat ? '12-hour (AM/PM)' : '24-hour'}
-                      </div>
-                    </div>
-                    <Form.Check 
-                      type="switch"
-                      id="time-switch"
-                      name="timeFormat"
-                      checked={preferences.timeFormat}
-                      onChange={handleToggleChange}
-                      className="custom-switch"
-                    />
-                  </div>
-                </Form.Group>
               </Form>
             </Card.Body>
           </Card>
@@ -392,6 +347,27 @@ const Settings = () => {
           </Card>
         </Col>
       </Row>
+
+      {/* Add the modal for UserProfile */}
+      <Modal 
+        show={showProfileModal}
+        onHide={() => setShowProfileModal(false)}
+        size="lg"
+        centered
+        className={darkMode ? 'dark-modal' : ''}
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>Your Profile</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <UserProfile />
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowProfileModal(false)}>
+            Close
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Container>
   );
 };
