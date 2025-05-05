@@ -52,15 +52,21 @@ const Home = () => {
         <h2 className="text-2xl font-semibold mb-4 text-text-colour border-b border-border-colour pb-2">Latest Updates</h2>
         <div className="bg-card-background rounded-lg p-6 shadow-md text-text-colour">
           {/* Updates content goes here */}
+
+          <div className="border-l-4 border-accent-colour pl-4 py-2 mb-4">
+            <p className="font-medium text-lg mb-1">May 5, 2025</p>
+            <p className="text-text-colour/90">Added user accounts, and settings</p>
+          </div>
+          
           <div className="border-l-4 border-accent-colour pl-4 py-2 mb-4">
             <p className="font-medium text-lg mb-1">April 13, 2025</p>
             <p className="text-text-colour/90">UI Overhaul</p>
           </div>
           
-{/*           <div className="border-l-4 border-accent-colour pl-4 py-2 mb-4">
+          <div className="border-l-4 border-accent-colour pl-4 py-2 mb-4">
             <p className="font-medium text-lg mb-1">Coming Soon</p>
-            <p className="text-text-colour/90">Enhanced search functionality and historical data trends visualization.</p>
-          </div> */}
+            <p className="text-text-colour/90">Favourite Stations</p>
+          </div>
           
         </div>
       </section>
