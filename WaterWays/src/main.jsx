@@ -6,11 +6,16 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { ThemeProvider } from './components/contexts/Theme.jsx';
 import { ClerkProvider } from '@clerk/clerk-react';
 import { SettingsProvider } from './contexts/SettingsContext';
+import { PostHogProvider} from 'posthog-js/react'
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
 
 if (!PUBLISHABLE_KEY) {
   throw new Error('Missing Publishable Key')
+}
+
+const options = {
+  api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
 }
 
 createRoot(document.getElementById('root')).render(
@@ -20,7 +25,12 @@ createRoot(document.getElementById('root')).render(
       publishableKey={PUBLISHABLE_KEY} 
       afterSignOutUrl='/'>
     <SettingsProvider>
+    <PostHogProvider 
+      apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY}
+      options={options}
+    >
     <App />
+    </PostHogProvider>
     </SettingsProvider>
     </ClerkProvider>
     </ThemeProvider>
