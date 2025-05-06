@@ -34,9 +34,9 @@ ChartJS.register(
   Legend
 );
 
-const API_BASE_URL = 'https://backend.dylansserver.top';
+/* const API_BASE_URL = 'https://backend.dylansserver.top'; */
 
-/* const API_BASE_URL = 'http://localhost:42069'; // For local development */
+const API_BASE_URL = 'http://localhost:42069'; // For local development 
 const ENDPOINTS = {
   coordinates: (id) => `${API_BASE_URL}/details/coordinates/${id}`,
   waterData: (id) => `${API_BASE_URL}/details/${id}`,

@@ -10,7 +10,7 @@ export const SettingsContext = createContext();
 export const SettingsProvider = ({ children }) => {
   const { user } = useUser();
   const { getToken } = useAuth();
-  const { darkMode, setDarkMode } = useContext(ThemeContext);
+  const { darkMode, toggleTheme } = useContext(ThemeContext);
   
   const [settings, setSettings] = useState({
     temperatureUnit: localStorage.getItem('temperatureUnit') || 'celsius',
@@ -45,11 +45,10 @@ export const SettingsProvider = ({ children }) => {
           defaultTab: serverSettings.defaultTab || 'water'
         });
         
-        // Update theme if needed
-        if (serverSettings.theme === 'dark' && !darkMode) {
-          setDarkMode(true);
-        } else if (serverSettings.theme === 'light' && darkMode) {
-          setDarkMode(false);
+        // Update theme if needed - using toggleTheme instead of setDarkMode
+        if ((serverSettings.theme === 'dark' && !darkMode) ||
+            (serverSettings.theme === 'light' && darkMode)) {
+          toggleTheme();
         }
       }
     } catch (error) {
