@@ -6,8 +6,8 @@ import axios from 'axios';
 import '../styling/settings.css';
 import { useSettings } from '../contexts/SettingsContext'; // Import the useSettings hook
 
-/* const BACKEND_URL = 'https://backend.dylansserver.top'; */
-const BACKEND_URL = 'http://localhost:42069'; 
+const BACKEND_URL = 'https://backend.dylansserver.top';
+/* const BACKEND_URL = 'http://localhost:42069'; */
 
 const Settings = () => {
   const { darkMode, toggleTheme } = useContext(ThemeContext);

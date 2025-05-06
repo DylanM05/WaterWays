@@ -4,7 +4,7 @@ import { ThemeProvider } from './components/contexts/Theme';
 import Canada from './pages/canada';
 import RiverSections from './components/riverSections';
 import StationDetails from './components/stationDetails';
-import Home from './components/Home';
+import Home from './components/home';
 import Settings from './components/Settings';
 import ProtectedRoute from './components/utility/ProtectedRoute'; // Import the new component
 import Favorites from './pages/Favorites';

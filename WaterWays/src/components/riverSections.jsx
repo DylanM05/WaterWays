@@ -4,9 +4,7 @@ import axios from 'axios';
 import { useAuth, useUser } from '@clerk/clerk-react';
 import { FaHeart, FaRegHeart } from 'react-icons/fa';
 
-const API_BASE_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://backend.dylansserver.top'
-  : 'http://localhost:42069';
+const API_BASE_URL = 'https://backend.dylansserver.top';
 
 const RiverSections = ({ rivers }) => {
   const { riverName } = useParams();

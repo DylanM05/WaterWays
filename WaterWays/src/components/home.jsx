@@ -53,6 +53,14 @@ const Home = () => {
         <div className="bg-card-background rounded-lg p-6 shadow-md text-text-colour">
           {/* Updates content goes here */}
 
+
+
+	  <div className="border-l-4 border-accent-colour pl-4 py-2 mb-4">
+            <p className="font-medium text-lg mb-1">May 6, 2025</p>
+            <p className="text-text-colour/90">Added user favourites</p>
+            </div>
+
+
           <div className="border-l-4 border-accent-colour pl-4 py-2 mb-4">
             <p className="font-medium text-lg mb-1">May 5, 2025</p>
             <p className="text-text-colour/90">Added user accounts, and settings</p>
@@ -63,10 +71,10 @@ const Home = () => {
             <p className="text-text-colour/90">UI Overhaul</p>
           </div>
           
-          <div className="border-l-4 border-accent-colour pl-4 py-2 mb-4">
+         {/* <div className="border-l-4 border-accent-colour pl-4 py-2 mb-4">
             <p className="font-medium text-lg mb-1">Coming Soon</p>
             <p className="text-text-colour/90">Favourite Stations</p>
-          </div>
+          </div> */}
           
         </div>
       </section>
