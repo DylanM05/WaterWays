@@ -37,11 +37,8 @@ app.use((req, res, next) => {
 
 // Now define webhook route with special handling
 app.post('/subscription/webhook', async (req, res) => {
-  console.log('⭐ Webhook received!');
-  console.log('Raw body type:', typeof req.rawBody);
   
   const signature = req.headers['stripe-signature'];
-  console.log('Signature:', signature);
   
   try {
     const event = stripe.webhooks.constructEvent(
@@ -49,16 +46,12 @@ app.post('/subscription/webhook', async (req, res) => {
       signature,
       process.env.STRIPE_WEBHOOK_SECRET
     );
-    
-    console.log('✅ Event successfully constructed:', event.type);
-    
     // Add this code to actually process the event
     if (event.type === 'checkout.session.completed') {
       const subscriptionController = require('./controllers/subscriptionController');
       const success = await subscriptionController.processWebhookEvent(event);
       
       if (success) {
-        console.log('✅ Webhook processed successfully');
       } else {
         console.error('❌ Failed to process webhook');
       }
@@ -67,7 +60,9 @@ app.post('/subscription/webhook', async (req, res) => {
     return res.json({ received: true });
   } catch (err) {
     console.error('❌ Webhook Error:', err.message);
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+    return res.status(400).json({ 
+      error: 'Webhook validation failed'
+      });
   }
 });
 

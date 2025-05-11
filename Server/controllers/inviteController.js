@@ -48,7 +48,18 @@ exports.redeemInviteLink = async (req, res) => {
     const userId = req.auth?.userId || req.session?.userId;
     const { code } = req.body;
     
-    // Find the invite link
+    // Validate input type and format
+    if (!code || typeof code !== 'string') {
+      return res.status(400).json({ error: 'Invalid invite code format' });
+    }
+    
+    // Validate code format (should be a hexadecimal string of correct length)
+    // Since you generate codes with crypto.randomBytes(6).toString('hex')
+    if (!code.match(/^[0-9a-f]{12}$/i)) {
+      return res.status(400).json({ error: 'Invalid invite code format' });
+    }
+    
+    // Find the invite link (now with validated input)
     const inviteLink = await InviteLink.findOne({ code, isRedeemed: false });
     
     if (!inviteLink) {

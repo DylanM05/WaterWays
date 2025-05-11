@@ -135,8 +135,6 @@ exports.handleWebhook = async (req, res) => {
     console.log('⭐ Webhook received!');
     
     const signature = req.headers['stripe-signature'];
-    console.log('Signature header:', signature ? 'Present' : 'Missing');
-    console.log (signature);
     
     let event;
     
@@ -153,12 +151,11 @@ exports.handleWebhook = async (req, res) => {
         process.env.STRIPE_WEBHOOK_SECRET
       );
       
-      console.log('✅ Event successfully constructed:', event.type);
-      
+
 
     } catch (err) {
       console.error('❌ Webhook signature verification failed:', err.message);
-      return res.status(400).send(`Webhook Error: ${err.message}`);
+      return res.status(400).send(`Webhook Error`);
     }
   
     // Process the webhook event
@@ -183,9 +180,7 @@ exports.processWebhookEvent = async (event) => {
       // Get the customer and subscription IDs
       const customerId = session.customer;
       const subscriptionId = session.subscription;
-      
-      console.log(`🔑 User ID: ${userId}, Customer ID: ${customerId}, Subscription: ${subscriptionId}`);
-      
+
       if (!userId || !customerId) {
         console.error('❌ Missing required data in webhook');
         return false;
@@ -194,11 +189,6 @@ exports.processWebhookEvent = async (event) => {
       // Get subscription details to save status and expiration
       const subscription = await stripe.subscriptions.retrieve(subscriptionId);
       // Log the subscription data for debugging
-      console.log('Subscription data:', {
-        status: subscription.status,
-        current_period_end: subscription.current_period_end,
-        valid_timestamp: typeof subscription.current_period_end === 'number'
-      });
       
       // Calculate expiration date with validation
       let currentPeriodEnd = null;
@@ -227,7 +217,6 @@ exports.processWebhookEvent = async (event) => {
         { upsert: true, new: true }
       );
       
-      console.log(`✅ Customer mapping saved: ${JSON.stringify(result)}`);
       return true;
     } catch (err) {
       console.error('❌ Error processing webhook:', err.stack);
@@ -249,7 +238,6 @@ exports.processWebhookEvent = async (event) => {
         customerMap.subscriptionStatus = subscription.status;
         customerMap.currentPeriodEnd = new Date(subscription.current_period_end * 1000);
         await customerMap.save();
-        console.log('✅ Subscription status updated:', subscription.status);
       }
       
       return true;

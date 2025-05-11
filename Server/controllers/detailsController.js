@@ -84,7 +84,6 @@ exports.getWeather = async (req, res) => {
     }
 
     const { latitude, longitude } = coordinates;
-    console.log(`Fetching weather data for coordinates: ${latitude}, ${longitude}`);
 
     // Update to use only the new API structure (current, not current_weather)
     const weatherResponse = await axios.get(`https://api.open-meteo.com/v1/forecast`, {
@@ -158,7 +157,6 @@ exports.getPressure = async (req, res) => {
     }
 
     const { latitude, longitude } = coordinates;
-    console.log(`Fetching pressure data for coordinates: ${latitude}, ${longitude}`);
 
     const pressureResponse = await axios.get(`https://api.open-meteo.com/v1/forecast`, {
       params: {
@@ -196,7 +194,6 @@ exports.getHourlyWeather = async (req, res) => {
     }
 
     const { latitude, longitude } = coordinates;
-    console.log(`Fetching hourly weather data for coordinates: ${latitude}, ${longitude}`);
 
     const hourlyWeatherResponse = await axios.get(`https://api.open-meteo.com/v1/forecast`, {
       params: {
@@ -257,7 +254,6 @@ exports.getWeeklyWeather = async (req, res) => {
   try {
     const coordinates = await StationCoordinates.findOne({ station_id: stationId });
     if (!coordinates) {
-      console.error(`Coordinates not found for station ID: ${stationId}`);
       return res.status(404).json({ error: 'Coordinates not found' });
     }
 
