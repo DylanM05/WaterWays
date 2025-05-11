@@ -1,32 +1,21 @@
 const Favorite = require('../models/Favorite');
 
-// Clerk-specific authentication
 exports.addFavorite = async (req, res) => {
   try {
     const { stationId, stationName, province } = req.body;
-    
-    // For Clerk, typically userId is in auth.userId or session claims
     const userId = req.auth?.userId || req.session?.userId;
-    
     if (!userId) {
       return res.status(401).json({ error: 'Authentication required' });
     }
-
-    // Improved validation for stationId
     if (!stationId || typeof stationId !== 'string') {
       return res.status(400).json({ error: 'Valid station ID string is required' });
     }
-    
-    // Validate other inputs
     if (stationName && typeof stationName !== 'string') {
       return res.status(400).json({ error: 'Station name must be a string' });
     }
-    
     if (province && typeof province !== 'string') {
       return res.status(400).json({ error: 'Province must be a string' });
     }
-
-    // Check if already favorited
     const existingFavorite = await Favorite.findOne({ 
       userId: userId.toString(), 
       stationId: stationId.toString() 
@@ -47,7 +36,6 @@ exports.addFavorite = async (req, res) => {
   }
 };
 
-// Remove a station from favorites
 exports.removeFavorite = async (req, res) => {
   try {
     const { stationId } = req.params;
@@ -55,8 +43,6 @@ exports.removeFavorite = async (req, res) => {
     if (!stationId || typeof stationId !== 'string') {
       return res.status(400).json({ error: 'Valid station ID is required' });
     }
-
-    // Adapt to get the userId from your auth middleware
     const userId = req.auth?.userId || req.session?.userId;
 
     if (!userId) {
@@ -76,12 +62,9 @@ exports.removeFavorite = async (req, res) => {
   }
 };
 
-// Get all favorites for the current user
 exports.getFavorites = async (req, res) => {
   try {
-    // Adapt to get the userId from your auth middleware
     const userId = req.auth?.userId || req.session?.userId;
-
     if (!userId) {
       return res.status(401).json({ error: 'Authentication required' });
     }
@@ -95,7 +78,6 @@ exports.getFavorites = async (req, res) => {
   }
 };
 
-// Check if a station is favorited
 exports.checkFavorite = async (req, res) => {
   try {
     const { stationId } = req.params;
@@ -103,7 +85,6 @@ exports.checkFavorite = async (req, res) => {
     if (!stationId || typeof stationId !== 'string') {
       return res.status(400).json({ error: 'Valid station ID is required' });
     }
-    // Adapt to get the userId from your auth middleware
     const userId = req.auth?.userId || req.session?.userId;
 
     if (!userId) {

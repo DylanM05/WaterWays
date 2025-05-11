@@ -1,15 +1,14 @@
 import React, { useState } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import { ThemeProvider } from './components/contexts/Theme';
+import { ThemeProvider } from './components/utility/contexts/Theme';
 import Canada from './pages/canada';
-import RiverSections from './components/riverSections';
-import StationDetails from './components/stationDetails';
-import Home from './components/home';
-import Settings from './components/Settings';
+import RiverSections from './pages/riverSections';
+import StationDetails from './pages/stationDetails';
+import Home from './pages/home';
+import Settings from './pages/Settings';
 import ProtectedRoute from './components/utility/ProtectedRoute';
 import Favorites from './pages/Favorites';
 import Pricing from './pages/Pricing'; // Import the new Pricing page
-import CustomBilling from './components/modals/MonthlyBilling'; // Import the new CustomBilling page
 import './App.css';
 import useTrackUser from './components/utility/useTrackUser';
 import AdminInvites from './components/admin/InviteManager';

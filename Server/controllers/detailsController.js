@@ -84,8 +84,6 @@ exports.getWeather = async (req, res) => {
     }
 
     const { latitude, longitude } = coordinates;
-
-    // Update to use only the new API structure (current, not current_weather)
     const weatherResponse = await axios.get(`https://api.open-meteo.com/v1/forecast`, {
       params: {
         latitude: parseFloat(latitude),
@@ -93,8 +91,6 @@ exports.getWeather = async (req, res) => {
         current: 'temperature_2m,relative_humidity_2m,precipitation,rain,snowfall,showers,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover,weather_code,apparent_temperature'
       }
     });
-
-    // Use the new current structure instead of current_weather
     const currentData = weatherResponse.data.current;
     if (!currentData) {
       return res.status(500).json({ error: 'Error fetching weather data' });
@@ -273,15 +269,9 @@ exports.getWeeklyWeather = async (req, res) => {
       console.error('Error fetching weekly weather data: No daily data found');
       return res.status(500).json({ error: 'Error fetching weekly weather data' });
     }
-
-    // Format dates for better readability
     const formattedDates = dailyData.time.map(date => moment(date).format('MMMM Do YYYY'));
-    
-    // Format sunrise/sunset times
     const formattedSunrise = dailyData.sunrise.map(time => moment(time).format('h:mm a'));
     const formattedSunset = dailyData.sunset.map(time => moment(time).format('h:mm a'));
-    
-    // Map weather codes to descriptions
     const weatherDescriptions = dailyData.weather_code.map(code => weatherCodeMapping[code] || 'Unknown');
 
     res.json({

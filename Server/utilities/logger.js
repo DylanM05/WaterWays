@@ -2,13 +2,11 @@ const winston = require('winston');
 const path = require('path');
 const fs = require('fs');
 
-// Create logs directory if it doesn't exist
 const logsDir = path.join(__dirname, '../logs');
 if (!fs.existsSync(logsDir)) {
   fs.mkdirSync(logsDir, { recursive: true });
 }
 
-// Define log format
 const logFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
   winston.format.printf(({ level, message, timestamp }) => {
@@ -16,7 +14,6 @@ const logFormat = winston.format.combine(
   })
 );
 
-// Create logger
 const logger = winston.createLogger({
   level: 'info',
   format: logFormat,

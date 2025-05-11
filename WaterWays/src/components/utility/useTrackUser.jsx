@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 function useTrackUser() {
   useEffect(() => {
     let userId = localStorage.getItem('userId');
@@ -8,7 +10,7 @@ function useTrackUser() {
       userId = uuidv4();
       localStorage.setItem('userId', userId);
     }
-    fetch('https://backend.dylansserver.top/l/u', { 
+    fetch(`${API_BASE_URL}/l/u`, { 
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId })

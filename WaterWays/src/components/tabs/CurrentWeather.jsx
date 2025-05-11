@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import { Card, Row, Col } from 'react-bootstrap';
-import { ThemeContext } from '../contexts/Theme';
-import { useSettings } from '../../contexts/SettingsContext';
+import { ThemeContext } from '../utility/contexts/Theme';
+import { useSettings } from '../utility/contexts/SettingsContext';
 
 const CurrentWeather = ({ weatherData, localWeatherTime }) => {
   const { darkMode } = useContext(ThemeContext);

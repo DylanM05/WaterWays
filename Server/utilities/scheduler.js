@@ -9,14 +9,12 @@ const dbName = 'waterways';
 const collectionName = 'stationdatas';
 
 
-// Ensure indexes are created
 async function ensureIndexes(client) {
     const database = client.db(dbName);
     const collection = database.collection(collectionName);
     await collection.createIndex({ station_id: 1, date_time: 1 }, { unique: true });
 }
 
-// Call this function once when setting up your database
 async function setupDatabase() {
     const client = new MongoClient(uri);
     try {
@@ -63,20 +61,14 @@ async function delay(ms) {
 }
 
 async function fetchData(stationId) {
-    // Get current date for endDate
     const endDate = new Date();
-    
-    // Get date 24 hours ago for startDate
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - 1);
-    
-    // Format dates as YYYY-MM-DD
     const formattedEndDate = endDate.toISOString().split('T')[0];
     const formattedStartDate = startDate.toISOString().split('T')[0];
     
     const url = `https://wateroffice.ec.gc.ca/report/real_time_e.html?stn=${stationId}&mode=Table&startDate=${formattedStartDate}&endDate=${formattedEndDate}`;
     
-    // Rest of the function remains unchanged
     const response = await fetch(url, {
         headers: {
             'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
@@ -114,7 +106,6 @@ async function fetchData(stationId) {
 
                 // Ensure that the extracted data is valid
                 if (date_time && water_level) {
-          // Only log the first extracted data point
           if (!firstItemLogged) {
             console.log(`Extracted data for station ${stationId} (first example):`, { date_time, water_level, discharge });
             firstItemLogged = true;

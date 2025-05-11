@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Badge, Container, Alert } from 'react-bootstrap';
 import moment from 'moment';
-import '../../styling/WeeklyForecast.css';
-import { useSettings } from '../../contexts/SettingsContext'; // Add this import
+import './styling/WeeklyForecast.css';
+import { useSettings } from '../utility/contexts/SettingsContext';
 
 const weatherCodeMapping = {
   0: 'Clear sky',

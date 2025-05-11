@@ -22,7 +22,7 @@ const provinceMapping = {
   'NU': 'Nunavut'
 };
 
-/* const API_BASE_URL = 'https://backend.dylansserver.top'; */
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 
@@ -36,7 +36,6 @@ const Favorites = () => {
   const [loadingDetails, setLoadingDetails] = useState({});
   const [hoverDeleteId, setHoverDeleteId] = useState(null);
   
-  // Fetch favorites list
   useEffect(() => {
     const fetchFavorites = async () => {
       if (!isLoaded || !isSignedIn) return;
@@ -59,7 +58,6 @@ const Favorites = () => {
     fetchFavorites();
   }, [isLoaded, isSignedIn, getToken]);
 
-  // Fetch additional details for each favorite
   useEffect(() => {
     const fetchStationDetails = async () => {
       if (favorites.length === 0) return;
@@ -71,10 +69,8 @@ const Favorites = () => {
         try {
           setLoadingDetails(prev => ({ ...prev, [stationId]: true }));
           
-          // Fetch station coordinates/info first to get name and location
           const coordinatesRes = await axios.get(`${API_BASE_URL}/details/coordinates/${stationId}`);
-          
-          // Fetch other data in parallel
+        
           const [weatherRes, waterDataRes, pressureRes] = await Promise.all([
             axios.get(`${API_BASE_URL}/details/weather/${stationId}`),
             axios.get(`${API_BASE_URL}/details/latest-water-data/${stationId}`).catch(() => ({ data: null })),
@@ -108,8 +104,7 @@ const Favorites = () => {
         await axios.delete(`${API_BASE_URL}/u/favorites/${stationId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        
-        // Update local state
+
         setFavorites(prev => prev.filter(fav => fav.stationId !== stationId));
       } catch (err) {
         setError('Failed to remove favorite');
@@ -155,7 +150,7 @@ const Favorites = () => {
       ) : (
         <Row xs={1} md={2} lg={3} className="g-4">
           {favorites.map((favorite) => {
-            const details = stationDetails[favorite.stationId]; // Fix: Use stationDetails instead of enrichedFavorites
+            const details = stationDetails[favorite.stationId];
             const isLoading = loadingDetails[favorite.stationId];
             
             // Get the station name from details.stationInfo (if available) or fall back to favorite.stationName

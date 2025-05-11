@@ -16,8 +16,10 @@ const provinceMapping = {
   'NT': 'Northwest Territories',
   'YT': 'Yukon',
   'NU': 'Nunavut'
-};
+};  
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+  
 const StationInfo = ({ stationInfo, stationId }) => {
   const [mapUrl, setMapUrl] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -42,10 +44,6 @@ const StationInfo = ({ stationInfo, stationId }) => {
       setIsLoading(true);
       setError(null);
   
-      const baseUrl = process.env.NODE_ENV === 'development' 
-        ? 'https://backend.dylansserver.top'
-        : 'http://localhost:42069';
-  
       try {
         const lat = parseFloat(stationInfo.latitude);
         const lng = parseFloat(stationInfo.longitude);
@@ -54,7 +52,7 @@ const StationInfo = ({ stationInfo, stationId }) => {
           throw new Error('Invalid coordinates');
         }
   
-        fetch(`${baseUrl}/api/proxy-maps/${lat}/${lng}`)
+        fetch(`${API_BASE_URL}/api/proxy-maps/${lat}/${lng}`)
           .then(res => {
             if (!res.ok) throw new Error(`Server responded with status: ${res.status}`);
             return res.json();

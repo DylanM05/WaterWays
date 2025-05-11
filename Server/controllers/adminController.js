@@ -5,10 +5,7 @@ require('dotenv').config();
 
 exports.CreateAdmin = async (req, res) => {
     try {
-        // Get userId from auth, session, or request body
         const userId = req.auth?.userId || req.session?.userId || req.body.userId;
-        
-        // Validate that we have a userId
         if (!userId) {
             return res.status(400).json({ error: 'User ID is required' });
         }

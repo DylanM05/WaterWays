@@ -2,8 +2,8 @@ import React, { useState, useMemo, useContext, useEffect } from 'react';
 import { Card, Row, Col, Container, Alert } from 'react-bootstrap';
 import { Line } from 'react-chartjs-2';
 import moment from 'moment';
-import '../../styling/PressureData.css';
-import { ThemeContext } from '../contexts/Theme';
+import './styling/PressureData.css';
+import { ThemeContext } from '../utility/contexts/Theme';
 
 const ToggleButton = ({ label, isActive, onClick }) => (
   <button

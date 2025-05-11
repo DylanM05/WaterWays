@@ -1,8 +1,8 @@
 import React from 'react';
 import { Card, Alert, Container } from 'react-bootstrap';
 import moment from 'moment';
-import '../../styling/HourlyForecast.css';
-import { useSettings } from '../../contexts/SettingsContext'; // Add this import
+import './styling/HourlyForecast.css';
+import { useSettings } from '../utility/contexts/SettingsContext';
 
 const HourlyForecast = ({ forecastData, pressureData, error }) => {
   const now = moment();

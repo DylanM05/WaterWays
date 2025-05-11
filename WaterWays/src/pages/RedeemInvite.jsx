@@ -19,7 +19,6 @@ const RedeemInvite = () => {
   
   
   useEffect(() => {
-    // Extract code from URL query parameters
     const params = new URLSearchParams(location.search);
     const inviteCode = params.get('code');
     if (inviteCode) {
@@ -34,7 +33,6 @@ const RedeemInvite = () => {
       setError('');
       
       const token = await getToken();
-      console.log("Auth token:", token ? "Token received" : "No token"); // Add this debug line
       
       const response = await axios.post(
         `${API_BASE_URL}/inv/redeem`,
@@ -42,13 +40,13 @@ const RedeemInvite = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      // Log the response for debugging
+
       console.log("Redeem response:", response.data);
       
       setSuccess(response.data.message);
       setTimeout(() => navigate('/settings'), 3000);
     } catch (err) {
-      console.error("Redemption error:", err.response?.data || err.message); // Better error logging
+      console.error("Redemption error:", err.response?.data || err.message); 
       setError(err.response?.data?.error || 'Failed to redeem invite code');
     } finally {
       setLoading(false);

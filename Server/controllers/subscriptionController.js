@@ -2,13 +2,11 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const CustomerMap = require('../models/CustomerMap');
 const LifetimePremium = require('../models/LifetimePremium');
 
-// Create a checkout session
+
 exports.createMonthlyCheckoutSession = async (req, res) => {
   try {
 
     const userId = req.auth?.userId || req.session?.userId;
-    
-    // Get user details from Clerk or your database
     const userEmail = req.user?.email || "customer@example.com";
     
     const session = await stripe.checkout.sessions.create({
@@ -36,8 +34,6 @@ exports.createAnnualCheckoutSession = async (req, res) => {
     try {
   
       const userId = req.auth?.userId || req.session?.userId;
-      
-      // Get user details from Clerk or your database
       const userEmail = req.user?.email || "customer@example.com";
       
       const session = await stripe.checkout.sessions.create({
@@ -64,8 +60,6 @@ exports.createAnnualCheckoutSession = async (req, res) => {
 exports.checkSubscriptionStatus = async (req, res) => {
   try {
     const { userId } = req;
-    
-    // First check if user has lifetime premium access
     const lifetimePremium = await LifetimePremium.findOne({ userId });
     
     if (lifetimePremium) {
@@ -74,8 +68,6 @@ exports.checkSubscriptionStatus = async (req, res) => {
         plan: 'lifetime',
       });
     }
-    
-    // Look up the customer mapping
     const customerMapping = await CustomerMap.findOne({ userId });
     
     if (!customerMapping || !customerMapping.stripeCustomerId) {
@@ -84,7 +76,6 @@ exports.checkSubscriptionStatus = async (req, res) => {
         plan: 'free'
       });
     }
-    // OPTION 2: OR Query Stripe for active subscriptions (with proper error handling)
     try {
       const subscriptions = await stripe.subscriptions.list({
         customer: customerMapping.stripeCustomerId,
@@ -94,8 +85,7 @@ exports.checkSubscriptionStatus = async (req, res) => {
       
       if (subscriptions.data.length > 0) {
         const subscription = subscriptions.data[0];
-        
-        // Add safe date conversion
+
         let expiresAt;
         try {
           if (subscription.current_period_end && typeof subscription.current_period_end === 'number') {
@@ -118,7 +108,6 @@ exports.checkSubscriptionStatus = async (req, res) => {
       console.error('Stripe API error:', stripeError);
     }
     
-    // Default to not subscribed if we get here
     return res.json({
       subscribed: false,
       plan: 'free'
@@ -129,8 +118,6 @@ exports.checkSubscriptionStatus = async (req, res) => {
   }
 };
 
-
-// Handle webhook events
 exports.handleWebhook = async (req, res) => {
     console.log('⭐ Webhook received!');
     
@@ -139,7 +126,6 @@ exports.handleWebhook = async (req, res) => {
     let event;
     
     try {
-      // Make sure req.body is a Buffer
       if (!Buffer.isBuffer(req.body)) {
         console.error('❌ Request body is not a Buffer!');
         return res.status(400).send('Webhook Error: Request body is not raw');
@@ -157,27 +143,19 @@ exports.handleWebhook = async (req, res) => {
       console.error('❌ Webhook signature verification failed:', err.message);
       return res.status(400).send(`Webhook Error`);
     }
-  
-    // Process the webhook event
     const success = await exports.processWebhookEvent(event);
     if (!success) {
       console.error('❌ Error processing webhook event');
     }
 
-    // Always return success to Stripe
     return res.status(200).json({ received: true });
 };
 
-// Create this new function for in-line webhook handling
 exports.processWebhookEvent = async (event) => {
   if (event.type === 'checkout.session.completed') {
     try {
       const session = event.data.object;
-      
-      // Get the userId from metadata
       const userId = session.metadata?.userId || session.client_reference_id;
-      
-      // Get the customer and subscription IDs
       const customerId = session.customer;
       const subscriptionId = session.subscription;
 
@@ -186,17 +164,13 @@ exports.processWebhookEvent = async (event) => {
         return false;
       }
       
-      // Get subscription details to save status and expiration
       const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-      // Log the subscription data for debugging
-      
-      // Calculate expiration date with validation
+
       let currentPeriodEnd = null;
       if (subscription.current_period_end && typeof subscription.current_period_end === 'number') {
         currentPeriodEnd = new Date(subscription.current_period_end * 1000);
       }
       
-      // Only include valid date in the update
       const updateData = { 
         userId, 
         stripeCustomerId: customerId,
@@ -205,12 +179,10 @@ exports.processWebhookEvent = async (event) => {
         plan: subscription.items.data[0]?.price.nickname || 'standard'
       };
       
-      // Only add currentPeriodEnd if it's valid
       if (currentPeriodEnd && !isNaN(currentPeriodEnd.getTime())) {
         updateData.currentPeriodEnd = currentPeriodEnd;
       }
       
-      // Save complete customer mapping with subscription details
       const result = await CustomerMap.findOneAndUpdate(
         { userId },
         updateData,
@@ -224,17 +196,13 @@ exports.processWebhookEvent = async (event) => {
     }
   }
   
-  // Also handle subscription updates
   if (event.type === 'customer.subscription.updated') {
     try {
       const subscription = event.data.object;
       const customerId = subscription.customer;
-      
-      // Find the customer mapping by Stripe customer ID
       const customerMap = await CustomerMap.findOne({ stripeCustomerId: customerId });
       
       if (customerMap) {
-        // Update subscription details
         customerMap.subscriptionStatus = subscription.status;
         customerMap.currentPeriodEnd = new Date(subscription.current_period_end * 1000);
         await customerMap.save();
@@ -247,20 +215,5 @@ exports.processWebhookEvent = async (event) => {
     }
   }
   
-  return true; // Default success for other event types
+  return true;
 };
-
-exports.testWebhook = async (req, res) => {
-    try {
-      const { userId } = req;
-      const result = await CustomerMap.findOneAndUpdate(
-        { userId },
-        { userId, stripeCustomerId: "test_customer_id" },
-        { upsert: true, new: true }
-      );
-      res.json({ success: true, result });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ error: 'Test webhook failed' });
-    }
-  };

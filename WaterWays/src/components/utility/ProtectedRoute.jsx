@@ -19,7 +19,6 @@ const ProtectedRoute = ({ children, requireSubscription = false, requireAdmin = 
   const [checkingAdmin, setCheckingAdmin] = useState(false);
   const [adminCheckComplete, setAdminCheckComplete] = useState(false);
   
-  // Function to check admin status
   const checkAdminStatus = async () => {
     try {
       setCheckingAdmin(true);

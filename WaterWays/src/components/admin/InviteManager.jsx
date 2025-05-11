@@ -48,11 +48,7 @@ const InviteManager = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       
-      // Log the response to debug
-      console.log("Generate response:", response.data);
-      
       setSuccess('New invite link generated!');
-      // Don't add to invites array here - just fetch the updated list instead
       fetchInvites();
     } catch (err) {
       console.error("Error generating invite:", err.response?.data || err.message);

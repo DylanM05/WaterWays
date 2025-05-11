@@ -25,14 +25,10 @@ const getUserSettings = async (req, res) => {
 };
 
 const saveUserSettings = async (req, res) => {
-  // Get authenticated user ID from auth middleware
   const authenticatedUserId = req.auth?.userId || req.session?.userId;
-  
-  // Extract userId from params
   const { userId } = req.params;
   const { settings } = req.body;
   
-  // Basic validation
   if (!userId || typeof userId !== 'string') {
     return res.status(400).json({ error: 'Valid user ID is required' });
   }
@@ -41,15 +37,11 @@ const saveUserSettings = async (req, res) => {
     return res.status(400).json({ error: 'Settings must be a valid object' });
   }
   
-  // Authorization check - ensure user can only modify their own settings
   if (authenticatedUserId && authenticatedUserId !== userId) {
     return res.status(403).json({ error: 'Not authorized to modify settings for this user' });
   }
 
-  // Validate settings properties against schema
   const validatedSettings = {};
-  
-  // Only allow properties defined in the schema
   const allowedSettings = [
     'temperatureUnit', 
     'distanceUnit', 
@@ -57,8 +49,7 @@ const saveUserSettings = async (req, res) => {
     'defaultTab', 
     'theme'
   ];
-  
-  // Validation rules based on your schema
+
   const validationRules = {
     temperatureUnit: (value) => ['celsius', 'fahrenheit'].includes(value),
     distanceUnit: (value) => ['metric', 'imperial'].includes(value),
@@ -66,8 +57,7 @@ const saveUserSettings = async (req, res) => {
     defaultTab: (value) => ['water', 'pressure', 'weather', 'hourlyforecast', 'weeklyforecast', 'map'].includes(value),
     theme: (value) => ['light', 'dark'].includes(value)
   };
-  
-  // Validate each setting property
+
   for (const prop of allowedSettings) {
     if (settings[prop] !== undefined) {
       if (validationRules[prop] && !validationRules[prop](settings[prop])) {

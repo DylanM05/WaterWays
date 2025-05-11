@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { useAuth, useUser } from '@clerk/clerk-react';
+import { useAuth } from '@clerk/clerk-react';
 import { FaHeart, FaRegHeart } from 'react-icons/fa';
-import FavouritesSubscribeToast from './toasts/subscriptionRequiredToast';
+import FavouritesSubscribeToast from '../components/toasts/subscriptionRequiredToast';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 

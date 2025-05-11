@@ -3,12 +3,11 @@ import { Modal, Button, Spinner } from 'react-bootstrap';
 import { useAuth } from '@clerk/clerk-react';
 import axios from 'axios';
 import './styling/profileModal.css';
-import { loadStripe } from '@stripe/stripe-js';
 
-/* const API_BASE_URL = import.meta.env.VITE_API_BASE_URL; */
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-const API_BASE_URL = 'https://curious-caring-adder.ngrok-free.app';
-
+/* const API_BASE_URL = 'https://curious-caring-adder.ngrok-free.app';
+ */
 
 const CustomBilling = ({ show, handleClose }) => {
   const [loading, setLoading] = useState(false);
@@ -30,8 +29,6 @@ const CustomBilling = ({ show, handleClose }) => {
           }
         }
       );
-      
-      // Redirect to Stripe Checkout
       window.location.href = response.data.url;
       
     } catch (err) {

@@ -1,15 +1,15 @@
 import React, { useContext, useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Form, Button, Alert, Badge } from 'react-bootstrap';
-import { ThemeContext } from './contexts/Theme';
+import { ThemeContext } from '../components/utility/contexts/Theme';
 import { useUser, useClerk, useAuth } from '@clerk/clerk-react';
 import axios from 'axios';
-import '../styling/settings.css';
-import { useSettings } from '../contexts/SettingsContext'; // Import the useSettings hook
-import { FaTags, FaCheck, FaCrown, FaCalendarAlt, FaClock } from 'react-icons/fa';
+import './styling/settings.css';
+import { useSettings } from '../components/utility/contexts/SettingsContext'; // Import the useSettings hook
+import { FaCheck, FaCrown, FaCalendarAlt, FaClock } from 'react-icons/fa';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import ProfileModal from './modals/profileModal'; 
+import ProfileModal from '../components/modals/profileModal'; 
 
-/* const BACKEND_URL = 'https://backend.dylansserver.top'; */
+
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const Settings = () => {
@@ -19,66 +19,51 @@ const Settings = () => {
   const { signOut } = useClerk();
   const { getToken } = useAuth();
   const { updateSettings } = useSettings();
-  const [searchParams] = useSearchParams(); // Add this line to get URL parameters
+  const [searchParams] = useSearchParams(); 
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
   const [showProfileModal, setShowProfileModal] = useState(false); 
   const [preferences, setPreferences] = useState({
     temperatureUnit: localStorage.getItem('temperatureUnit') === 'fahrenheit',
     defaultTab: localStorage.getItem('defaultTab') || 'water'
   });
-  const [subscriptionStatus, setSubscriptionStatus] = useState(null); // Add this state for subscription
-  const [isAdmin, setIsAdmin] = useState(false); // Add new state for admin status
+  const [subscriptionStatus, setSubscriptionStatus] = useState(null); 
+  const [isAdmin, setIsAdmin] = useState(false); 
 
   useEffect(() => {
     if (user) {
       fetchUserSettings();
-      checkAdminStatus(); // Add admin status check
+      checkAdminStatus(); 
     }
   }, [user]);
 
   useEffect(() => {
-    // Check if this is a redirect from Stripe
     const isSuccess = searchParams.get('subscription') === 'success';
     const sessionId = searchParams.get('session_id');
     
     if (isSuccess && sessionId) {
-      // Add a message to let the user know we're verifying their subscription
       setNotification({
         show: true,
         message: 'Verifying your subscription...',
         type: 'info'
       });
-      
-      // Check subscription status
       checkSubscription();
     }
   }, [searchParams]);
 
-  // Add this useEffect to automatically load subscription status
   useEffect(() => {
     if (user) {
-      // Load user settings and check admin status
       fetchUserSettings();
       checkAdminStatus();
-      
-      // Also check subscription status
       checkSubscription();
     }
-  }, [user]); // This will run whenever the user changes or on initial load
+  }, [user]); 
 
   useEffect(() => {
-    // Only set up refresh interval if user is logged in
     if (!user) return;
-    
-    // Initial check when component mounts
-    checkSubscription(false); // Silent check
-    
-    // Set up interval to refresh subscription data every 2 minutes
+    checkSubscription(false);
     const refreshInterval = setInterval(() => {
-      checkSubscription(false); // Pass false to avoid showing notifications on auto-refresh
-    }, 120000); // 2 minutes
-    
-    // Clean up interval when component unmounts
+      checkSubscription(false);
+    }, 120000); 
     return () => clearInterval(refreshInterval);
   }, [user]); // Only re-run this effect if the user changes
 
@@ -162,7 +147,6 @@ const Settings = () => {
             type: 'warning'
           });
           
-          // Try again in 10 seconds, but only during processing
           setTimeout(() => checkSubscription(true), 10000);
         }
       }
@@ -176,8 +160,6 @@ const Settings = () => {
           type: 'danger'
         });
       }
-      
-      // Retry after error (with exponential backoff)
       setTimeout(() => checkSubscription(false), 5000);
     }
   };
@@ -208,8 +190,6 @@ const Settings = () => {
 
     if (name === 'temperatureUnit') {
       value = checked ? 'fahrenheit' : 'celsius';
-      
-      // Update the global context immediately
       updateSettings({ temperatureUnit: value });
     }
 
@@ -241,7 +221,6 @@ const Settings = () => {
     const { name, value } = e.target;
 
     if (name === 'defaultTab') {
-      // Update the global context immediately
       updateSettings({ defaultTab: value });
     }
 
@@ -387,7 +366,7 @@ const Settings = () => {
                 <div className="subscription-status-badge mb-4">
                   {subscriptionStatus.subscribed ? (
                     <Badge bg="success" className="status-badge active">
-                      <FaCheck className="me-2" /> Active Subscription
+                      <FaCheck className="me-2" /> Active
                     </Badge>
                   ) : (
                     <Badge bg="secondary" className="status-badge inactive">

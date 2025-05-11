@@ -19,7 +19,7 @@ require('dotenv').config();
 
 const app = express();
 
-// This must be the first middleware - nothing before it!
+
 app.use((req, res, next) => {
   if (req.originalUrl === '/subscription/webhook') {
     let rawBody = '';
@@ -46,7 +46,6 @@ app.post('/subscription/webhook', async (req, res) => {
       signature,
       process.env.STRIPE_WEBHOOK_SECRET
     );
-    // Add this code to actually process the event
     if (event.type === 'checkout.session.completed') {
       const subscriptionController = require('./controllers/subscriptionController');
       const success = await subscriptionController.processWebhookEvent(event);
@@ -66,7 +65,6 @@ app.post('/subscription/webhook', async (req, res) => {
   }
 });
 
-// AFTER webhook route, add the rest of your middleware
 app.set('trust proxy', 1);
 
 mongoose.connect('mongodb://localhost:27017/waterways').then(() => {

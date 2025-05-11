@@ -17,18 +17,14 @@ const getUserIfExists = (req, res, next) => {
 
 // Middleware that enforces authentication and redirects unauthorized users
 const requireAuth = (req, res, next) => {
-  // First run the Clerk auth verification
   verifyAuth(req, res, (authError) => {
     if (authError || !req.auth || !req.auth.userId) {
-      // Return a 401 with redirect information for the frontend to handle
       return res.status(401).json({
         error: 'Unauthorized',
         redirectTo: '/',
         message: 'You must be signed in to access this resource'
       });
     }
-    
-    // User is authenticated, proceed
     req.userId = req.auth.userId;
     next();
   });

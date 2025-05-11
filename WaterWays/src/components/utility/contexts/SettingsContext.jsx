@@ -1,10 +1,9 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { useUser, useAuth } from '@clerk/clerk-react';
 import axios from 'axios';
-import { ThemeContext } from '../components/contexts/Theme';
+import { ThemeContext } from './Theme';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL; // Change to your production URL in production
-
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL; 
 export const SettingsContext = createContext();
 
 export const SettingsProvider = ({ children }) => {
@@ -34,18 +33,14 @@ export const SettingsProvider = ({ children }) => {
       
       if (response.data && response.data.settings) {
         const serverSettings = response.data.settings;
-        
-        // Update localStorage
         localStorage.setItem('temperatureUnit', serverSettings.temperatureUnit || 'celsius');
         localStorage.setItem('defaultTab', serverSettings.defaultTab || 'water');
         
-        // Update context state
         setSettings({
           temperatureUnit: serverSettings.temperatureUnit || 'celsius',
           defaultTab: serverSettings.defaultTab || 'water'
         });
         
-        // Update theme if needed - using toggleTheme instead of setDarkMode
         if ((serverSettings.theme === 'dark' && !darkMode) ||
             (serverSettings.theme === 'light' && darkMode)) {
           toggleTheme();
@@ -56,12 +51,10 @@ export const SettingsProvider = ({ children }) => {
     }
   };
   
-  // Add this new function to update settings immediately
   const updateSettings = (newSettings) => {
     setSettings(prev => ({ ...prev, ...newSettings }));
   };
   
-  // Utility function for temperature conversion
   const formatTemperature = (celsius) => {
     if (celsius === undefined || celsius === null) {
       return 'N/A';
@@ -77,7 +70,7 @@ export const SettingsProvider = ({ children }) => {
     <SettingsContext.Provider value={{ 
       settings,
       formatTemperature,
-      updateSettings // Add the new function to the context
+      updateSettings 
     }}>
       {children}
     </SettingsContext.Provider>

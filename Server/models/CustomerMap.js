@@ -10,7 +10,6 @@ const customerMapSchema = new mongoose.Schema({
     type: String,
     required: true
   },
-  // Add these fields for better subscription management
   subscriptionId: {
     type: String
   },

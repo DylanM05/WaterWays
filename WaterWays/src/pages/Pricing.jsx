@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Button, Toast, ToastContainer } from 'react-bootstrap';
+import { Container, Row, Col, Card, Button } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import { useClerk, useUser } from '@clerk/clerk-react';
-import ProfileModal from '../components/modals/profileModal';
 import MonthlyModal from '../components/modals/MonthlyBilling';
 import AnnualModal from '../components/modals/AnnualBilling';
 
@@ -16,15 +15,11 @@ const Pricing = () => {
   const [showAnnualModal, setShowAnnualModal] = useState(false);
   const [referringPage, setReferringPage] = useState('');
   
-  // Store the referring page when component mounts
   useEffect(() => {
-    // Get the previous page from history or use a default fallback
     const previousPage = document.referrer || '/';
-    // Only store external referring pages, not internal navigation within the pricing page
     if (!previousPage.includes('/pricing')) {
       setReferringPage(previousPage);
     } else {
-      // Fallback to home if it's internal navigation
       setReferringPage('/');
     }
   }, []);
@@ -48,33 +43,28 @@ const Pricing = () => {
   
   const handleCloseModal = () => {
     setShowMonthlyModal(false);
-    // Navigate to stored referring page instead of using history.back()
     if (referringPage) {
-      // Check if it's an internal page (starts with /) or external URL
       if (referringPage.startsWith('/')) {
         navigate(referringPage);
       } else {
-        // For external URLs or absolute paths within your app
         window.location.href = referringPage;
       }
     } else {
-      // Fallback in case referringPage is empty
       navigate('/');
     }
   };
   
-  // Common card styles for uniformity
   const cardStyle = {
     backgroundColor: 'var(--card-bg-colour)',
     borderColor: 'var(--border-colour)',
-    height: '100%'  // This ensures all cards have same height
+    height: '100%' 
   };
   
   const featuredCardStyle = {
     backgroundColor: 'var(--card-bg-colour)',
     borderColor: 'var(--primary-colour)',
     boxShadow: '0 5px 15px rgba(0,0,0,0.1)',
-    height: '100%'  // Uniform height
+    height: '100%'  
   };
   
   const cardBodyStyle = {
@@ -84,7 +74,7 @@ const Pricing = () => {
   };
   
   const listStyle = {
-    flex: '1',  // Takes up available space
+    flex: '1',  
     color: 'var(--text-colour)',
     display: 'flex',
     flexDirection: 'column',

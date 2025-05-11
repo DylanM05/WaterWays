@@ -4,8 +4,8 @@ import { Line } from 'react-chartjs-2';
 import { Chart, registerables } from 'chart.js';
 import zoomPlugin from 'chartjs-plugin-zoom';
 import moment from 'moment';
-import '../../styling/waterData.css';
-import { ThemeContext } from '../contexts/Theme';
+import './styling/waterData.css';
+import { ThemeContext } from '../utility/contexts/Theme';
 
 Chart.register(...registerables, zoomPlugin);
 

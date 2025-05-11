@@ -1,7 +1,6 @@
 import React from 'react';
-import '../styling/home.css'; 
-import ShareIcon from '../assets/share-apple.svg';
-import androidShareIcon from '../assets/share-android.svg';
+import './styling/home.css'; 
+
 
 const Home = () => {
   return (

@@ -1,5 +1,5 @@
 import moment from 'moment';
-import { useSettings } from '../../contexts/SettingsContext';
+import { useSettings } from './contexts/SettingsContext';
 
 
 export const convertToLocalTime = (timeString) => {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import moment from 'moment';
-import { useSettings } from '../contexts/SettingsContext';
+import { useSettings } from '../components/utility/contexts/SettingsContext';
 import { useAuth, useUser } from '@clerk/clerk-react';
 import { FaHeart, FaRegHeart } from 'react-icons/fa';
 import {
@@ -16,14 +16,14 @@ import {
   Legend,
 } from 'chart.js';
 
-import StationInfo from './tabs/StationInfo';
-import HourlyForecast from './tabs/HourlyForecast';
-import CurrentWeatherTab from './tabs/CurrentWeather';
-import PressureData from './tabs/PressureData';
-import WaterData from './tabs/WaterData';
-import WeeklyForecast from './tabs/WeeklyForecast';
-import { convertToLocalTime, convertTimeArrayToLocal } from './tabs/utility';
-import FavouritesSubscribeToast from './toasts/subscriptionRequiredToast';
+import StationInfo from '../components/tabs/StationInfo';
+import HourlyForecast from '../components/tabs/HourlyForecast';
+import CurrentWeatherTab from '../components/tabs/CurrentWeather';
+import PressureData from '../components/tabs/PressureData';
+import WaterData from '../components/tabs/WaterData';
+import WeeklyForecast from '../components/tabs/WeeklyForecast';
+import { convertToLocalTime, convertTimeArrayToLocal } from '../components/utility/utility';
+import FavouritesSubscribeToast from '../components/toasts/subscriptionRequiredToast';
 
 ChartJS.register(
   CategoryScale,
@@ -35,7 +35,8 @@ ChartJS.register(
   Legend
 );
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL; // For local development
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 const ENDPOINTS = {
   coordinates: (id) => `${API_BASE_URL}/details/coordinates/${id}`,
   waterData: (id) => `${API_BASE_URL}/details/${id}`,

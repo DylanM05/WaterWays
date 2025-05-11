@@ -37,7 +37,6 @@ exports.getUniqueVisitorsToday = async (req, res) => {
     }
 };
 
-// New function for weekly count
 exports.getUniqueVisitorsWeekly = async (req, res) => {
     try {
         const now = new Date();
@@ -57,10 +56,8 @@ exports.getUniqueVisitorsWeekly = async (req, res) => {
     }
 };
 
-// New function for all-time count
 exports.getUniqueVisitorsAllTime = async (req, res) => {
     try {
-        // Count all distinct userIds without a time filter
         const uniqueUserIds = await UserVisit.distinct('userId');
 
         res.status(200).json({ uniqueVisitorsAllTime: uniqueUserIds.length });
@@ -73,7 +70,6 @@ exports.getUniqueVisitorsAllTime = async (req, res) => {
 
 exports.getAllVisitorStats = async (req, res) => {
     try {
-        // Daily calculation
         const startOfDay = new Date();
         startOfDay.setHours(0, 0, 0, 0);
         const endOfDay = new Date();
@@ -82,7 +78,6 @@ exports.getAllVisitorStats = async (req, res) => {
             timestamp: { $gte: startOfDay, $lte: endOfDay }
         });
 
-        // Weekly calculation
         const now = new Date();
         const sevenDaysAgo = new Date(now);
         sevenDaysAgo.setDate(now.getDate() - 7);
@@ -91,10 +86,8 @@ exports.getAllVisitorStats = async (req, res) => {
             timestamp: { $gte: sevenDaysAgo, $lte: now }
         });
 
-        // All-time calculation
         const uniqueAllTimeIds = await UserVisit.distinct('userId');
 
-        // Combine results
         res.status(200).json({
             uniqueVisitorsToday: uniqueDailyIds.length,
             uniqueVisitorsLast7Days: uniqueWeeklyIds.length,
