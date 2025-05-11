@@ -1,0 +1,9 @@
+.custom-toast .btn-close {
+    filter: invert(1) grayscale(100%) brightness(var(--text-brightness));
+    opacity: 0.8;
+  }
+  
+  .custom-toast .btn-close:hover {
+    opacity: 1;
+  }
+  

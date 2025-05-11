@@ -1,0 +1,21 @@
+.transparent-modal .modal-content {
+    background-color: transparent !important;
+    border: none;
+  }
+  
+  .transparent-modal-backdrop {
+    background-color: rgba(0, 0, 0, 0.5) !important; /* Semi-transparent backdrop */
+    /* For fully transparent backdrop, use: background-color: transparent !important; */
+  }
+  
+  /* If you want to keep just the content area white but make backdrop transparent */
+  .transparent-modal .modal-body {
+    background-color: var(--card-bg-colour);
+    border-radius: 8px;
+  }
+  
+  .transparent-modal .modal-header,
+  .transparent-modal .modal-footer {
+    background-color: transparent;
+    border: none;
+  }

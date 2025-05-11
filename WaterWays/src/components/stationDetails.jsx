@@ -23,6 +23,7 @@ import PressureData from './tabs/PressureData';
 import WaterData from './tabs/WaterData';
 import WeeklyForecast from './tabs/WeeklyForecast';
 import { convertToLocalTime, convertTimeArrayToLocal } from './tabs/utility';
+import FavouritesSubscribeToast from './toasts/subscriptionRequiredToast';
 
 ChartJS.register(
   CategoryScale,
@@ -34,9 +35,7 @@ ChartJS.register(
   Legend
 );
 
-const API_BASE_URL = 'https://backend.dylansserver.top';
-
-/* const API_BASE_URL = 'http://localhost:42069'; // For local development */
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL; // For local development
 const ENDPOINTS = {
   coordinates: (id) => `${API_BASE_URL}/details/coordinates/${id}`,
   waterData: (id) => `${API_BASE_URL}/details/${id}`,
@@ -128,6 +127,10 @@ const StationDetails = () => {
   const [weeklyDataError, setWeeklyDataError] = useState(null);
   const [stationInfoError, setStationInfoError] = useState(null);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [subscriptionStatus, setSubscriptionStatus] = useState({ subscribed: false });
+  const [checkingSubscription, setCheckingSubscription] = useState(false);
 
   const { isSignedIn, getToken } = useAuth();
   const { user } = useUser();
@@ -221,6 +224,31 @@ const StationDetails = () => {
   }, [stationId]);
 
   useEffect(() => {
+    if (isSignedIn) {
+      checkSubscription();
+    }
+  }, [isSignedIn]);
+
+  const checkSubscription = async () => {
+    if (!isSignedIn) return;
+    
+    try {
+      setCheckingSubscription(true);
+       const token = await getToken();
+         const response = await axios.get(`${API_BASE_URL}/sub/status`, {
+           headers: { Authorization: `Bearer ${token}` }
+         });
+         
+         setSubscriptionStatus(response.data);
+    } catch (err) {
+      console.error('Error checking subscription status:', err);
+      setSubscriptionStatus({ subscribed: false });
+    } finally {
+      setCheckingSubscription(false);
+    }
+  };
+
+  useEffect(() => {
     const checkFavoriteStatus = async () => {
       if (!isSignedIn || !stationId) return;
       
@@ -249,6 +277,12 @@ const StationDetails = () => {
     try {
       setFavoriteLoading(true);
       const token = await getToken();
+      
+      if (!subscriptionStatus.subscribed) {
+        setToastMessage('You need a premium subscription to access favorites. Please upgrade your plan.');
+        setShowToast(true);
+        return;
+      }
       
       if (isFavorite) {
         await axios.delete(`${API_BASE_URL}/u/favorites/${stationId}`, {
@@ -343,6 +377,12 @@ const StationDetails = () => {
         {!isSignedIn && <div className="w-10"></div>}
       </div>
 
+      {/* Add Toast notification */}
+      <FavouritesSubscribeToast 
+  showToast={showToast}
+  setShowToast={setShowToast}
+  toastMessage={toastMessage}
+/>
       {/* Tab Navigation */}
       <div style={{ borderBottom: '1px solid var(--border-colour)', marginBottom: '1.5rem' }}>
         <div className="flex overflow-x-auto hide-scrollbar">

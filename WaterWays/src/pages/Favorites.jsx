@@ -22,8 +22,9 @@ const provinceMapping = {
   'NU': 'Nunavut'
 };
 
-const API_BASE_URL = 'https://backend.dylansserver.top';
-/* http://localhost:42069 */
+/* const API_BASE_URL = 'https://backend.dylansserver.top'; */
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 
 const Favorites = () => {
   const { isLoaded, isSignedIn, getToken } = useAuth();

@@ -3,7 +3,7 @@ import { useUser, useAuth } from '@clerk/clerk-react';
 import axios from 'axios';
 import { ThemeContext } from '../components/contexts/Theme';
 
-const BACKEND_URL = 'http://localhost:42069'; // Change to your production URL in production
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL; // Change to your production URL in production
 
 export const SettingsContext = createContext();
 
@@ -28,7 +28,7 @@ export const SettingsProvider = ({ children }) => {
     
     try {
       const token = await getToken();
-      const response = await axios.get(`${BACKEND_URL}/s/${user.id}`, {
+      const response = await axios.get(`${API_BASE_URL}/s/${user.id}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       

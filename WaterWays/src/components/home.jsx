@@ -19,7 +19,7 @@ const Home = () => {
         <p className="mb-6 text-lg">Follow these steps to add WaterWays to your phone's home screen for quick access</p>
           <div className="instruction-container">
             <div className="instruction-box bg-background-colour/50 p-5 rounded-lg">
-              <h3 className="font-medium text-xl mb-3 text-text-colour border-l-4 border-accent-colour pl-3" class="title">For iPhone (Safari)</h3>
+              <h3 className="font-medium text-xl mb-3 text-text-colour border-l-4 border-accent-colour pl-3 title">For iPhone (Safari)</h3>
               <ol className="list-decimal pl-8 space-y-3">
                 <li>Open WaterWays in Safari</li>
                 <li>
@@ -32,7 +32,7 @@ const Home = () => {
             </div>
             
             <div className="instruction-box bg-background-colour/50 p-5 rounded-lg">
-              <h3 className="font-medium text-xl mb-3 text-text-colour border-l-4 border-accent-colour pl-3" class="title">For Android (Chrome)</h3>
+              <h3 className="font-medium text-xl mb-3 text-text-colour border-l-4 border-accent-colour pl-3 title">For Android (Chrome)</h3>
               <ol className="list-decimal pl-8 space-y-3">
                 <li>Open WaterWays in Chrome</li>
                 <li>

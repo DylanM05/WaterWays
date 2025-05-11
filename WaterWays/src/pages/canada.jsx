@@ -33,8 +33,9 @@ const Canada = ({ setRivers, rivers }) => {
   const navigate = useNavigate();
   const searchRef = useRef(null);
 
-  //const API_BASE_URL = 'http://localhost:42069';
-  const API_BASE_URL = 'https://backend.dylansserver.top'; // Uncomment this line to use the production server
+  const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+  
   useEffect(() => {
     if (selectedProvince) {
       const fetchRivers = async () => {

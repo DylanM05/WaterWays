@@ -3,8 +3,9 @@ import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth, useUser } from '@clerk/clerk-react';
 import { FaHeart, FaRegHeart } from 'react-icons/fa';
+import FavouritesSubscribeToast from './toasts/subscriptionRequiredToast';
 
-const API_BASE_URL = 'https://backend.dylansserver.top';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const RiverSections = ({ rivers }) => {
   const { riverName } = useParams();
@@ -12,11 +13,15 @@ const RiverSections = ({ rivers }) => {
   const [latestWaterData, setLatestWaterData] = useState({});
   const [favorites, setFavorites] = useState({});
   const [favoriteLoading, setFavoriteLoading] = useState({});
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+  const [subscriptionStatus, setSubscriptionStatus] = useState({ subscribed: false });
+  const [checkingSubscription, setCheckingSubscription] = useState(false);
+  
   const isMounted = useRef(true);
   
-  const { isSignedIn, getToken } = useAuth(); // Destructure getToken from useAuth
-  const { user } = useUser();
-
+  const { isSignedIn, getToken } = useAuth();
+  
   useEffect(() => {
     if (rivers && rivers[riverName]) {
       setSections(rivers[riverName]);
@@ -30,14 +35,14 @@ const RiverSections = ({ rivers }) => {
 
     const checkFavorites = async () => {
       try {
-        const token = await getToken(); // Use getToken from useAuth
+        const token = await getToken();
         
         const favoritesStatus = {};
         for (const section of sections) {
           try {
             setFavoriteLoading(prev => ({ ...prev, [section.station_id]: true }));
             const response = await axios.get(`${API_BASE_URL}/u/favorites/check/${section.station_id}`, {
-              headers: { Authorization: `Bearer ${token}` } // Use the token from getToken
+              headers: { Authorization: `Bearer ${token}` }
             });
             favoritesStatus[section.station_id] = response.data.isFavorite;
           } catch (err) {
@@ -59,7 +64,32 @@ const RiverSections = ({ rivers }) => {
     };
     
     checkFavorites();
-  }, [isSignedIn, sections, getToken]); // Add getToken to dependency array
+  }, [isSignedIn, sections, getToken]);
+
+  useEffect(() => {
+    if (isSignedIn) {
+      checkSubscription();
+    }
+  }, [isSignedIn]);
+
+  const checkSubscription = async () => {
+    if (!isSignedIn) return;
+    
+    try {
+      setCheckingSubscription(true);
+      const token = await getToken();
+      const response = await axios.get(`${API_BASE_URL}/sub/status`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      setSubscriptionStatus(response.data);
+    } catch (err) {
+      console.error('Error checking subscription status:', err);
+      setSubscriptionStatus({ subscribed: false });
+    } finally {
+      setCheckingSubscription(false);
+    }
+  };
 
   const toggleFavorite = async (e, section) => {
     e.preventDefault();
@@ -71,7 +101,13 @@ const RiverSections = ({ rivers }) => {
     
     try {
       setFavoriteLoading(prev => ({ ...prev, [stationId]: true }));
-      const token = await getToken(); // Use getToken from useAuth
+      const token = await getToken();
+      
+      if (!subscriptionStatus.subscribed) {
+        setToastMessage('You need a premium subscription to access favorites. Please upgrade your plan.');
+        setShowToast(true);
+        return;
+      }
       
       if (favorites[stationId]) {
         await axios.delete(`${API_BASE_URL}/u/favorites/${stationId}`, {
@@ -108,7 +144,7 @@ const RiverSections = ({ rivers }) => {
         const dataPromises = sections.map(async (section) => {
           try {
             const response = await axios.get(
-              `https://backend.dylansserver.top/details/latest-water-data/${section.station_id}`
+              `${API_BASE_URL}/details/latest-water-data/${section.station_id}`
             );
             const dateTime = new Date(response.data.date_time);
             const formattedTime = dateTime.toLocaleString('en-US', {
@@ -237,6 +273,11 @@ const RiverSections = ({ rivers }) => {
           </div>
         ))}
       </div>
+            <FavouritesSubscribeToast 
+        showToast={showToast}
+        setShowToast={setShowToast}
+        toastMessage={toastMessage}
+      />
     </div>
   );
 };

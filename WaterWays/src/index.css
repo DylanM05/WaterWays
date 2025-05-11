@@ -10,6 +10,8 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  --text-brightness: 0.5; /* Adjust this value between 0-1 to match your text color */
+
 }
 
 .light-theme {
