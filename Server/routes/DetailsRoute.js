@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const DetailsController = require('../controllers/detailsController');
-const { defaultLimiter, lenientLimiter } = require('../utilities/ratelimiter');
+const { lenientLimiter } = require('../utilities/ratelimiter');
 
 router.get('/:id', lenientLimiter, DetailsController.populateData);
 router.get('/coordinates/:id', lenientLimiter, DetailsController.getCoordinates);

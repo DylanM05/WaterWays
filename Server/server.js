@@ -12,7 +12,6 @@ const favoritesRoutes = require('./routes/favoritesRoutes');
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const inviteRoutes = require('./routes/inviteRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-const Admin = require('./models/Admin');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 require('dotenv').config();

@@ -134,7 +134,6 @@ const StationDetails = () => {
   const [checkingSubscription, setCheckingSubscription] = useState(false);
 
   const { isSignedIn, getToken } = useAuth();
-  const { user } = useUser();
 
   useEffect(() => {
     const handleResize = () => {

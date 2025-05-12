@@ -1,4 +1,4 @@
-const UserVisit = require('../models/UserVisits'); // Ensure correct model name ('UserVisit' singular)
+const UserVisit = require('../models/UserVisits'); 
 
 exports.logUserVisit = async (req, res) => {
   const { userId } = req.body;

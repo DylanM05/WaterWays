@@ -1,5 +1,3 @@
-const axios = require('axios');
-const mongoose = require('mongoose');
 const Admin = require('../models/Admin');
 require('dotenv').config();
 
