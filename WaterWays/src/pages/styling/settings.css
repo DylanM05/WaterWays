@@ -130,7 +130,7 @@
   text-align: center;
 }
 
-.features-heading {
+features-heading {
   font-size: 1rem;
   font-weight: 600;
   margin-bottom: 12px;
@@ -327,6 +327,25 @@
   0% { opacity: 0.5; transform: scale(0.95); }
   50% { opacity: 1; transform: scale(1.05); }
   100% { opacity: 0.5; transform: scale(0.95); }
+}
+
+/* Subscription management buttons */
+.manage-billing-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.reactivate-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.subscription-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 /* Desktop adjustments */

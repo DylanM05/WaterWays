@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-const customerMapSchema = new mongoose.Schema({
+const CustomerMapSchema = new mongoose.Schema({
   userId: {
     type: String,
     required: true,
@@ -11,20 +11,25 @@ const customerMapSchema = new mongoose.Schema({
     required: true
   },
   subscriptionId: {
-    type: String
+    type: String,
+    default: null
   },
   subscriptionStatus: {
     type: String,
-    enum: ['active', 'past_due', 'unpaid', 'canceled', 'incomplete', 'incomplete_expired', 'trialing']
-  },
-  currentPeriodEnd: {
-    type: Date
+    default: 'none'
   },
   plan: {
-    type: String
+    type: String,
+    default: 'free'
+  },
+  currentPeriodEnd: {
+    type: Date,
+    default: null
+  },
+  cancelAtPeriodEnd: {
+    type: Boolean,
+    default: false
   }
-}, {
-  timestamps: true
-});
+}, { timestamps: true });
 
-module.exports = mongoose.model('CustomerMap', customerMapSchema);
+module.exports = mongoose.model('CustomerMap', CustomerMapSchema);

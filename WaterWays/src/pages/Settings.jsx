@@ -5,12 +5,13 @@ import { useUser, useClerk, useAuth } from '@clerk/clerk-react';
 import axios from 'axios';
 import './styling/settings.css';
 import { useSettings } from '../components/utility/contexts/SettingsContext'; // Import the useSettings hook
-import { FaCheck, FaCrown, FaCalendarAlt, FaClock } from 'react-icons/fa';
+import { FaCheck, FaCrown, FaCalendarAlt, FaClock, FaInfoCircle, FaCreditCard, FaRedo } from 'react-icons/fa';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ProfileModal from '../components/modals/profileModal'; 
-
+import CancelSubscriptionModal from '../components/modals/CancelSubscriptionModal';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 
 const Settings = () => {
   const navigate = useNavigate();
@@ -22,6 +23,7 @@ const Settings = () => {
   const [searchParams] = useSearchParams(); 
   const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
   const [showProfileModal, setShowProfileModal] = useState(false); 
+  const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [preferences, setPreferences] = useState({
     temperatureUnit: localStorage.getItem('temperatureUnit') === 'fahrenheit',
     defaultTab: localStorage.getItem('defaultTab') || 'water'
@@ -40,15 +42,17 @@ const Settings = () => {
     const isSuccess = searchParams.get('subscription') === 'success';
     const sessionId = searchParams.get('session_id');
     
-    if (isSuccess && sessionId) {
+    if (isSuccess && sessionId && user) {
       setNotification({
         show: true,
         message: 'Verifying your subscription...',
         type: 'info'
       });
-      checkSubscription();
+      
+      // Call explicit success endpoint to sync subscription data
+      syncSubscription();
     }
-  }, [searchParams]);
+  }, [searchParams, user, getToken]);
 
   useEffect(() => {
     if (user) {
@@ -162,6 +166,51 @@ const Settings = () => {
       }
       setTimeout(() => checkSubscription(false), 5000);
     }
+  };
+
+  const syncSubscription = async () => {
+    let retries = 0;
+    const maxRetries = 3;
+    
+    const attemptSync = async () => {
+      try {
+        setNotification({
+          show: true,
+          message: retries > 0 ? `Retrying verification (${retries}/${maxRetries})...` : 'Verifying your subscription...',
+          type: 'info'
+        });
+        
+        const token = await getToken();
+        const response = await axios.get(`${API_BASE_URL}/sub/success`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        console.log('Subscription sync successful:', response.data);
+        
+        // After successful sync, check subscription status
+        checkSubscription(true);
+        return true;
+      } catch (err) {
+        console.error('Error syncing subscription:', err);
+        
+        if (retries < maxRetries) {
+          retries++;
+          console.log(`Retrying sync... Attempt ${retries} of ${maxRetries}`);
+          // Wait a bit longer between each retry
+          await new Promise(resolve => setTimeout(resolve, 2000 * retries));
+          return attemptSync();
+        } else {
+          setNotification({
+            show: true,
+            message: 'Failed to verify your subscription after several attempts. Please try refreshing the page.',
+            type: 'danger'
+          });
+          return false;
+        }
+      }
+    };
+    
+    return attemptSync();
   };
 
   const checkAdminStatus = async () => {
@@ -282,6 +331,89 @@ const Settings = () => {
     });
   };
 
+  const handleCancellationSuccess = (result) => {
+    checkSubscription(true); // Refresh subscription status
+    setNotification({
+      show: true,
+      message: 'Your subscription has been cancelled. You will have access until the end of your billing period.',
+      type: 'info'
+    });
+  };
+
+  const handleReactivateSubscription = async () => {
+    try {
+      setNotification({
+        show: true,
+        message: 'Reactivating your subscription...',
+        type: 'info'
+      });
+      
+      const token = await getToken();
+      await axios.post(
+        `${API_BASE_URL}/sub/reactivate`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      // Refresh subscription status
+      await checkSubscription(true);
+      
+      setNotification({
+        show: true,
+        message: 'Your subscription has been reactivated!',
+        type: 'success'
+      });
+    } catch (error) {
+      console.error('Error reactivating subscription:', error);
+      setNotification({
+        show: true,
+        message: 'Failed to reactivate subscription. Please try again.',
+        type: 'danger'
+      });
+    }
+  };
+
+  const handleOpenBillingPortal = async () => {
+    try {
+      setNotification({
+        show: true,
+        message: 'Opening billing portal...',
+        type: 'info'
+      });
+      
+      const token = await getToken();
+      const response = await axios.get(`${API_BASE_URL}/sub/billing-portal`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.data.success && response.data.url) {
+        // Redirect to Stripe billing portal
+        window.location.href = response.data.url;
+      } else {
+        throw new Error('Invalid response from server');
+      }
+    } catch (error) {
+      console.error('Error opening billing portal:', error);
+      
+      // Check if this is the specific configuration error
+      const errorMessage = error.response?.data?.details || '';
+      if (errorMessage.includes('No configuration provided') || 
+          errorMessage.includes('configuration has not been created')) {
+        setNotification({
+          show: true,
+          message: 'The billing portal is not configured yet. Please contact support for help with billing changes.',
+          type: 'warning'
+        });
+      } else {
+        setNotification({
+          show: true,
+          message: 'Failed to open billing portal. Please try again later.',
+          type: 'danger'
+        });
+      }
+    }
+  };
+
   return (
     <Container className="py-4">
       <h1 className="mb-4 text-2xl font-bold">Settings</h1>
@@ -365,9 +497,20 @@ const Settings = () => {
                 {/* Status Badge - Made more prominent */}
                 <div className="subscription-status-badge mb-4">
                   {subscriptionStatus.subscribed ? (
-                    <Badge bg="success" className="status-badge active">
-                      <FaCheck className="me-2" /> Active
-                    </Badge>
+                    <>
+                      <Badge bg="success" className="status-badge active">
+                        <FaCheck className="me-2" /> Active
+                      </Badge>
+                      <br />
+                {subscriptionStatus.subscribed && 
+                 subscriptionStatus.cancelAtPeriodEnd && (
+                  <div style={{ color: 'orange' }} className="mt-2">
+                    <FaInfoCircle className="me-2" />
+                    Your subscription will end on {formatDate(subscriptionStatus.expiresAt)}. 
+                    Reactivate to continue your subscription without interruption.
+                </div>
+                )}
+                    </>
                   ) : (
                     <Badge bg="secondary" className="status-badge inactive">
                       Free Account
@@ -414,6 +557,39 @@ const Settings = () => {
                   </div>
                 )}
                 
+                {/* Subscription management buttons */}
+                {subscriptionStatus.subscribed && subscriptionStatus.plan !== 'lifetime' && (
+                  <div className="d-flex mt-4 flex-wrap gap-2">
+                    {/* Manage Billing Button - Always show for active subscriptions */}
+                    <Button 
+                      variant="outline-primary"
+                      onClick={handleOpenBillingPortal}
+                      className="manage-billing-button"
+                    >
+                      <FaCreditCard className="me-2" /> Manage Payment Method
+                    </Button>
+                    
+                    {/* Cancel Button - Only show if not already cancelled */}
+                    {!subscriptionStatus.cancelAtPeriodEnd ? (
+                      <Button 
+                        variant="outline-danger"
+                        onClick={() => setCancelModalOpen(true)}
+                        className="cancel-subscription-button"
+                      >
+                        Cancel Subscription
+                      </Button>
+                    ) : (
+                      /* Reactivate Button - Show if subscription is cancelled */
+                      <Button 
+                        variant="outline-success"
+                        onClick={handleReactivateSubscription}
+                        className="reactivate-button"
+                      >
+                        <FaRedo className="me-2" /> Reactivate Subscription
+                      </Button>
+                    )}
+                  </div>
+                )}     
                 {/* Upgrade Button */}
                 {!subscriptionStatus.subscribed && (
                   <div className="upgrade-container">
@@ -424,6 +600,19 @@ const Settings = () => {
                       className="upgrade-button"
                     >
                       <FaCrown className="me-2" /> Upgrade to Premium
+                    </Button>
+                  </div>
+                )}
+                
+                {/* Billing Portal Button */}
+                {subscriptionStatus.subscribed && (
+                  <div className="billing-portal-container mt-4">
+                    <Button 
+                      variant="outline-primary"
+                      onClick={handleOpenBillingPortal}
+                      className="billing-portal-button"
+                    >
+                      Manage Billing
                     </Button>
                   </div>
                 )}
@@ -569,6 +758,13 @@ const Settings = () => {
       <ProfileModal 
         show={showProfileModal} 
         handleClose={() => setShowProfileModal(false)} 
+      />
+
+      {/* Add the modal for CancelSubscription */}
+      <CancelSubscriptionModal 
+        show={cancelModalOpen}
+        handleClose={() => setCancelModalOpen(false)}
+        onCancelSuccess={handleCancellationSuccess}
       />
     </Container>
   );
