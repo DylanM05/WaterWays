@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import moment from 'moment';
 import { useSettings } from '../components/utility/contexts/SettingsContext';
-import { useAuth, useUser } from '@clerk/clerk-react';
+import { useAuth } from '@clerk/clerk-react';
 import { FaHeart, FaRegHeart } from 'react-icons/fa';
 import {
   Chart as ChartJS,
@@ -39,11 +39,13 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const ENDPOINTS = {
   coordinates: (id) => `${API_BASE_URL}/details/coordinates/${id}`,
-  waterData: (id) => `${API_BASE_URL}/details/${id}`,
   weather: (id) => `${API_BASE_URL}/details/weather/${id}`,
   forecast: (id) => `${API_BASE_URL}/details/weather/hourly/${id}`,
   pressure: (id) => `${API_BASE_URL}/details/pressure/${id}`,
 };
+
+// Add this object to track water data cache
+const WATER_DATA_CACHE = {};
 
 const TabButton = ({ label, isActive, onClick }) => (
   <button
@@ -107,21 +109,16 @@ const StationDetails = () => {
   const navigate = useNavigate();
   const { settings } = useSettings();
   const [activeKey, setActiveKey] = useState(settings.defaultTab);
-  const [loading, setLoading] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [secondaryLoading, setSecondaryLoading] = useState(false);
   const [error, setError] = useState(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
-  const [waterChartTab, setWaterChartTab] = useState('level');
-  const [pressureChartTab, setPressureChartTab] = useState('both');
-  const [recordsPerPage, setRecordsPerPage] = useState(10);
-  const [currentPage, setCurrentPage] = useState(1);
   const [stationInfo, setStationInfo] = useState(null);
-  const [waterData, setWaterData] = useState([]);
   const [weatherData, setWeatherData] = useState(null);
   const [forecastData, setForecastData] = useState(null);
   const [pressureData, setPressureData] = useState(null);
   const [weeklyData, setWeeklyData] = useState(null);
-  const [waterDataError, setWaterDataError] = useState(null);
   const [weatherDataError, setWeatherDataError] = useState(null);
   const [forecastDataError, setForecastDataError] = useState(null);
   const [pressureDataError, setPressureDataError] = useState(null);
@@ -132,6 +129,9 @@ const StationDetails = () => {
   const [toastMessage, setToastMessage] = useState('');
   const [subscriptionStatus, setSubscriptionStatus] = useState({ subscribed: false });
   const [checkingSubscription, setCheckingSubscription] = useState(false);
+  const [waterData, setWaterData] = useState({});
+  const [waterDataLoading, setWaterDataLoading] = useState({});
+  const [waterDataError, setWaterDataError] = useState({});
 
   const { isSignedIn, getToken } = useAuth();
 
@@ -147,81 +147,130 @@ const StationDetails = () => {
   }, []);
 
   useEffect(() => {
-    const fetchStationData = async () => {
-      setLoading(true);
+    const fetchStationCoordinates = async () => {
+      setInitialLoading(true);
       setError(null);
       
       try {
         const coordinatesResponse = await axios.get(ENDPOINTS.coordinates(stationId));
         setStationInfo(coordinatesResponse.data);
+        
+        // Start loading 1-day water data immediately
+        fetchWaterData(1);
       } catch (err) {
         console.error('Error fetching station info:', err);
         setStationInfoError('Failed to load station information.');
+      } finally {
+        setInitialLoading(false);
       }
 
-      // Fetch water data
-      try {
-        const waterDataResponse = await axios.get(ENDPOINTS.waterData(stationId));
-        setWaterData(waterDataResponse.data || []);
-      } catch (err) {
-        console.error('Error fetching water data:', err);
-        const endDate = moment().format('YYYY-MM-DD');
-        const startDate = moment().subtract(7, 'days').format('YYYY-MM-DD');
-        setWaterDataError(
-          <>
-            Failed to load water data.
-            <br />
-            We either have not retrieved any data for this station, or the station is not recording any data.
-            <br />
-            You can view the master data <a href={`https://wateroffice.ec.gc.ca/report/real_time_e.html?stn=${stationId}&mode=Table&startDate=${startDate}&endDate=${endDate}`} target="_blank" rel="noopener noreferrer" className="text-primary hover:text-secondary underline">here</a>!
-          </>
-        );
-        setWaterData([]);
-      }
-
-      try {
-        const weatherResponse = await axios.get(ENDPOINTS.weather(stationId));
-        setWeatherData(weatherResponse.data);
-      } catch (err) {
-        console.error('Error fetching weather data:', err);
-        setWeatherDataError('Failed to load weather data.');
-      }
-
-      try {
-        const forecastResponse = await axios.get(ENDPOINTS.forecast(stationId));
-        if (forecastResponse.data && forecastResponse.data.time) {
-          forecastResponse.data.localTime = convertTimeArrayToLocal(forecastResponse.data.time);
-        }
-        setForecastData(forecastResponse.data);
-      } catch (err) {
-        console.error('Error fetching forecast data:', err);
-        setForecastDataError('Failed to load forecast data.');
-      }
-
-      try {
-        const pressureResponse = await axios.get(ENDPOINTS.pressure(stationId));
-        if (pressureResponse.data && pressureResponse.data.time) {
-          pressureResponse.data.localTime = convertTimeArrayToLocal(pressureResponse.data.time);
-        }
-        setPressureData(pressureResponse.data);
-      } catch (err) {
-        console.error('Error fetching pressure data:', err);
-        setPressureDataError('Failed to load pressure data.');
-      }
-
-      try {
-        const weeklyResponse = await axios.get(`${API_BASE_URL}/details/weather/weekly/${stationId}`);
-        setWeeklyData(weeklyResponse.data);
-      } catch (err) {
-        console.error('Error fetching weekly data:', err);
-        setWeeklyDataError('Failed to load weekly forecast data.');
-      }
-
-      setLoading(false);
+      // After loading basic station info and 1-day water data, fetch other data in parallel
+      fetchSecondaryData();
     };
 
-    fetchStationData();
+    fetchStationCoordinates();
   }, [stationId]);
+
+  const fetchWaterData = async (days) => {
+    // Skip if we already have this data
+    if (waterData[days]) return;
+    
+    // Check if already loading
+    if (waterDataLoading[days]) return;
+    
+    // Set loading state for this timeframe
+    setWaterDataLoading(prev => ({ ...prev, [days]: true }));
+    setWaterDataError(prev => ({ ...prev, [days]: null }));
+    
+    try {
+      // Check cache first
+      if (WATER_DATA_CACHE[`${stationId}-${days}`]) {
+        setWaterData(prev => ({
+          ...prev,
+          [days]: WATER_DATA_CACHE[`${stationId}-${days}`]
+        }));
+        setWaterDataLoading(prev => ({ ...prev, [days]: false }));
+        return;
+      }
+      
+      const response = await axios.get(`${API_BASE_URL}/details/water-data/${stationId}/${days}`);
+      
+      // Store in cache
+      WATER_DATA_CACHE[`${stationId}-${days}`] = response.data;
+      
+      // Update state
+      setWaterData(prev => ({ ...prev, [days]: response.data }));
+    } catch (err) {
+      console.error(`Error fetching ${days}-day water data:`, err);
+      setWaterDataError(prev => ({ 
+        ...prev, 
+        [days]: `Failed to fetch ${days}-day water data.` 
+      }));
+    } finally {
+      setWaterDataLoading(prev => ({ ...prev, [days]: false }));
+    }
+  };
+
+  const fetchSecondaryData = async () => {
+    setSecondaryLoading(true);
+    
+    try {
+      const promises = [
+        // Load other time frames for water data
+        fetchWaterData(3),
+        fetchWaterData(7),
+        fetchWaterData(14),
+        fetchWaterData(30),
+        
+        // Weather data
+        axios.get(ENDPOINTS.weather(stationId))
+          .then(res => setWeatherData(res.data))
+          .catch(err => {
+            console.error('Error fetching weather data:', err);
+            setWeatherDataError('Failed to load weather data.');
+          }),
+        
+        // Forecast data
+        axios.get(ENDPOINTS.forecast(stationId))
+          .then(res => {
+            if (res.data && res.data.time) {
+              res.data.localTime = convertTimeArrayToLocal(res.data.time);
+            }
+            setForecastData(res.data);
+          })
+          .catch(err => {
+            console.error('Error fetching forecast data:', err);
+            setForecastDataError('Failed to load forecast data.');
+          }),
+        
+        // Pressure data
+        axios.get(ENDPOINTS.pressure(stationId))
+          .then(res => {
+            if (res.data && res.data.time) {
+              res.data.localTime = convertTimeArrayToLocal(res.data.time);
+            }
+            setPressureData(res.data);
+          })
+          .catch(err => {
+            console.error('Error fetching pressure data:', err);
+            setPressureDataError('Failed to load pressure data.');
+          }),
+        
+        // Weekly forecast data
+        axios.get(`${API_BASE_URL}/details/weather/weekly/${stationId}`)
+          .then(res => setWeeklyData(res.data))
+          .catch(err => {
+            console.error('Error fetching weekly data:', err);
+            setWeeklyDataError('Failed to load weekly forecast data.');
+          })
+      ];
+      
+      // Wait for all promises to settle
+      await Promise.allSettled(promises);
+    } finally {
+      setSecondaryLoading(false);
+    }
+  };
 
   useEffect(() => {
     if (isSignedIn) {
@@ -306,7 +355,7 @@ const StationDetails = () => {
     }
   };
 
-  if (loading) {
+  if (initialLoading) {
     return (
       <div className="flex justify-center items-center min-h-[300px]">
         <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
@@ -379,10 +428,11 @@ const StationDetails = () => {
 
       {/* Add Toast notification */}
       <FavouritesSubscribeToast 
-  showToast={showToast}
-  setShowToast={setShowToast}
-  toastMessage={toastMessage}
-/>
+        showToast={showToast}
+        setShowToast={setShowToast}
+        toastMessage={toastMessage}
+      />
+      
       {/* Tab Navigation */}
       <div style={{ borderBottom: '1px solid var(--border-colour)', marginBottom: '1.5rem' }}>
         <div className="flex overflow-x-auto hide-scrollbar">
@@ -424,14 +474,11 @@ const StationDetails = () => {
         {activeKey === 'map' && <StationInfo stationInfo={stationInfo} />}
         {activeKey === 'water' && (
           <WaterData 
-            waterData={waterData} 
-            waterChartTab={waterChartTab} 
-            setWaterChartTab={setWaterChartTab} 
-            recordsPerPage={recordsPerPage} 
-            setRecordsPerPage={setRecordsPerPage} 
-            currentPage={currentPage} 
-            setCurrentPage={setCurrentPage}
-            error={waterDataError} 
+            stationId={stationId} 
+            waterData={waterData}
+            waterDataLoading={waterDataLoading}
+            waterDataError={waterDataError}
+            onFetchWaterData={fetchWaterData}
           />
         )}
         {activeKey === 'weather' && (
@@ -439,6 +486,7 @@ const StationDetails = () => {
             weatherData={weatherData} 
             localWeatherTime={localWeatherTime} 
             error={weatherDataError} 
+            loading={secondaryLoading && !weatherData}
           />
         )}
         {activeKey === 'hourlyforecast' && (
@@ -446,18 +494,21 @@ const StationDetails = () => {
             forecastData={forecastData} 
             pressureData={pressureData} 
             error={forecastDataError} 
+            loading={secondaryLoading && !forecastData}
           />
         )}
         {activeKey === 'pressure' && (
           <PressureData 
             pressureData={pressureData} 
             error={pressureDataError} 
+            loading={secondaryLoading && !pressureData}
           />
         )}
         {activeKey === 'weeklyforecast' && (
           <WeeklyForecast 
             weeklyData={weeklyData} 
             error={weeklyDataError} 
+            loading={secondaryLoading && !weeklyData}
           />
         )}
       </div>

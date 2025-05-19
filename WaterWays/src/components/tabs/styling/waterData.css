@@ -9,6 +9,7 @@ body {
   .chart-container {
     background-color: var(--background-colour) !important;
     color: var(--text-colour);
+    margin-bottom: 40px;
   }
   
   .card {
@@ -94,6 +95,58 @@ form .form-select:focus {
     box-shadow: 0 0 5px var(--primary-colour);
 }
 
+/* Pagination controls */
+.pagination-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    justify-content: center;
+    margin: 10px auto 0;
+}
+
+.pagination-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--button-bg);
+    color: var(--text-colour);
+    border: 1px solid var(--border-colour);
+    border-radius: 4px;
+    cursor: pointer;
+    padding: 0;
+}
+
+.pagination-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.pagination-info {
+    padding: 0 8px;
+    min-width: 50px;
+    text-align: center;
+    color: var(--text-colour)
+}
+
+/* Update the record buttons styling */
+.record-btns {
+  margin-bottom: 6px;
+  margin-right: 2px;
+  min-width: 36px;
+  padding: 4px 2px !important;
+}
+
+/* Create a dedicated container for records buttons */
+.records-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 8px;
+  margin-right: 50px
+}
+
 /* Responsive Styling */
 @media (max-width: 768px) {
   .container-fluid {
@@ -169,6 +222,101 @@ form .form-select:focus {
     padding: 0.25rem 0.3rem !important;
     font-size: 0.75rem !important;
   }
+
+  .d-flex.justify-content-between.align-items-center.flex-wrap {
+    flex-direction: column;
+    align-items: center !important;
+    gap: 12px;
+  }
+    
+  .records-container {
+    justify-content: center;
+    width: 100%;
+    margin-right: 0px !important;
+  }
+    
+  .pagination-btn {
+    width: 28px;
+    height: 28px;
+  }
+    
+  .pagination-info {
+    min-width: 40px;
+    padding: 0 4px;
+  }
+    
+  .pagination-controls {
+    margin: 0 auto;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* uPlot customizations */
+.u-plot {
+    font-family: var(--font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+}
+
+.u-legend .u-marker {
+    border-radius: 50%;
+}
+
+.u-legend .u-label {
+    font-weight: 500;
+}
+
+.u-series > path {
+    transition: stroke-width 0.2s ease;
+}
+
+.u-series > path:hover {
+    stroke-width: 3px;
+}
+
+/* Improve axis label readability */
+.u-axis text {
+    font-weight: 500;
+}
+
+.u-axis .u-vals > div {
+  color: var(--text-colour) !important;
+  font-size: 12px;
+  visibility: visible !important;
+  display: block !important;
+}
+
+.u-axis.u-bottom .u-vals > div {
+  transform: rotate(-30deg);
+  transform-origin: top right;
+  white-space: nowrap;
+  color: var(--text-colour)
+}
+
+/* Dark mode optimizations */
+.dark-mode .u-plot {
+    --u-bg: var(--card-bg-colour);
+    --u-fg: var(--text-colour);
+    --u-grid: rgba(255, 255, 255, 0.1);
+    color: var(--text-colour);
+}
+
+.dark-mode .u-legend {
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Tooltip animations */
+.uplot-tooltip {
+    animation: fadeIn 0.2s ease;
+}
+.u-over {
+  border-radius: 6px;
+  transition: background-color 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 

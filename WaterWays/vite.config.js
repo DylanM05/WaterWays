@@ -7,7 +7,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0', 
     port: 5173, 
-    allowedHosts: ['waterways.dylansserver.top', 'localhost', '127.0.0.1', 'curious-caring-adder.ngrok-free.app'],
+    allowedHosts: ['waterways.dylansserver.top', 'localhost', '127.0.0.1', 'curious-caring-adder.ngrok-free.app', 'laptop-h17v37df.tailcdf863.ts.net'],
     proxy: {
       '/details': {
         target: 'http://localhost:5173', 

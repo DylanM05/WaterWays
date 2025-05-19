@@ -1,9 +1,11 @@
-import React, { useState, useMemo, useContext, useEffect } from 'react';
+import React, { useState, useContext, useMemo, useRef, useEffect } from 'react';
 import { Card, Row, Col, Container, Alert } from 'react-bootstrap';
-import { Line } from 'react-chartjs-2';
 import moment from 'moment';
+import uPlot from 'uplot';
+import 'uplot/dist/uPlot.min.css';
 import './styling/PressureData.css';
 import { ThemeContext } from '../utility/contexts/Theme';
+import Spinner from '../spinners/Spinner';
 
 const ToggleButton = ({ label, isActive, onClick }) => (
   <button
@@ -39,129 +41,153 @@ const ToggleButton = ({ label, isActive, onClick }) => (
   </button>
 );
 
-const PressureData = ({ pressureData, error }) => {
-  const { darkMode } = useContext(ThemeContext); 
+const PressureData = ({ pressureData, error, loading }) => {
+  const { darkMode } = useContext(ThemeContext);
   const [pressureChartTab, setPressureChartTab] = useState('msl');
+  const chartRef = useRef(null);
+  const uplotInstance = useRef(null);
   
-  useEffect(() => {
-    setPressureChartTab(prevTab => prevTab);
-  }, [darkMode]);
-
-  const formatTooltipTitle = (tooltipItems) => {
-    return moment(tooltipItems[0].label, 'MM/DD HH:mm').format('MMMM Do YYYY, h:mm a');
-  };
-
-  const preparePressureChartData = (tabType) => {
-    if (!pressureData?.pressureMsl || !pressureData?.surfacePressure) {
+  // Prepare data for the uPlot chart
+  const plotData = useMemo(() => {
+    if (!pressureData?.pressureMsl || !pressureData?.surfacePressure || !pressureData?.localTime) {
       return null;
     }
     
     const dataLength = Math.min(48, pressureData.pressureMsl.length);
-    const chartData = {
-      pressureMsl: [...pressureData.pressureMsl].slice(0, dataLength),
-      surfacePressure: [...pressureData.surfacePressure].slice(0, dataLength),
-      time: [...pressureData.localTime].slice(0, dataLength),
-    };
     
-    const labels = chartData.time.map(timeString => 
-      moment(timeString, 'MMMM Do YYYY, h:mm:ss a').format('MM/DD HH:mm')
+    // Convert dates to timestamps
+    const times = pressureData.localTime.slice(0, dataLength).map(timeString => 
+      moment(timeString, 'MMMM Do YYYY, h:mm:ss a').valueOf() / 1000
     );
     
-    const primaryColor = '#646cff';
-    const secondaryColor = '#f5456b';
+    const mslValues = pressureData.pressureMsl.slice(0, dataLength);
+    const surfaceValues = pressureData.surfacePressure.slice(0, dataLength);
     
-    let datasets = [];
-    if (tabType === 'msl' || tabType === 'both') {
-      datasets.push({
-        label: 'Mean Sea Level Pressure (hPa)',
-        data: chartData.pressureMsl,
-        borderColor: primaryColor,
-        backgroundColor: 'rgba(100, 108, 255, 0.1)',
-        pointBackgroundColor: primaryColor,
-        pointBorderColor: primaryColor,
-        fill: false,
-        borderWidth: 2,
-        pointRadius: 3,
-        tension: 0.1,
+    // Return appropriate data based on selected tab
+    if (pressureChartTab === 'msl') {
+      return [times, mslValues];
+    } else { // surface
+      return [times, surfaceValues];
+    }
+  }, [pressureData, pressureChartTab]);
+
+  // Create and update the chart when data or theme changes
+  useEffect(() => {
+    if (!chartRef.current || !plotData || !plotData[0].length) return;
+
+    // Clean up existing chart instance
+    if (uplotInstance.current) {
+      uplotInstance.current.destroy();
+      uplotInstance.current = null;
+    }
+
+    const isDark = darkMode;
+    const COLORS = {
+      background: isDark ? '#1a1a1a' : '#f9f9f9',
+      text: isDark ? '#ffffff' : '#213547',
+      grid: isDark ? '#333' : '#e0e0e0',
+      primary: '#646cff',
+      secondary: '#f25366',
+      mslFill: 'rgba(100, 108, 255, 0.2)',
+      surfaceFill: 'rgba(235, 94, 110, 0.15)'
+    };
+
+    // Set up series array based on selected tab
+    let series = [
+      {
+        label: "Time",
+        scale: "x"
+      }
+    ];
+
+    if (pressureChartTab === 'msl') {
+      series.push({
+        label: 'MSL Pressure',
+        stroke: COLORS.primary,
+        width: 2,
+        fill: COLORS.mslFill,
+        points: { show: false },
+      });
+    } else { // surface
+      series.push({
+        label: 'Surface Pressure',
+        stroke: COLORS.secondary,
+        width: 2,
+        fill: COLORS.surfaceFill,
+        points: { show: false },
       });
     }
-    if (tabType === 'surface' || tabType === 'both') {
-      datasets.push({
-        label: 'Surface Pressure (hPa)',
-        data: chartData.surfacePressure,
-        borderColor: secondaryColor,
-        backgroundColor: 'rgba(245, 69, 107, 0.1)',
-        pointBackgroundColor: secondaryColor,
-        pointBorderColor: secondaryColor,
-        fill: false,
-        borderWidth: 2,
-        pointRadius: 3,
-        tension: 0.1,
-      });
-    }
-    
-    return { labels, datasets };
-  };
 
-  const chartData = useMemo(
-    () => preparePressureChartData(pressureChartTab), 
-    [pressureData, pressureChartTab, darkMode]
-  );
+    const opts = {
+      width: chartRef.current.offsetWidth,
+      height: 300,
+      title: 'Barometric Pressure Over Time',
+      scales: {
+        x: { time: true, show: true },
+        y: { auto: true },
+      },
+      axes: [
+        {
+          stroke: COLORS.text,
+          grid: { show: true, stroke: COLORS.grid },
+          label: 'Date/Time',
+          size: 60,
+          values: (self, ticks) => {
+            const format = "MM/DD HH:mm";
+            const tickSpacing = Math.ceil(ticks.length / (chartRef.current.offsetWidth / 100));
+            
+            return ticks.map((tick, i) => {
+              if (i % tickSpacing !== 0) return "";
+              return moment(tick * 1000).format(format);
+            });
+          }
+        },
+        {
+          label: 'Pressure (hPa)',
+          stroke: COLORS.text,
+          grid: { stroke: COLORS.grid },
+          labelGap: 8, // Add gap between label and axis
+          size: 70, // Increase size to accommodate label
+        }
+      ],
+      series: series,
+      cursor: {
+        y: false,
+        drag: { x: true, y: false }
+      },
+      legend: {
+        show: true,
+        live: true,
+      },
+      hooks: {
+        draw: [
+          (u) => {
+            const legend = u.root.querySelector(".u-legend");
+            if (legend) {
+              legend.style.color = COLORS.text;
+            }
+          }
+        ],
+      }
+    };
 
-  const pressureChartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: { 
-        position: 'top',
-        labels: {
-          color: darkMode ? '#ffffff' : '#213547', 
-          usePointStyle: true,
-          pointStyle: 'rectRounded',
-          boxWidth: 15,
-          boxHeight: 15,
-          padding: 15
-        }
-      },
-      title: { 
-        display: true,
-        text: 'Barometric Pressure',
-        color: darkMode ? '#ffffff' : '#213547' 
-      },
-      tooltip: {
-        callbacks: { title: formatTooltipTitle },
-        backgroundColor: darkMode ? '#1a1a1a' : '#f9f9f9', 
-        titleColor: darkMode ? '#ffffff' : '#213547', 
-        bodyColor: darkMode ? '#ffffff' : '#213547', 
-        borderColor: darkMode ? '#333' : '#e0e0e0', 
-        borderWidth: 1
-      },
-    },
-    scales: {
-      x: {
-        ticks: {
-          color: darkMode ? '#ffffff' : '#213547' 
-        },
-        grid: {
-          color: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
-        }
-      },
-      y: {
-        beginAtZero: false,
-        title: { 
-          display: true, 
-          text: 'Pressure (hPa)',
-          color: darkMode ? '#ffffff' : '#213547' 
-        },
-        ticks: {
-          color: darkMode ? '#ffffff' : '#213547' 
-        },
-        grid: {
-          color: darkMode ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.1)'
-        }
-      },
-    },
-  };
+    uplotInstance.current = new uPlot(opts, plotData, chartRef.current);
+
+    const handleResize = () => {
+      if (uplotInstance.current) {
+        uplotInstance.current.setSize({
+          width: chartRef.current.offsetWidth,
+          height: 300,
+        });
+      }
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (uplotInstance.current) uplotInstance.current.destroy();
+    };
+  }, [plotData, darkMode, pressureChartTab]);
 
   return (
     <Container fluid>
@@ -170,42 +196,36 @@ const PressureData = ({ pressureData, error }) => {
       )}
       <Card className="mb-4" style={{ backgroundColor: 'var(--card-bg-colour)', borderColor: 'var(--border-colour)' }}>
         <Card.Body>
-          <h5 style={{ color: 'var(--text-colour)' }}>Barometric Pressure Visualization</h5>
+          <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+            <h5 style={{ color: 'var(--text-colour)' }}>Barometric Pressure Visualization</h5>
           
-          <div className="d-flex mb-3" style={{ overflow: 'hidden', border: '1px solid var(--border-colour)', borderRadius: '4px', width: 'fit-content' }}>
-            <ToggleButton 
-              label="MSL Pressure" 
-              isActive={pressureChartTab === 'msl'}
-              onClick={() => setPressureChartTab('msl')} 
-            />
-            <ToggleButton 
-              label="Surface Pressure" 
-              isActive={pressureChartTab === 'surface'}
-              onClick={() => setPressureChartTab('surface')} 
-            />
-            <ToggleButton 
-              label="Both" 
-              isActive={pressureChartTab === 'both'}
-              onClick={() => setPressureChartTab('both')} 
-            />
+            <div className="d-flex" style={{ overflow: 'hidden', border: '1px solid var(--border-colour)', borderRadius: '4px', width: 'fit-content' }}>
+              <ToggleButton 
+                label="MSL Pressure" 
+                isActive={pressureChartTab === 'msl'}
+                onClick={() => setPressureChartTab('msl')} 
+              />
+              <ToggleButton 
+                label="Surface Pressure" 
+                isActive={pressureChartTab === 'surface'}
+                onClick={() => setPressureChartTab('surface')} 
+              />
+            </div>
           </div>
           
-          <div className="chart-container" style={{ 
-            height: '300px', 
-            backgroundColor: darkMode ? '#0c0c0c' : '#f3f0f0', 
-            borderRadius: '4px',
-            padding: '10px' 
-          }}>
-            {chartData ? (
-              <Line data={chartData} options={pressureChartOptions} />
-            ) : (
-              <div className="d-flex align-items-center justify-content-center h-100">
-                <p style={{ color: darkMode ? '#ffffff' : '#213547', opacity: 0.7 }}>
-                  No pressure data available for chart
-                </p>
-              </div>
-            )}
-          </div>
+          {loading ? (
+            <div className="d-flex justify-content-center align-items-center" style={{ height: '300px' }}>
+              <Spinner size="60px" color="var(--primary-colour)" message="Fetching pressure data..." />
+            </div>
+          ) : !plotData ? (
+            <div className="d-flex align-items-center justify-content-center" style={{ height: '300px', backgroundColor: darkMode ? '#0c0c0c' : '#f3f0f0', borderRadius: '4px' }}>
+              <p style={{ color: darkMode ? '#ffffff' : '#213547', opacity: 0.7 }}>
+                No pressure data available for chart
+              </p>
+            </div>
+          ) : (
+            <div ref={chartRef} className="uplot-wrapper mb-3" style={{ width: '100%' }} />
+          )}
         </Card.Body>
       </Card>
 

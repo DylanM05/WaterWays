@@ -141,8 +141,10 @@ const RiverSections = ({ rivers }) => {
       if (sections.length === 0) return;
 
       try {
+        // Create individual requests for each station
         const dataPromises = sections.map(async (section) => {
           try {
+            // Add cache-buster parameter to avoid browser caching
             const response = await axios.get(
               `${API_BASE_URL}/details/latest-water-data/${section.station_id}`
             );
@@ -175,7 +177,7 @@ const RiverSections = ({ rivers }) => {
           setLatestWaterData(dataMap);
         }
       } catch (error) {
-        console.error('Error fetching water data:', error);
+        console.error('Error in fetchLatestWaterData:', error);
       }
     };
 
@@ -236,36 +238,53 @@ const RiverSections = ({ rivers }) => {
                   <span className="font-bold">Station ID:</span> {section.station_id}
                 </p>
                 
-                {latestWaterData[section.station_id] && latestWaterData[section.station_id].data && (
+                {latestWaterData[section.station_id] ? (
+                  latestWaterData[section.station_id].data && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                      {latestWaterData[section.station_id].data.water_level !== undefined &&
+                        latestWaterData[section.station_id].data.water_level !== null && (
+                          <div className="bg-bg rounded-md p-4 text-center">
+                            <div className="text-xl font-bold" style={{ color: 'var(--text-colour)' }}>
+                              Water Level
+                              <br />
+                              {typeof latestWaterData[section.station_id].data.water_level === 'number' 
+                                ? latestWaterData[section.station_id].data.water_level.toFixed(2) 
+                                : latestWaterData[section.station_id].data.water_level} m
+                            </div>
+                          </div>
+                        )}
+                      
+                      {latestWaterData[section.station_id].data.discharge !== undefined &&
+                        latestWaterData[section.station_id].data.discharge !== null && (
+                          <div className="bg-bg rounded-md p-4 text-center">
+                            <div className="text-xl font-bold" style={{ color: 'var(--text-colour)' }}>
+                              Discharge
+                              <br />
+                              {typeof latestWaterData[section.station_id].data.discharge === 'number' 
+                                ? latestWaterData[section.station_id].data.discharge.toFixed(2) 
+                                : latestWaterData[section.station_id].data.discharge} m³/s
+                            </div>
+                          </div>
+                        )}
+                      
+                      {latestWaterData[section.station_id].time &&
+                        latestWaterData[section.station_id].time !== "Invalid Date" && (
+                          <div className="col-span-1 md:col-span-2 mt-2 text-sm" style={{ color: 'var(--text-colour)', opacity: '0.7' }}>
+                            <span className="font-bold">Last updated:</span> {latestWaterData[section.station_id].time}
+                          </div>
+                        )}
+                    </div>
+                  )
+                ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    {latestWaterData[section.station_id].data.water_level !== undefined &&
-                      latestWaterData[section.station_id].data.water_level !== null && (
-                        <div className="bg-bg rounded-md p-4 text-center">
-                          <div className="text-xl font-bold" style={{ color: 'var(--text-colour)' }}>
-                            Water Level
-                            <br />
-                            {latestWaterData[section.station_id].data.water_level.toFixed(2)} m
-                          </div>
-                        </div>
-                      )}
-                    
-                    {latestWaterData[section.station_id].data.discharge !== undefined &&
-                      latestWaterData[section.station_id].data.discharge !== null && (
-                        <div className="bg-bg rounded-md p-4 text-center">
-                          <div className="text-xl font-bold" style={{ color: 'var(--text-colour)' }}>
-                            Discharge
-                            <br />
-                            {latestWaterData[section.station_id].data.discharge.toFixed(2)} m³/s
-                          </div>
-                        </div>
-                      )}
-                    
-                    {latestWaterData[section.station_id].time &&
-                      latestWaterData[section.station_id].time !== "Invalid Date" && (
-                        <div className="col-span-1 md:col-span-2 mt-2 text-sm" style={{ color: 'var(--text-colour)', opacity: '0.7' }}>
-                          <span className="font-bold">Last updated:</span> {latestWaterData[section.station_id].time}
-                        </div>
-                      )}
+                    <div className="bg-bg rounded-md p-4 text-center animate-pulse">
+                      <div className="h-6 bg-gray-300 dark:bg-gray-700 rounded w-24 mx-auto mb-2"></div>
+                      <div className="h-8 bg-gray-300 dark:bg-gray-700 rounded w-16 mx-auto"></div>
+                    </div>
+                    <div className="bg-bg rounded-md p-4 text-center animate-pulse">
+                      <div className="h-6 bg-gray-300 dark:bg-gray-700 rounded w-24 mx-auto mb-2"></div>
+                      <div className="h-8 bg-gray-300 dark:bg-gray-700 rounded w-16 mx-auto"></div>
+                    </div>
                   </div>
                 )}
               </div>

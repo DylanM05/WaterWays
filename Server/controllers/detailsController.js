@@ -1,25 +1,15 @@
 const axios = require('axios');
 const moment = require('moment');
+const cheerio = require('cheerio');
 const StationCoordinates = require('../models/StationCoordinates');
 const StationData = require('../models/StationData');
 require('dotenv').config();
+const fs = require('fs');
+const { parseDocument } = require('htmlparser2');
+const { findOne, getText, getAttributeValue, getChildren } = require('domutils');
+const NodeCache = require('node-cache');
+const waterDataCache = new NodeCache({ stdTTL: 900 }); // 15 minutes cache TTL
 
-exports.populateData = async (req, res) => {
-  const riverId = req.params.id;
-
-  try {
-    const data = await StationData.find({ station_id: riverId });
-
-    if (data.length > 0) {
-      res.json(data);
-    } else {
-      res.status(404).json({ error: 'Data not found' });
-    }
-  } catch (error) {
-    console.error('Error fetching data:', error);
-    res.status(500).json({ error: 'Error fetching data' });
-  }
-};
 
 exports.getCoordinates = async (req, res) => {
   const stationId = req.params.id;
@@ -327,17 +317,162 @@ exports.getWeeklyWeather = async (req, res) => {
 
 exports.getLatestWaterData = async (req, res) => {
   const stationId = req.params.id;
+  console.log(`Fetching latest water data for station: ${stationId}`);
 
   try {
-    const latestData = await StationData.findOne({ station_id: stationId }).sort({ date_time: -1 });
+    // Correctly create date objects
+    const today = new Date();
+    // Create startDate as yesterday
+    const startDate = new Date(today);
+    startDate.setDate(startDate.getDate() - 1);
 
-    if (latestData) {
-      res.json(latestData);
+    const formattedDate = today.toISOString().split('T')[0];
+    const formattedStartDate = startDate.toISOString().split('T')[0];
+
+    const url = `https://wateroffice.ec.gc.ca/report/real_time_e.html?stn=${stationId}&mode=Table&startDate=${formattedStartDate}&endDate=${formattedDate}`;
+
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'max-age=0',
+        'Connection': 'keep-alive',
+        'Cookie': 'PHPSESSID=a594f5b05015291d18eb70adc1aa2f78; disclaimer=agree',
+        'Referer': url,
+        'Upgrade-Insecure-Requests': '1',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      }
+    });
+    
+    // Rest of your function remains the same
+    const html = await response.text();
+
+    // Use cheerio for parsing - EXACT SAME as getWaterData
+    const $ = cheerio.load(html);
+    
+    const data = [];
+    $('table').each(function() {
+      const captionText = $(this).find('caption').text();
+      if (captionText.includes('real-time data in tabular format')) {
+        $(this).find('tbody tr').each(function() {
+          const cells = $(this).find('td');
+          if (cells.length >= 6) {
+            const date_time = $(cells[0]).text().trim();
+            
+            // Get water level - EXACT SAME as getWaterData
+            let water_level = $(cells[1]).attr('data-order') || $(cells[1]).text().trim();
+            if (water_level && water_level !== '-') {
+              water_level = parseFloat(water_level);
+              if (isNaN(water_level)) water_level = null;
+            } else {
+              water_level = null;
+            }
+            
+            // Get discharge - EXACT SAME as getWaterData
+            let discharge = $(cells[5]).attr('data-order') || $(cells[5]).text().trim();
+            if (discharge && discharge !== '-') {
+              discharge = parseFloat(discharge);
+              if (isNaN(discharge)) discharge = null;
+            } else {
+              discharge = null;
+            }
+            
+            if (date_time) {
+              data.push({ date_time, water_level, discharge, station_id: stationId });
+            }
+          }
+        });
+        return false; 
+      }
+    });
+    
+    // Return only the latest entry
+    if (data.length > 0) {
+      // Sort by date in descending order and take the first one
+      const sortedData = data.sort((a, b) => new Date(b.date_time) - new Date(a.date_time));
+      const latestData = sortedData[0];
+      return res.json(latestData);
     } else {
-      res.status(404).json({ error: 'No data found for this station' });
+      return res.status(404).json({ error: 'No data found for this station' });
     }
   } catch (error) {
     console.error('Error fetching latest water data:', error);
-    res.status(500).json({ error: 'Error fetching latest water data' });
+    return res.status(500).json({ error: 'Error fetching latest water data' });
+  }
+};
+
+exports.getWaterData = async (req, res) => {
+  const stationId = req.params.id;
+  const days = parseInt(req.params.days, 10) || 1;
+  
+  try {
+    // No cache check - always fetch fresh data
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const formattedEndDate = endDate.toISOString().split('T')[0];
+    const formattedStartDate = startDate.toISOString().split('T')[0];
+
+    const url = `https://wateroffice.ec.gc.ca/report/real_time_e.html?stn=${stationId}&mode=Table&startDate=${formattedStartDate}&endDate=${formattedEndDate}`;
+
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Cache-Control': 'max-age=0',
+        'Connection': 'keep-alive',
+        'Cookie': 'PHPSESSID=a594f5b05015291d18eb70adc1aa2f78; disclaimer=agree',
+        'Referer': url,
+        'Upgrade-Insecure-Requests': '1',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+      }
+    });
+    const html = await response.text();
+    
+    // Use cheerio for parsing
+    const $ = cheerio.load(html);
+    
+    const data = [];
+    $('table').each(function() {
+      const captionText = $(this).find('caption').text();
+      if (captionText.includes('real-time data in tabular format')) {
+        $(this).find('tbody tr').each(function() {
+          const cells = $(this).find('td');
+          if (cells.length >= 6) {
+            const date_time = $(cells[0]).text().trim();
+            
+            // Get water level
+            let water_level = $(cells[1]).attr('data-order') || $(cells[1]).text().trim();
+            if (water_level && water_level !== '-') {
+              water_level = parseFloat(water_level);
+              if (isNaN(water_level)) water_level = null;
+            } else {
+              water_level = null;
+            }
+            
+            // Get discharge
+            let discharge = $(cells[5]).attr('data-order') || $(cells[5]).text().trim();
+            if (discharge && discharge !== '-') {
+              discharge = parseFloat(discharge);
+              if (isNaN(discharge)) discharge = null;
+            } else {
+              discharge = null;
+            }
+            
+            if (date_time) {
+              data.push({ date_time, water_level, discharge, station_id: stationId });
+            }
+          }
+        });
+        return false; // Break the loop
+      }
+    });
+    
+    // No caching - directly return the data
+    return res.json(data);
+  } catch (error) {
+    console.error('Error fetching water data:', error);
+    res.status(500).json({ error: 'Failed to fetch water data' });
   }
 };
