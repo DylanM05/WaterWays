@@ -83,6 +83,15 @@ const ProtectedRoute = ({ children, requireSubscription = false, requireAdmin = 
     }
   }, [isLoaded, isSignedIn, requireSubscription, requireAdmin, getToken]);
 
+  useEffect(() => {
+    if (!isSignedIn && isLoaded) {
+      // Save the current location to localStorage for redirect after login
+      localStorage.setItem('redirectAfterLogin', location.pathname);
+      // Redirect to external URL
+      window.location.href = "https://accounts.waterways.dylansserver.top/sign-in?redirect_url=https%3A%2F%2Fwaterways.dylansserver.top%2F";
+    }
+  }, [isSignedIn, isLoaded, location.pathname]);
+
   if (!isLoaded || 
       (requireSubscription && checkingSubscription) || 
       (requireAdmin && (!adminCheckComplete || checkingAdmin))) {
@@ -105,7 +114,12 @@ const ProtectedRoute = ({ children, requireSubscription = false, requireAdmin = 
             </Alert>
           </div>
         )}
-        <Navigate to="/sign-in" state={{ from: location.pathname }} replace />
+        {/* Render a loading state while the redirect happens */}
+        <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '200px' }}>
+          <Spinner animation="border" role="status" variant="primary">
+            <span className="visually-hidden">Redirecting to login...</span>
+          </Spinner>
+        </div>
       </>
     );
   }

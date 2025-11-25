@@ -1,0 +1,39 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ subscription, main ]
+  pull_request:
+    branches: [ subscription, main ]
+
+jobs:
+  build-server:
+    runs-on: docker
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build Server
+        run: |
+          cd Server
+          docker build -t waterways-server .
+
+  build-client:
+    runs-on: docker
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build Client
+        run: |
+          cd WaterWays
+          docker build -t waterways-client .
+
+  deploy:
+    runs-on: docker
+    needs: [build-server, build-client]
+    if: github.ref == 'refs/heads/subscription'
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Deploy with Docker Compose
+        run: |
+          docker compose up -d --build

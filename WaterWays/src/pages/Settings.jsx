@@ -603,19 +603,6 @@ const Settings = () => {
                     </Button>
                   </div>
                 )}
-                
-                {/* Billing Portal Button */}
-                {subscriptionStatus.subscribed && (
-                  <div className="billing-portal-container mt-4">
-                    <Button 
-                      variant="outline-primary"
-                      onClick={handleOpenBillingPortal}
-                      className="billing-portal-button"
-                    >
-                      Manage Billing
-                    </Button>
-                  </div>
-                )}
               </div>
             ) : (
               <div className="loading-container">

@@ -66,7 +66,7 @@ app.post('/subscription/webhook', async (req, res) => {
 
 app.set('trust proxy', 1);
 
-mongoose.connect('mongodb://localhost:27017/waterways').then(() => {
+mongoose.connect('mongodb://192.168.50.166:27017/waterways').then(() => {
     console.log('Connected to MongoDB');
 }).catch(err => {
     console.error('Error connecting to MongoDB', err);

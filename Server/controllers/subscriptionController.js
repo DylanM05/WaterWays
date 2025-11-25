@@ -7,7 +7,7 @@ const cron = require('node-cron');
 exports.createMonthlyCheckoutSession = async (req, res) => {
   try {
     const userId = req.auth?.userId || req.session?.userId;
-    const userEmail = req.user?.email || "dylan.mcmullen@live.com";
+    const userEmail = req.auth?.sessionClaims?.email || req.user?.email || null;
     
     // Find or create a Stripe customer for this user
     let customerMap = await CustomerMap.findOne({ userId });
@@ -729,7 +729,7 @@ exports.createBillingPortalSession = async (req, res) => {
     // Instead of creating a session, return the temporary test link
     return res.json({ 
       success: true,
-      url: 'https://billing.stripe.com/p/login/test_bJe7sE121cIn4Th9dG67S00'
+      url: 'https://billing.stripe.com/p/login/8x26oH3Mi5FzcLz5ML2kw00'
     });
     
     /* Commented out until you configure your Stripe Customer Portal

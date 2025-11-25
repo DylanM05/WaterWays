@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  server:
+    build: ./Server
+    ports:
+      - "42069:42069"
+    env_file:
+      - ./Server/.env
+    networks:
+      - waterways-network
+    restart: unless-stopped
+
+  client:
+    build: ./WaterWays
+    ports:
+      - "5173:5173"
+    env_file:
+      - ./WaterWays/.env
+    environment:
+      - VITE_API_URL=http://server:42069
+    depends_on:
+      - server
+    networks:
+      - waterways-network
+    restart: unless-stopped
+
+networks:
+  waterways-network:
+    driver: bridge
