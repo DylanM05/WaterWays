@@ -73,13 +73,25 @@ mongoose.connect('mongodb://192.168.50.166:27017/waterways').then(() => {
 });
 
 app.use(express.json());
-const allowedOrigins = ['https://waterways.dylansserver.top', 'http://localhost:3000', '66.79.243.222'];
+const allowedOrigins = ['https://water-ways.ca', 'https://waterways.dylansserver.top', 'http://localhost:3000', 'http://localhost:5173'];
 
 app.use(cors({
-  origin: true,
-  credentials: true
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// Handle preflight requests
+app.options('*', cors());
 app.use(lenientLimiter);
 app.use('/details', detailsRoute);
 app.use('/work', scrapeRoute);

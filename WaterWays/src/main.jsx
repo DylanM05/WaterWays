@@ -8,7 +8,7 @@ import { ClerkProvider } from '@clerk/clerk-react';
 import { SettingsProvider } from './components/utility/contexts/SettingsContext.jsx';
 import { PostHogProvider} from 'posthog-js/react'
 
-const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+const PUBLISHABLE_KEY = import.meta.env.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY
 
 if (!PUBLISHABLE_KEY) {
   throw new Error('Missing Publishable Key')
@@ -16,6 +16,7 @@ if (!PUBLISHABLE_KEY) {
 
 const options = {
   api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
+  defaults: '2025-05-24',
 }
 
 createRoot(document.getElementById('root')).render(
