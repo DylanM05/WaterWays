@@ -23,10 +23,12 @@ jobs:
         run: |
           echo "${{ secrets.SERVER_ENV }}" > ./Server/.env
           echo "${{ secrets.CLIENT_ENV }}" > ./WaterWays/.env
-          echo "✓ Created Server/.env"
-          echo "✓ Created WaterWays/.env"
+          echo "✓ Created Server/.env with $(wc -l < ./Server/.env) lines"
+          echo "✓ Created WaterWays/.env with $(wc -l < ./WaterWays/.env) lines"
 
       - name: Deploy Application
         run: |
           docker-compose down || true
-          docker-compose up -d --build
+          docker system prune -f
+          docker-compose build --no-cache
+          docker-compose up -d
