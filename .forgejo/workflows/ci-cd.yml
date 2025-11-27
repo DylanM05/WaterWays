@@ -7,50 +7,25 @@ on:
       - subscription
 
 jobs:
-  build-server:
-    runs-on: docker
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Docker
-        run: |
-          apt-get update -qq
-          apt-get install -y -qq docker.io
-          docker --version
-      
-      - name: Build Server Image
-        run: docker build -t waterways-server:latest ./Server
-
-  build-client:
-    runs-on: docker
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Install Docker
-        run: |
-          apt-get update -qq
-          apt-get install -y -qq docker.io
-          docker --version
-      
-      - name: Build Client Image
-        run: docker build -t waterways-client:latest ./WaterWays
-
   deploy:
     runs-on: docker
-    needs: [build-server, build-client]
     steps:
       - uses: actions/checkout@v4
-      
+
       - name: Install Docker and Docker Compose
         run: |
           apt-get update -qq
           apt-get install -y -qq docker.io docker-compose
-      
+          docker --version
+          docker-compose --version
+          
       - name: Create .env files
         run: |
           echo "${{ secrets.SERVER_ENV }}" > ./Server/.env
           echo "${{ secrets.CLIENT_ENV }}" > ./WaterWays/.env
-      
+          echo "✓ Created Server/.env"
+          echo "✓ Created WaterWays/.env"
+
       - name: Deploy Application
         run: |
           docker-compose down || true
