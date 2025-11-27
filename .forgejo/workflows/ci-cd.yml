@@ -19,15 +19,21 @@ jobs:
           docker --version
           docker-compose --version
           
-      - name: Create .env files
+      - name: Create .env files on Docker host
         run: |
+          # Create .env files in the workspace
           echo "${{ secrets.SERVER_ENV }}" > ./Server/.env
           echo "${{ secrets.CLIENT_ENV }}" > ./WaterWays/.env
-          echo "✓ Created Server/.env with $(wc -l < ./Server/.env) lines"
-          echo "✓ Created WaterWays/.env with $(wc -l < ./WaterWays/.env) lines"
+          
+          # Copy workspace to Docker host accessible location
+          docker run --rm -v /tmp/waterways:/dest -v "$(pwd)":/src alpine cp -r /src/. /dest/
+          
+          # Verify files exist
+          docker run --rm -v /tmp/waterways:/check alpine ls -la /check/Server/.env
 
       - name: Deploy Application
         run: |
+          cd /tmp/waterways
           docker-compose down || true
           docker system prune -f
           docker-compose build --no-cache
