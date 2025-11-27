@@ -18,23 +18,16 @@ jobs:
           apt-get install -y -qq docker.io docker-compose
           docker --version
           docker-compose --version
-          
-      - name: Create .env files on Docker host
-        run: |
-          # Create .env files in the workspace
-          echo "${{ secrets.SERVER_ENV }}" > ./Server/.env
-          echo "${{ secrets.CLIENT_ENV }}" > ./WaterWays/.env
-          
-          # Copy workspace to Docker host accessible location
-          docker run --rm -v /tmp/waterways:/dest -v "$(pwd)":/src alpine cp -r /src/. /dest/
-          
-          # Verify files exist
-          docker run --rm -v /tmp/waterways:/check alpine ls -la /check/Server/.env
 
       - name: Deploy Application
+        env:
+          SERVER_ENV: ${{ secrets.SERVER_ENV }}
+          CLIENT_ENV: ${{ secrets.CLIENT_ENV }}
         run: |
-          cd /tmp/waterways
+          # Create .env files
+          echo "$SERVER_ENV" > ./Server/.env
+          echo "$CLIENT_ENV" > ./WaterWays/.env
+          
+          # Deploy
           docker-compose down || true
-          docker system prune -f
-          docker-compose build --no-cache
-          docker-compose up -d
+          docker-compose up -d --build
