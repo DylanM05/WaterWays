@@ -46,6 +46,11 @@ jobs:
           apt-get update -qq
           apt-get install -y -qq docker.io docker-compose
       
+      - name: Create .env files
+        run: |
+          echo "${{ secrets.SERVER_ENV }}" > ./Server/.env
+          echo "${{ secrets.CLIENT_ENV }}" > ./WaterWays/.env
+      
       - name: Deploy Application
         run: |
           docker-compose down || true
