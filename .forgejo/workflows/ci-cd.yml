@@ -8,7 +8,7 @@ on:
 
 jobs:
   build-server:
-    runs-on: ubuntu-latest
+    runs-on: docker
     steps:
       - uses: actions/checkout@v4
       
@@ -22,7 +22,7 @@ jobs:
         run: docker build -t waterways-server:latest ./Server
 
   build-client:
-    runs-on: ubuntu-latest
+    runs-on: docker
     steps:
       - uses: actions/checkout@v4
       
@@ -36,7 +36,7 @@ jobs:
         run: docker build -t waterways-client:latest ./WaterWays
 
   deploy:
-    runs-on: ubuntu-latest
+    runs-on: docker
     needs: [build-server, build-client]
     steps:
       - uses: actions/checkout@v4
@@ -45,8 +45,6 @@ jobs:
         run: |
           apt-get update -qq
           apt-get install -y -qq docker.io docker-compose
-          docker --version
-          docker-compose --version
       
       - name: Deploy Application
         run: |
