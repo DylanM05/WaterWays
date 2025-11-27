@@ -1,0 +1,54 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - subscription
+
+jobs:
+  build-server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Docker
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq docker.io
+          docker --version
+      
+      - name: Build Server Image
+        run: docker build -t waterways-server:latest ./Server
+
+  build-client:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Docker
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq docker.io
+          docker --version
+      
+      - name: Build Client Image
+        run: docker build -t waterways-client:latest ./WaterWays
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build-server, build-client]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install Docker and Docker Compose
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq docker.io docker-compose
+          docker --version
+          docker-compose --version
+      
+      - name: Deploy Application
+        run: |
+          docker-compose down || true
+          docker-compose up -d --build
