@@ -16,18 +16,19 @@ jobs:
         run: |
           apt-get update -qq
           apt-get install -y -qq docker.io docker-compose
-          docker --version
-          docker-compose --version
+
+      - name: Create .env files
+        run: |
+          cat > ./Server/.env << 'EOF'
+          ${{ secrets.SERVER_ENV }}
+          EOF
+          cat > ./WaterWays/.env << 'EOF'
+          ${{ secrets.CLIENT_ENV }}
+          EOF
+          echo "Server .env has $(wc -l < ./Server/.env) lines"
+          cat ./Server/.env
 
       - name: Deploy Application
-        env:
-          SERVER_ENV: ${{ secrets.SERVER_ENV }}
-          CLIENT_ENV: ${{ secrets.CLIENT_ENV }}
         run: |
-          # Create .env files
-          echo "$SERVER_ENV" > ./Server/.env
-          echo "$CLIENT_ENV" > ./WaterWays/.env
-          
-          # Deploy
           docker-compose down || true
-          docker-compose up -d --build
+          docker-compose up -d --build --force-recreate
