@@ -9,7 +9,7 @@ services:
       - waterways-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:42069/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://192.168.50.166:42069/health"]
       interval: 10s
       timeout: 5s
       retries: 3
