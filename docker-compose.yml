@@ -6,7 +6,7 @@ services:
     ports:
       - "42069:42069"
     env_file:
-      - ./Server/.env
+      - .env
     networks:
       - waterways-network
     restart: unless-stopped
@@ -16,9 +16,9 @@ services:
     ports:
       - "5173:5173"
     env_file:
-      - ./WaterWays/.env
+      - .env
     environment:
-      - VITE_API_URL=http://server:42069
+      - VITE_API_URL=http://192.168.50.166:42069
     depends_on:
       - server
     networks:
