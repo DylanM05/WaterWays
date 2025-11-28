@@ -8,30 +8,24 @@ on:
 
 jobs:
   deploy:
-    runs-on: docker
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Docker and Docker Compose
+      - name: Create .env file
         run: |
-          apt-get update -qq
-          apt-get install -y -qq docker.io docker-compose
+          echo '${{ secrets.ENV_FILE }}' > .env
 
-      - name: Deploy with environment
+      - name: Stop and remove old containers
         run: |
-          # Stop old containers
-          docker stop waterways_server_1 waterways_client_1 2>/dev/null || true
-          docker rm waterways_server_1 waterways_client_1 2>/dev/null || true
-          
-          # Write .env to the actual host path
-          echo '${{ secrets.ENV_FILE }}' | docker run --rm -i -v "/home/dylan/Waterways/WaterWays-subscription:/work" alpine sh -c 'cat > /work/.env'
-          
-          # Verify it exists
-          docker run --rm -v "/home/dylan/Waterways/WaterWays-subscription:/work" alpine cat /work/.env | head -n 2
-          
-          # Build and deploy from host path
-          docker run --rm -v "/home/dylan/Waterways/WaterWays-subscription:/app" -v /var/run/docker.sock:/var/run/docker.sock -w /app docker/compose:latest build --no-cache
-          docker run --rm -v "/home/dylan/Waterways/WaterWays-subscription:/app" -v /var/run/docker.sock:/var/run/docker.sock -w /app docker/compose:latest up -d
-          
+          docker-compose down || true
+
+      - name: Build and deploy
+        run: |
+          docker-compose build --no-cache
+          docker-compose up -d
+
+      - name: Show logs
+        run: |
           sleep 10
-          docker logs waterways_server_1 --tail 30
+          docker-compose logs --tail 30
