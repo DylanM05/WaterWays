@@ -3,14 +3,10 @@ add functionality:
 
 Work on better way to display map
 
+redesign for better UX
+fix google maps section
 
-Implement settings usage from logged in user
--add settings for metric/imperial distances, 12/24 hour times,
-Favourites page
-Paywall?
 
-redo paywall with paypal? or something else?
-Add promo code for direct life time membership.
 
 Success: 4242 4242 4242 4242
 Authentication required: 4000 0025 0000 3155
