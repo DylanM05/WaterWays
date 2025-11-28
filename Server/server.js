@@ -105,6 +105,11 @@ app.use('/inv', inviteRoutes)
 
 app.use('/admin', adminRoutes)
 
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+app.use(lenientLimiter);
 const port = 42069;
 app.listen(port, '0.0.0.0', () => {
   console.log(`Server is running on http://0.0.0.0:${port}`);
