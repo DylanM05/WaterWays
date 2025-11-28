@@ -17,14 +17,24 @@ jobs:
           apt-get update -qq
           apt-get install -y -qq docker.io docker-compose
 
-      - name: Create .env file
+      - name: Deploy with environment
         run: |
-          cat > .env << 'EOF'
+          # Stop old containers
+          docker stop waterways_server_1 waterways_client_1 2>/dev/null || true
+          docker rm waterways_server_1 waterways_client_1 2>/dev/null || true
+          
+          # Write .env directly to host filesystem via docker
+          docker run --rm -v "$(pwd):/workspace" -w /workspace alpine sh -c "cat > .env << 'ENVEOF'
           ${{ secrets.ENV_FILE }}
-          EOF
-
-      - name: Deploy Application
-        run: |
-          docker-compose down || true
+          ENVEOF"
+          
+          # Verify .env exists on host
+          docker run --rm -v "$(pwd):/workspace" alpine cat /workspace/.env | head -n 1
+          
+          # Build and deploy
           docker-compose build --no-cache
           docker-compose up -d
+          
+          # Wait and verify
+          sleep 10
+          docker logs waterways_server_1 --tail 20
