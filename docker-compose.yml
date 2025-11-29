@@ -5,26 +5,27 @@ services:
       - "42069:42069"
     env_file:
       - .env
+    environment:
+      - NODE_ENV=production
     networks:
       - waterways-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://192.168.50.166:42069/health"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:42069/health"]
+      interval: 30s
+      timeout: 10s
       retries: 3
+      start_period: 30s
 
   client:
     build: ./WaterWays
     ports:
       - "5173:5173"
-    env_file:
-      - .env
     environment:
-      - VITE_API_URL=http://192.168.50.166:42069
+      - NODE_ENV=production
     depends_on:
       server:
-        condition: service_healthy  # Wait for server health check
+        condition: service_healthy
     networks:
       - waterways-network
     restart: unless-stopped
