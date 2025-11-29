@@ -12,29 +12,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install docker-compose
-        run: |
-          apt-get update -qq
-          apt-get install -y -qq curl
-          curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-          chmod +x /usr/local/bin/docker-compose
-
       - name: Create .env file
         run: |
           echo '${{ secrets.ENV_FILE }}' > .env
 
       - name: Stop and remove old containers
         run: |
-          docker-compose -p waterways down --remove-orphans || true
-          docker stop waterways-server-1 waterways-client-1 2>/dev/null || true
-          docker rm waterways-server-1 waterways-client-1 2>/dev/null || true
+          docker compose down --remove-orphans || true
 
       - name: Build and deploy
         run: |
-          docker-compose build --no-cache
-          docker-compose up -d
+          docker compose build --no-cache
+          docker compose up -d
 
       - name: Show logs
         run: |
-          sleep 10
-          docker-compose logs --tail 50
+          sleep 15
+          docker compose logs --tail 50
