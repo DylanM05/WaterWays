@@ -4,27 +4,30 @@ services:
     ports:
       - "42069:42069"
     env_file:
-      - .env
+      - ./Server/.env
     networks:
       - waterways-network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://192.168.50.166:42069/health"]
-      interval: 10s
-      timeout: 5s
+      interval: 35s
+      timeout: 30s
       retries: 3
 
   client:
-    build: ./WaterWays
+    build:
+      context: ./WaterWays
+      args:
+        - VITE_PUBLIC_CLERK_PUBLISHABLE_KEY=${VITE_PUBLIC_CLERK_PUBLISHABLE_KEY}
     ports:
       - "5173:5173"
     env_file:
-      - .env
+      - ./WaterWays/.env
     environment:
       - VITE_API_URL=http://192.168.50.166:42069
     depends_on:
       server:
-        condition: service_healthy  # Wait for server health check
+        condition: service_healthy
     networks:
       - waterways-network
     restart: unless-stopped

@@ -2,12 +2,18 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Accept build arguments
+ARG VITE_PUBLIC_CLERK_PUBLISHABLE_KEY
+
+# Set as environment variables for the build
+ENV VITE_PUBLIC_CLERK_PUBLISHABLE_KEY=${VITE_PUBLIC_CLERK_PUBLISHABLE_KEY}
+
 COPY package*.json ./
 RUN npm install
 
 COPY . .
 
-# Build for production
+# Build for production (Vite will embed the env vars)
 RUN npm run build
 
 # Production stage
