@@ -23,11 +23,25 @@ jobs:
         run: |
           echo '${{ secrets.CLIENT_ENV_FILE }}' > ./WaterWays/.env
           echo '${{ secrets.SERVER_ENV_FILE }}' > ./Server/.env
-          echo '${{ secrets.ENV_FILE }}' > .env
+          echo '${{ secrets.CLIENT_ENV_FILE }}' > .env
+
+      - name: Debug env files
+        run: |
+          echo "=== Root .env ==="
+          cat .env | sed 's/=.*/=***REDACTED***/g'
+          echo ""
+          echo "=== Client .env ==="
+          cat ./WaterWays/.env | sed 's/=.*/=***REDACTED***/g'
+          echo ""
+          echo "=== Server .env ==="
+          cat ./Server/.env | sed 's/=.*/=***REDACTED***/g'
 
       - name: Build images
         run: |
           docker-compose build --no-cache
+        env:
+          VITE_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
       - name: Stop and remove old containers
         run: |
