@@ -27,7 +27,6 @@ jobs:
 
       - name: Build images
         run: |
-          export $(cat ./WaterWays/.env | xargs)
           docker-compose build --no-cache
 
       - name: Stop and remove old containers
