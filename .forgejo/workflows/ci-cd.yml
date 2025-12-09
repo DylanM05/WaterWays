@@ -23,7 +23,7 @@ jobs:
         run: |
           echo '${{ secrets.CLIENT_ENV_FILE }}' > ./WaterWays/.env
           echo '${{ secrets.SERVER_ENV_FILE }}' > ./Server/.env
-          echo '${{ secrets.CLIENT_ENV_FILE }}' > .env
+          echo '${{ secrets.ENV_FILE }}' > .env
 
       - name: Build images
         run: |
