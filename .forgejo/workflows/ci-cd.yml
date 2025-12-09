@@ -24,15 +24,20 @@ jobs:
           echo '${{ secrets.CLIENT_ENV_FILE }}' > ./WaterWays/.env
           echo '${{ secrets.SERVER_ENV_FILE }}' > ./Server/.env
           echo '${{ secrets.CLIENT_ENV_FILE }}' > .env
+
+      - name: Build images
+        run: |
+          export $(cat ./WaterWays/.env | xargs)
+          docker-compose build --no-cache
+
       - name: Stop and remove old containers
         run: |
           docker-compose -p waterways down --remove-orphans || true
           docker stop waterways-server-1 waterways-client-1 2>/dev/null || true
           docker rm waterways-server-1 waterways-client-1 2>/dev/null || true
 
-      - name: Build and deploy
+      - name: Deploy
         run: |
-          docker-compose build --no-cache
           docker-compose up -d
 
       - name: Show logs
