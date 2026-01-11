@@ -21,9 +21,15 @@ jobs:
 
       - name: Create .env files
         run: |
-          echo '${{ secrets.CLIENT_ENV_FILE }}' > ./WaterWays/.env
-          echo '${{ secrets.SERVER_ENV_FILE }}' > ./Server/.env
-          echo '${{ secrets.ENV_FILE }}' > .env
+          cat > ./WaterWays/.env << 'EOF'
+          ${{ secrets.CLIENT_ENV_FILE }}
+          EOF
+          cat > ./Server/.env << 'EOF'
+          ${{ secrets.SERVER_ENV_FILE }}
+          EOF
+          cat > .env << 'EOF'
+          ${{ secrets.ENV_FILE }}
+          EOF
 
       - name: Debug env files
         run: |
@@ -38,6 +44,7 @@ jobs:
 
       - name: Build images
         run: |
+          export VITE_PUBLIC_CLERK_PUBLISHABLE_KEY="${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}"
           docker-compose build --no-cache
         env:
           VITE_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}
