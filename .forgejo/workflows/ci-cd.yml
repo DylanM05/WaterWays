@@ -19,6 +19,10 @@ jobs:
           curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
           chmod +x /usr/local/bin/docker-compose
 
+      - name: Set environment variables
+        run: |
+          echo "VITE_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}" >> $GITHUB_ENV
+
       - name: Create .env files
         run: |
           cat > ./WaterWays/.env << 'EOF'
@@ -38,12 +42,8 @@ jobs:
 
       - name: Build images
         run: |
-          export VITE_PUBLIC_CLERK_PUBLISHABLE_KEY="${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}"
           echo "DEBUG: VITE_PUBLIC_CLERK_PUBLISHABLE_KEY=${VITE_PUBLIC_CLERK_PUBLISHABLE_KEY}"
           docker-compose build --no-cache --build-arg VITE_PUBLIC_CLERK_PUBLISHABLE_KEY="${VITE_PUBLIC_CLERK_PUBLISHABLE_KEY}"
-        env:
-          VITE_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}
-          DOCKER_BUILDKIT: 1
 
       - name: Stop and remove old containers
         run: |
@@ -53,10 +53,7 @@ jobs:
 
       - name: Deploy
         run: |
-          export VITE_PUBLIC_CLERK_PUBLISHABLE_KEY="${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}"
           docker-compose up -d
-        env:
-          VITE_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}
 
       - name: Show logs
         run: |
