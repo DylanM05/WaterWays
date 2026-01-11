@@ -38,7 +38,10 @@ jobs:
           head -3 ./WaterWays/.env
           echo ""
           echo "=== Server/.env ===" 
-          head -3 ./Server/.env
+          cat ./Server/.env | head -10
+          echo ""
+          echo "Checking for STRIPE_SECRET_KEY:"
+          grep STRIPE_SECRET_KEY ./Server/.env || echo "NOT FOUND"
 
       - name: Build images
         run: |
