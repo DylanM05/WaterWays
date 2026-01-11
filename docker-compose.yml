@@ -17,8 +17,6 @@ services:
   client:
     build:
       context: ./WaterWays
-      args:
-        - VITE_PUBLIC_CLERK_PUBLISHABLE_KEY=${VITE_PUBLIC_CLERK_PUBLISHABLE_KEY}
     ports:
       - "5173:5173"
     env_file:
