@@ -12,9 +12,10 @@ COPY package*.json ./
 RUN npm install
 
 COPY . .
+COPY .env .env.build
 
 # Build for production (Vite will embed the env vars)
-RUN npm run build
+RUN cat .env.build && npm run build
 
 # Production stage
 FROM node:20-alpine

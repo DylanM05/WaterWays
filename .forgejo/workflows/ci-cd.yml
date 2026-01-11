@@ -42,8 +42,7 @@ jobs:
 
       - name: Build images
         run: |
-          echo "DEBUG: VITE_PUBLIC_CLERK_PUBLISHABLE_KEY=${VITE_PUBLIC_CLERK_PUBLISHABLE_KEY}"
-          docker-compose build --no-cache --build-arg VITE_PUBLIC_CLERK_PUBLISHABLE_KEY="${VITE_PUBLIC_CLERK_PUBLISHABLE_KEY}"
+          docker-compose build --no-cache
 
       - name: Stop and remove old containers
         run: |
@@ -53,6 +52,7 @@ jobs:
 
       - name: Deploy
         run: |
+          VITE_PUBLIC_CLERK_PUBLISHABLE_KEY="${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}"
           docker-compose up -d
 
       - name: Show logs
