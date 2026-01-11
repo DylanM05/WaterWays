@@ -8,8 +8,8 @@ RUN npm install
 COPY . .
 COPY .env .env.build
 
-# Load .env before build
-RUN export $(cat .env.build | xargs) && npm run build
+# Load .env before build - filter out invalid variable names
+RUN export $(grep -v '^[0-9]' .env.build | grep -v '^#' | xargs) && npm run build
 
 # Production stage
 FROM node:20-alpine
