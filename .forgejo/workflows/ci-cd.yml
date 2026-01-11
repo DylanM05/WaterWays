@@ -61,4 +61,5 @@ jobs:
       - name: Show logs
         run: |
           sleep 15
-          docker-compose logs --tail 50
+          docker-compose logs server | grep -i "stripe\|error\|listening" | head -20
+          docker exec waterways-server-1 env | grep STRIPE || echo "STRIPE vars not found in container"
