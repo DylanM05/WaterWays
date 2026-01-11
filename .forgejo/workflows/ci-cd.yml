@@ -27,20 +27,6 @@ jobs:
           cat > ./Server/.env << 'EOF'
           ${{ secrets.SERVER_ENV_FILE }}
           EOF
-          cat > .env << 'EOF'
-          ${{ secrets.ENV_FILE }}
-          EOF
-
-      - name: Debug env files
-        run: |
-          echo "=== Root .env ==="
-          cat .env | sed 's/=.*/=***REDACTED***/g'
-          echo ""
-          echo "=== Client .env ==="
-          cat ./WaterWays/.env | sed 's/=.*/=***REDACTED***/g'
-          echo ""
-          echo "=== Server .env ==="
-          cat ./Server/.env | sed 's/=.*/=***REDACTED***/g'
 
       - name: Build images
         run: |
@@ -48,6 +34,7 @@ jobs:
           docker-compose build --no-cache
         env:
           VITE_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}
+          DOCKER_BUILDKIT: 1
 
       - name: Stop and remove old containers
         run: |
