@@ -28,9 +28,18 @@ jobs:
           ${{ secrets.SERVER_ENV_FILE }}
           EOF
 
+      - name: Verify .env files
+        run: |
+          echo "=== WaterWays/.env ===" 
+          head -3 ./WaterWays/.env
+          echo ""
+          echo "=== Server/.env ===" 
+          head -3 ./Server/.env
+
       - name: Build images
         run: |
           export VITE_PUBLIC_CLERK_PUBLISHABLE_KEY="${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}"
+          env | grep VITE_PUBLIC_CLERK_PUBLISHABLE_KEY
           docker-compose build --no-cache
         env:
           VITE_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}
