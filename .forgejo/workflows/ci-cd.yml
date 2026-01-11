@@ -39,8 +39,8 @@ jobs:
       - name: Build images
         run: |
           export VITE_PUBLIC_CLERK_PUBLISHABLE_KEY="${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}"
-          env | grep VITE_PUBLIC_CLERK_PUBLISHABLE_KEY
-          docker-compose build --no-cache
+          echo "DEBUG: VITE_PUBLIC_CLERK_PUBLISHABLE_KEY=${VITE_PUBLIC_CLERK_PUBLISHABLE_KEY}"
+          docker-compose build --no-cache --build-arg VITE_PUBLIC_CLERK_PUBLISHABLE_KEY="${VITE_PUBLIC_CLERK_PUBLISHABLE_KEY}"
         env:
           VITE_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}
           DOCKER_BUILDKIT: 1
@@ -53,7 +53,10 @@ jobs:
 
       - name: Deploy
         run: |
+          export VITE_PUBLIC_CLERK_PUBLISHABLE_KEY="${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}"
           docker-compose up -d
+        env:
+          VITE_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}
 
       - name: Show logs
         run: |
