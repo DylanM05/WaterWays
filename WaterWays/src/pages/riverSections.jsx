@@ -2,8 +2,10 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '@clerk/clerk-react';
-import { FaHeart, FaRegHeart } from 'react-icons/fa';
+import { FaHeart, FaRegHeart, FaTint, FaWater } from 'react-icons/fa';
+import { WiTime4 } from 'react-icons/wi';
 import FavouritesSubscribeToast from '../components/toasts/subscriptionRequiredToast';
+import '../pages/styling/RiverSection.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -17,6 +19,7 @@ const RiverSections = ({ rivers }) => {
   const [toastMessage, setToastMessage] = useState('');
   const [subscriptionStatus, setSubscriptionStatus] = useState({ subscribed: false });
   const [checkingSubscription, setCheckingSubscription] = useState(false);
+  const [hoveredCard, setHoveredCard] = useState(null);
   
   const isMounted = useRef(true);
   
@@ -141,10 +144,8 @@ const RiverSections = ({ rivers }) => {
       if (sections.length === 0) return;
 
       try {
-        // Create individual requests for each station
         const dataPromises = sections.map(async (section) => {
           try {
-            // Add cache-buster parameter to avoid browser caching
             const response = await axios.get(
               `${API_BASE_URL}/details/latest-water-data/${section.station_id}`
             );
@@ -191,108 +192,230 @@ const RiverSections = ({ rivers }) => {
   if (!sections.length) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-center mb-6" style={{ color: 'var(--primary-colour)' }}>{riverName}</h1>
-        <p className="text-center" style={{ color: 'var(--text-colour)', opacity: '0.7' }}>Loading sections or no data available.</p>
+        <h1 className="text-3xl font-bold text-center mb-6" style={{ color: 'var(--primary-colour)' }}>
+          {riverName}
+        </h1>
+        <div 
+          className="text-center p-8 rounded-lg"
+          style={{ 
+            backgroundColor: 'var(--card-bg-colour)',
+            borderColor: 'var(--border-colour)',
+            border: '1px solid'
+          }}
+        >
+          <p style={{ color: 'var(--text-colour)', opacity: '0.7' }}>
+            Loading sections or no data available.
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold text-center mb-6" style={{ color: 'var(--primary-colour)' }}>{riverName}</h1>
-      <div className="space-y-6">
-        {sections.map((section, index) => (
-          <div key={index} className="relative">
-            <Link 
-              to={`/station-details/${section.station_id}`} 
-              className="block"
-              style={{ textDecoration: 'none' }}
+    <div className="container mx-auto px-4 py-6 mb-5">
+      <h1 
+        className="text-2xl font-bold text-center mb-5" 
+        style={{ color: 'var(--text-colour)' }}
+      >
+        {riverName}
+      </h1>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
+        {sections.map((section, index) => {
+          const waterData = latestWaterData[section.station_id];
+          const isLoading = !waterData;
+          
+          return (
+            <div 
+              key={index} 
+              className="river-section-card"
+              style={{
+                backgroundColor: 'var(--card-bg-colour)',
+                border: '1px solid var(--border-colour)',
+                borderRadius: '8px',
+                overflow: 'hidden',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                transform: hoveredCard === section.station_id ? 'translateY(-3px)' : 'translateY(0)',
+                boxShadow: hoveredCard === section.station_id ? '0 4px 12px rgba(0, 0, 0, 0.1)' : 'none',
+                position: 'relative',
+                cursor: 'pointer'
+              }}
+              onMouseEnter={() => setHoveredCard(section.station_id)}
+              onMouseLeave={() => setHoveredCard(null)}
             >
-              <div className="bg-background-card rounded-lg shadow-md border border-border p-6 transition-all hover:-translate-y-1 hover:shadow-lg">
-                <div className="flex justify-between items-start">
-                  <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-colour)' }}>{section.section}</h2>
-                  
-                  {isSignedIn && (
-                    <button
-                      onClick={(e) => toggleFavorite(e, section)}
-                      disabled={favoriteLoading[section.station_id]}
-                      className="favorite-btn"
-                      style={{
-                        background: 'transparent',
-                        border: 'none',
-                        padding: '8px',
-                        cursor: 'pointer',
-                        color: favorites[section.station_id] ? 'var(--primary-colour)' : 'var(--text-colour)',
-                        opacity: favoriteLoading[section.station_id] ? 0.6 : 1,
-                        position: 'relative',
-                        zIndex: 10
-                      }}
-                      aria-label={favorites[section.station_id] ? "Remove from favorites" : "Add to favorites"}
-                    >
-                      {favorites[section.station_id] ? <FaHeart size={20} /> : <FaRegHeart size={20} />}
-                    </button>
-                  )}
+              {/* Card Header */}
+              <div 
+                className="px-3 py-2 d-flex justify-content-between align-items-center"
+                style={{
+                  borderBottom: '1px solid var(--border-colour)',
+                  backgroundColor: 'rgba(var(--primary-colour-rgb), 0.05)'
+                }}
+              >
+                <div style={{ flex: 1 }}>
+                  <span 
+                    className="badge"
+                    style={{ 
+                      backgroundColor: 'var(--primary-colour)', 
+                      color: 'var(--primary-text-colour)',
+                      fontSize: '0.7rem',
+                      padding: '3px 6px'
+                    }}
+                  >
+                    {section.province || 'N/A'}
+                  </span>
                 </div>
                 
-                <p className="mb-2" style={{ color: 'var(--primary-colour)' }}>
-                  <span className="font-bold">Station ID:</span> {section.station_id}
-                </p>
+                {isSignedIn && (
+                  <button
+                    onClick={(e) => toggleFavorite(e, section)}
+                    disabled={favoriteLoading[section.station_id]}
+                    className="favorite-btn"
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      padding: '6px',
+                      cursor: 'pointer',
+                      color: favorites[section.station_id] ? 'var(--primary-colour)' : 'var(--text-colour)',
+                      opacity: favoriteLoading[section.station_id] ? 0.6 : 1,
+                      position: 'relative',
+                      zIndex: 10,
+                      transition: 'transform 0.2s ease, color 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.transform = 'scale(1.15)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.transform = 'scale(1)';
+                    }}
+                    aria-label={favorites[section.station_id] ? "Remove from favorites" : "Add to favorites"}
+                  >
+                    {favorites[section.station_id] ? <FaHeart size={16} /> : <FaRegHeart size={16} />}
+                  </button>
+                )}
+              </div>
+
+              {/* Card Body */}
+              <div className="p-3">
+                <h2 
+                  className="text-base font-semibold mb-2 text-center"
+                  style={{ 
+                    color: 'var(--text-colour)',
+                    borderBottom: '1px solid var(--border-colour)',
+                    paddingBottom: '0.4rem'
+                  }}
+                >
+                  {section.section}
+                </h2>
                 
-                {latestWaterData[section.station_id] ? (
-                  latestWaterData[section.station_id].data && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                      {latestWaterData[section.station_id].data.water_level !== undefined &&
-                        latestWaterData[section.station_id].data.water_level !== null && (
-                          <div className="bg-bg rounded-md p-4 text-center">
-                            <div className="text-xl font-bold" style={{ color: 'var(--text-colour)' }}>
-                              Water Level
-                              <br />
-                              {typeof latestWaterData[section.station_id].data.water_level === 'number' 
-                                ? latestWaterData[section.station_id].data.water_level.toFixed(2) 
-                                : latestWaterData[section.station_id].data.water_level} m
-                            </div>
-                          </div>
-                        )}
-                      
-                      {latestWaterData[section.station_id].data.discharge !== undefined &&
-                        latestWaterData[section.station_id].data.discharge !== null && (
-                          <div className="bg-bg rounded-md p-4 text-center">
-                            <div className="text-xl font-bold" style={{ color: 'var(--text-colour)' }}>
-                              Discharge
-                              <br />
-                              {typeof latestWaterData[section.station_id].data.discharge === 'number' 
-                                ? latestWaterData[section.station_id].data.discharge.toFixed(2) 
-                                : latestWaterData[section.station_id].data.discharge} m³/s
-                            </div>
-                          </div>
-                        )}
-                      
-                      {latestWaterData[section.station_id].time &&
-                        latestWaterData[section.station_id].time !== "Invalid Date" && (
-                          <div className="col-span-1 md:col-span-2 mt-2 text-sm" style={{ color: 'var(--text-colour)', opacity: '0.7' }}>
-                            <span className="font-bold">Last updated:</span> {latestWaterData[section.station_id].time}
-                          </div>
-                        )}
+                <div className="text-center mb-2">
+                  <span style={{ color: 'var(--text-colour)', fontSize: '0.8rem', opacity: 0.8 }}>
+                    ID: <strong>{section.station_id}</strong>
+                  </span>
+                </div>
+
+                {/* Water Data */}
+                {isLoading ? (
+                  <div className="text-center my-2">
+                    <div className="spinner-border spinner-border-sm" style={{ color: 'var(--text-colour)' }} role="status">
+                      <span className="visually-hidden">Loading...</span>
                     </div>
-                  )
+                  </div>
+                ) : waterData?.data ? (
+                  <div className="space-y-2">
+                    {waterData.data.water_level !== undefined && waterData.data.water_level !== null && (
+                      <div 
+                        className="p-2 rounded text-center"
+                        style={{ backgroundColor: 'rgba(var(--primary-colour-rgb), 0.1)' }}
+                      >
+                        <FaTint 
+                          size={16} 
+                          style={{ color: 'var(--text-colour)', marginBottom: '0.15rem' }} 
+                        />
+                        <div className="mt-1">
+                          <div className="small" style={{ color: 'var(--text-colour)', opacity: 0.8, fontSize: '0.75rem' }}>
+                            Water Level
+                          </div>
+                          <div 
+                            className="fw-bold" 
+                            style={{ fontSize: '0.95rem', color: 'var(--text-colour)' }}
+                          >
+                            {typeof waterData.data.water_level === 'number' 
+                              ? waterData.data.water_level.toFixed(2) 
+                              : waterData.data.water_level} m
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {waterData.data.discharge !== undefined && waterData.data.discharge !== null && (
+                      <div 
+                        className="p-2 rounded text-center"
+                        style={{ backgroundColor: 'rgba(var(--primary-colour-rgb), 0.05)' }}
+                      >
+                        <FaWater 
+                          size={16} 
+                          style={{ color: 'var(--text-colour)', marginBottom: '0.15rem' }} 
+                        />
+                        <div className="mt-1">
+                          <div className="small" style={{ color: 'var(--text-colour)', opacity: 0.8, fontSize: '0.75rem' }}>
+                            Discharge
+                          </div>
+                          <div 
+                            className="fw-bold" 
+                            style={{ fontSize: '0.95rem', color: 'var(--text-colour)' }}
+                          >
+                            {typeof waterData.data.discharge === 'number' 
+                              ? waterData.data.discharge.toFixed(2) 
+                              : waterData.data.discharge} m³/s
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                    <div className="bg-bg rounded-md p-4 text-center animate-pulse">
-                      <div className="h-6 bg-gray-300 dark:bg-gray-700 rounded w-24 mx-auto mb-2"></div>
-                      <div className="h-8 bg-gray-300 dark:bg-gray-700 rounded w-16 mx-auto"></div>
-                    </div>
-                    <div className="bg-bg rounded-md p-4 text-center animate-pulse">
-                      <div className="h-6 bg-gray-300 dark:bg-gray-700 rounded w-24 mx-auto mb-2"></div>
-                      <div className="h-8 bg-gray-300 dark:bg-gray-700 rounded w-16 mx-auto"></div>
-                    </div>
+                  <div 
+                    className="p-2 rounded text-center"
+                    style={{ 
+                      backgroundColor: 'rgba(var(--primary-colour-rgb), 0.05)',
+                      color: 'var(--text-colour)',
+                      opacity: 0.7,
+                      fontSize: '0.8rem'
+                    }}
+                  >
+                    No data available
                   </div>
                 )}
               </div>
-            </Link>
-          </div>
-        ))}
+
+              {/* Card Footer */}
+              {waterData?.time && waterData.time !== "Invalid Date" && (
+                <div 
+                  className="px-3 py-1 text-center"
+                  style={{ 
+                    borderTop: '1px solid var(--border-colour)',
+                    fontSize: '0.7rem',
+                    color: 'var(--text-colour)',
+                    opacity: 0.7
+                  }}
+                >
+                  <WiTime4 size={14} style={{ marginRight: '3px', verticalAlign: 'middle' }} />
+                  <span>Last Updated: {waterData.time}</span>
+                </div>
+              )}
+
+              {/* Stretched Link for Navigation */}
+              <Link 
+                to={`/station-details/${section.station_id}`}
+                className="stretched-link"
+                aria-label={`View details for ${section.section}`}
+                style={{ position: 'absolute', inset: 0, zIndex: 1 }}
+              />
+            </div>
+          );
+        })}
       </div>
-            <FavouritesSubscribeToast 
+      
+      <FavouritesSubscribeToast 
         showToast={showToast}
         setShowToast={setShowToast}
         toastMessage={toastMessage}

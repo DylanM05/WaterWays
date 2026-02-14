@@ -1,47 +1,110 @@
 .river-title {
-    color: var(--primary-colour);
-    text-align: center;
-    margin-bottom: 2rem;
-    text-decoration: none;
-  }
-  
-  .section-link {
-    text-decoration: none;
-  }
-  
-  .section-card {
-    background-color: var(--card-bg-colour);
-    border: 1px solid var(--border-colour);
-    transition: transform 0.2s, box-shadow 0.2s;
-    width: 100%;
-    min-width: 515px;
-  }
-  
-  .section-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  }
-  
-  .section-card .card-title {
-    color: var(--primary-colour);
-  }
-  
-  .section-card .card-text {
-    color: var(--text-colour);
-  }
-  
-  .containerP {
-    border: 1px solid var(--border-colour) !important;
-  }
+  color: var(--primary-colour);
+  text-align: center;
+  margin-bottom: 2rem;
+  text-decoration: none;
+}
 
-  .river-section-metric{
-    color: var(--primary-colour);
-    font-size: 1.5rem;
-    background-color: var(--background-colour);
-    border-radius: 5px;
+.river-section-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 320px;
+}
+
+.river-section-card .stretched-link {
+  text-decoration: none;
+}
+
+.favorite-btn {
+  transition: transform 0.2s ease, color 0.2s ease;
+}
+
+.favorite-btn:hover {
+  transform: scale(1.15);
+}
+
+.badge {
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* Loading spinner */
+.spinner-border {
+  width: 1.2rem;
+  height: 1.2rem;
+  border-width: 0.15em;
+}
+
+/* Responsive Grid */
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: 1fr;
   }
-  .river-section-time {
-    color: var(--text-colour);
-    font-size: 0.75rem;
-    margin-top: 0.5rem;
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .grid.lg\:grid-cols-2 {
+    grid-template-columns: repeat(2, 1fr);
   }
+}
+
+@media (min-width: 1025px) {
+  .grid.xl\:grid-cols-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Utility classes */
+.space-y-2 > * + * {
+  margin-top: 0.5rem;
+}
+
+.space-y-3 > * + * {
+  margin-top: 0.75rem;
+}
+
+.gap-4 {
+  gap: 1rem;
+}
+
+.gap-6 {
+  gap: 1.5rem;
+}
+
+.d-flex {
+  display: flex;
+}
+
+.justify-content-between {
+  justify-content: space-between;
+}
+
+.align-items-center {
+  align-items: center;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.fw-bold {
+  font-weight: bold;
+}
+
+.small {
+  font-size: 0.875rem;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
