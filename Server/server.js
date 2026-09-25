@@ -16,6 +16,16 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 require('dotenv').config();
 
+const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
+
+const shouldRunScheduler = process.env.ENABLE_SCHEDULER !== 'false';
+if (shouldRunScheduler) {
+  require('./utilities/scheduler');
+  console.log('Background scheduler enabled.');
+} else {
+  console.log('Background scheduler disabled by ENABLE_SCHEDULER=false.');
+}
+
 const app = express();
 
 
@@ -66,14 +76,21 @@ app.post('/subscription/webhook', async (req, res) => {
 
 app.set('trust proxy', 1);
 
-mongoose.connect('mongodb://192.168.50.166:27017/waterways').then(() => {
+mongoose.connect(mongoUri).then(() => {
     console.log('Connected to MongoDB');
 }).catch(err => {
     console.error('Error connecting to MongoDB', err);
 });
 
 app.use(express.json());
-const allowedOrigins = ['https://water-ways.ca', 'https://waterways.dylansserver.top', 'http://localhost:3000', 'http://localhost:5173'];
+const allowedOrigins = [
+  'https://water-ways.ca',
+  'https://waterways.dylansserver.top',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'capacitor://localhost',
+  'ionic://localhost'
+];
 
 app.use(cors({
   origin: function(origin, callback) {
@@ -114,4 +131,3 @@ const port = 42069;
 app.listen(port, '0.0.0.0', () => {
   console.log(`Server is running on http://0.0.0.0:${port}`);
 });
-
