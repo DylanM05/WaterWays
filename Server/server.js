@@ -86,8 +86,11 @@ app.use(express.json());
 const allowedOrigins = [
   'https://water-ways.ca',
   'https://waterways.dylansserver.top',
+  'https://backend.water-ways.ca',
   'http://localhost:3000',
   'http://localhost:5173',
+  'http://localhost',
+  'https://localhost',
   'capacitor://localhost',
   'ionic://localhost'
 ];
