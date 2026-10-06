@@ -18,13 +18,13 @@ require('dotenv').config();
 
 const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
 
-const shouldRunScheduler = process.env.ENABLE_SCHEDULER !== 'false';
+/* const shouldRunScheduler = process.env.ENABLE_SCHEDULER !== 'false';
 if (shouldRunScheduler) {
   require('./utilities/scheduler');
   console.log('Background scheduler enabled.');
 } else {
   console.log('Background scheduler disabled by ENABLE_SCHEDULER=false.');
-}
+} */
 
 const app = express();
 
