@@ -382,6 +382,7 @@ exports.getWaterData = async (req, res) => {
         const sourceDateTime = properties.DATETIME_LST || properties.DATETIME;
         if (!sourceDateTime) continue;
 
+        
         const date_time = String(sourceDateTime).slice(0, 19).replace('T', ' ');
         const water_level = Number.isFinite(properties.LEVEL) ? properties.LEVEL : null;
         const discharge = Number.isFinite(properties.DISCHARGE) ? properties.DISCHARGE : null;
