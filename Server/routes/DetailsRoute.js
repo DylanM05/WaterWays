@@ -12,5 +12,6 @@ router.get('/rivers/:province', lenientLimiter, DetailsController.getRiversByPro
 router.get('/weather/weekly/:id', lenientLimiter, DetailsController.getWeeklyWeather);
 router.get('/latest-water-data/:id', lenientLimiter, DetailsController.getLatestWaterData);
 router.get('/water-data/:id/:days', lenientLimiter, DetailsController.getWaterData);
+router.get('/water-archive/:id/:period', lenientLimiter, DetailsController.getArchivedWaterData);
 
 module.exports = router;

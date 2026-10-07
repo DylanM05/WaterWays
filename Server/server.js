@@ -1,3 +1,5 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const mongoose = require('mongoose');
@@ -14,17 +16,7 @@ const inviteRoutes = require('./routes/inviteRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
-require('dotenv').config();
-
 const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
-
-/* const shouldRunScheduler = process.env.ENABLE_SCHEDULER !== 'false';
-if (shouldRunScheduler) {
-  require('./utilities/scheduler');
-  console.log('Background scheduler enabled.');
-} else {
-  console.log('Background scheduler disabled by ENABLE_SCHEDULER=false.');
-} */
 
 const app = express();
 
@@ -78,6 +70,11 @@ app.set('trust proxy', 1);
 
 mongoose.connect(mongoUri).then(() => {
     console.log('Connected to MongoDB');
+    if (process.env.ENABLE_SCHEDULER !== 'false') {
+      require('./utilities/scheduler').startScheduler().catch(error => {
+        console.error('Unable to start hydrometric scheduler:', error);
+      });
+    }
 }).catch(err => {
     console.error('Error connecting to MongoDB', err);
 });

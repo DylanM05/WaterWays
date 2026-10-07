@@ -1,168 +1,199 @@
 const cron = require('node-cron');
-const cheerio = require('cheerio');
-const { MongoClient } = require('mongodb');
 const StationCoordinates = require('../models/StationCoordinates');
+const StationData = require('../models/StationData');
+const StationArchive = require('../models/StationArchive');
+const { syncStationRealtime } = require('./hydrometricData');
 const logger = require('./logger');
 
-const uri = 'mongodb://localhost:27017';
-const dbName = 'waterways';
-const collectionName = 'stationdatas';
+const REALTIME_LOOKBACK_HOURS = 1;
+const RAW_RETENTION_DAYS = 90;
+const DAILY_RETENTION_MONTHS = 12;
+const BULK_SIZE = 1000;
+let realtimeRunActive = false;
+let archiveRunActive = false;
 
-
-async function ensureIndexes(client) {
-    const database = client.db(dbName);
-    const collection = database.collection(collectionName);
-    await collection.createIndex({ station_id: 1, date_time: 1 }, { unique: true });
+function utcDayStart(date) {
+    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 }
 
-async function setupDatabase() {
-    const client = new MongoClient(uri);
+async function processInBatches(items, concurrency, task) {
+    const { default: pLimit } = await import('p-limit');
+    const limit = pLimit(concurrency);
+    await Promise.all(items.map(item => limit(() => task(item))));
+}
+
+async function runRealtimeSync() {
+    if (realtimeRunActive) {
+        logger.info('Skipping realtime sync because a previous run is still active.');
+        return;
+    }
+
+    realtimeRunActive = true;
+    const startedAt = Date.now();
+
     try {
-        await client.connect();
-        await ensureIndexes(client);
-        console.log('Indexes ensured.');
+        const stations = await StationCoordinates.find({ station_id: { $exists: true, $ne: '' } })
+            .select('station_id')
+            .lean();
+        const stationIds = [...new Set(stations.map(station => station.station_id))];
+        let completed = 0;
+        let fetched = 0;
+        let inserted = 0;
+        let modified = 0;
+
+        await processInBatches(stationIds, 8, async stationId => {
+            try {
+                const result = await syncStationRealtime(stationId, REALTIME_LOOKBACK_HOURS);
+                fetched += result.records.length;
+                inserted += result.inserted;
+                modified += result.modified;
+            } catch (error) {
+                logger.error(`Realtime sync failed for station ${stationId}: ${error.message}`);
+            } finally {
+                completed += 1;
+                if (completed % 100 === 0) logger.info(`Realtime sync processed ${completed}/${stationIds.length} stations.`);
+            }
+        });
+
+        logger.info(`Realtime sync completed for ${stationIds.length} stations: ${fetched} fetched, ${inserted} inserted, ${modified} changed; ${Math.round((Date.now() - startedAt) / 1000)} seconds.`);
     } catch (error) {
-        console.error('Error setting up database:', error);
+        logger.error(`Realtime sync failed: ${error.message}`);
     } finally {
-        await client.close();
+        realtimeRunActive = false;
     }
 }
 
-setupDatabase();
+async function writeArchiveGroups(cursor, period, source) {
+    let operations = [];
+    let written = 0;
 
-async function insertData(client, dataArray) {
-    if (dataArray.length === 0) return;
-    const database = client.db(dbName);
-    const collection = database.collection(collectionName);
-    const chunkSize = 1500; // Adjust the chunk size as needed
-
-    for (let i = 0; i < dataArray.length; i += chunkSize) {
-        const chunk = dataArray.slice(i, i + chunkSize);
-        const bulkOps = chunk.map(data => ({
+    for await (const group of cursor) {
+        operations.push({
             updateOne: {
-                filter: { station_id: data.station_id, date_time: data.date_time },
-                update: { $setOnInsert: data },
+                filter: {
+                    station_id: group._id.station_id,
+                    period,
+                    date_time: group._id.date_time
+                },
+                update: {
+                    $setOnInsert: {
+                        station_id: group._id.station_id,
+                        period,
+                        date_time: group._id.date_time,
+                        water_level: group.water_level,
+                        water_level_min: group.water_level_min,
+                        water_level_max: group.water_level_max,
+                        discharge: group.discharge,
+                        discharge_min: group.discharge_min,
+                        discharge_max: group.discharge_max,
+                        sample_count: group.sample_count,
+                        source
+                    }
+                },
                 upsert: true
             }
-        }));
+        });
 
-        if (bulkOps.length > 0) {
-            console.log(`Starting bulk insert/update for ${bulkOps.length} entries.`);
-            await collection.bulkWrite(bulkOps);
-            console.log(`Bulk insert/update completed for ${bulkOps.length} entries.`);
-        } else {
-            console.log(`No new entries to insert/update for this chunk.`);
+        if (operations.length === BULK_SIZE) {
+            const result = await StationArchive.bulkWrite(operations, { ordered: false });
+            written += result.upsertedCount || 0;
+            operations = [];
         }
     }
+
+    if (operations.length) {
+        const result = await StationArchive.bulkWrite(operations, { ordered: false });
+        written += result.upsertedCount || 0;
+    }
+
+    return written;
 }
 
-async function delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+async function rollupRawToDaily(rawCutoff) {
+    const cursor = StationData.aggregate([
+        { $match: { date_time: { $type: 'date', $lt: rawCutoff } } },
+        {
+            $group: {
+                _id: {
+                    station_id: '$station_id',
+                    date_time: { $dateTrunc: { date: '$date_time', unit: 'day', timezone: 'UTC' } }
+                },
+                water_level: { $avg: '$water_level' },
+                water_level_min: { $min: '$water_level' },
+                water_level_max: { $max: '$water_level' },
+                discharge: { $avg: '$discharge' },
+                discharge_min: { $min: '$discharge' },
+                discharge_max: { $max: '$discharge' },
+                sample_count: { $sum: 1 }
+            }
+        }
+    ], { allowDiskUse: true }).cursor({ batchSize: BULK_SIZE });
+
+    await writeArchiveGroups(cursor, 'daily', 'realtime-rollup');
+    await StationData.deleteMany({ date_time: { $type: 'date', $lt: rawCutoff } });
 }
 
-async function fetchData(stationId) {
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - 1);
-    const formattedEndDate = endDate.toISOString().split('T')[0];
-    const formattedStartDate = startDate.toISOString().split('T')[0];
-    
-    const url = `https://wateroffice.ec.gc.ca/report/real_time_e.html?stn=${stationId}&mode=Table&startDate=${formattedStartDate}&endDate=${formattedEndDate}`;
-    
-    const response = await fetch(url, {
-        headers: {
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-            'Accept-Language': 'en-US,en;q=0.9',
-            'Cache-Control': 'max-age=0',
-            'Connection': 'keep-alive',
-            'Cookie': 'PHPSESSID=a594f5b05015291d18eb70adc1aa2f78; _ga=GA1.1.375988285.1742743699; _ga_CS8ZLP6TEM=GS1.1.1742743699.1.0.1742743840.0.0.0; disclaimer=agree',
-            'Referer': url,
-            'Sec-Fetch-Dest': 'document',
-            'Sec-Fetch-Mode': 'navigate',
-            'Sec-Fetch-Site': 'same-origin',
-            'Sec-Fetch-User': '?1',
-            'Upgrade-Insecure-Requests': '1',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 Edg/134.0.0.0',
-            'sec-ch-ua': '"Chromium";v="134", "Not:A-Brand";v="24", "Microsoft Edge";v="134"',
-            'sec-ch-ua-mobile': '?0',
-            'sec-ch-ua-platform': '"Windows"'
+async function rollupDailyToMonthly(monthCutoff) {
+    const cursor = StationArchive.aggregate([
+        { $match: { period: 'daily', date_time: { $lt: monthCutoff } } },
+        {
+            $group: {
+                _id: {
+                    station_id: '$station_id',
+                    date_time: { $dateTrunc: { date: '$date_time', unit: 'month', timezone: 'UTC' } }
+                },
+                water_level: { $avg: '$water_level' },
+                water_level_min: { $min: '$water_level_min' },
+                water_level_max: { $max: '$water_level_max' },
+                discharge: { $avg: '$discharge' },
+                discharge_min: { $min: '$discharge_min' },
+                discharge_max: { $max: '$discharge_max' },
+                sample_count: { $sum: '$sample_count' }
+            }
         }
-    });
+    ], { allowDiskUse: true }).cursor({ batchSize: BULK_SIZE });
 
-    const html = await response.text();
-    const $ = cheerio.load(html);
-
-    console.log(`Fetched HTML for station ${stationId}:`, html.substring(0, 500)); // Log the first 500 characters of the HTML
-
-    const data = [];
-    $('table').each((index, table) => {
-        const caption = $(table).find('caption').text().trim();
-        if (caption === 'This table provides real-time data in tabular format.') {
-            let firstItemLogged = false; 
-            $(table).find('tbody tr').each((index, element) => {
-                const date_time = $(element).find('td').eq(0).text().trim();
-                const water_level = $(element).find('td').eq(1).attr('data-order') || $(element).find('td').eq(1).text().trim();
-                const discharge = $(element).find('td').eq(5).attr('data-order') || $(element).find('td').eq(5).text().trim();
-
-                // Ensure that the extracted data is valid
-                if (date_time && water_level) {
-          if (!firstItemLogged) {
-            console.log(`Extracted data for station ${stationId} (first example):`, { date_time, water_level, discharge });
-            firstItemLogged = true;
-        }
-                    data.push({ date_time, water_level, discharge, station_id: stationId });
-                }
-            });
-        }
-    });
-
-    console.log(`Total data extracted for station ${stationId}:`, data.length);
-    return data;
+    await writeArchiveGroups(cursor, 'monthly', 'daily-rollup');
+    await StationArchive.deleteMany({ period: 'daily', date_time: { $lt: monthCutoff } });
 }
 
-async function runScraper() {
-    const { default: pLimit } = await import('p-limit');
-    const client = new MongoClient(uri);
+async function runArchiveMaintenance() {
+    if (archiveRunActive) {
+        logger.info('Skipping archive maintenance because a previous run is still active.');
+        return;
+    }
 
-    const startTime = Date.now(); // Record start time
-    logger.info('Starting scraper run');
-
+    archiveRunActive = true;
     try {
-        await client.connect();
-        const stations = await StationCoordinates.find({});
-        const stationIds = stations.map(station => station.station_id);
+        const today = utcDayStart(new Date());
+        const rawCutoff = new Date(today);
+        rawCutoff.setUTCDate(rawCutoff.getUTCDate() - RAW_RETENTION_DAYS);
 
-        const limit = pLimit(50);
-        await Promise.all(stationIds.map((stationId, index) => 
-            limit(async () => {
-                await delay(index * 100); // Stagger requests
-                try {
-                    const data = await fetchData(stationId);
-                    console.log(`Scraper ran successfully for station ${stationId}. Example entry:`, 
-                        data.length > 0 ? data[0] : 'No data found');
-                    await insertData(client, data);
-                } catch (error) {
-                    console.error(`Error running scraper for station ${stationId}:`, error);
-                }
-            })
+        await rollupRawToDaily(rawCutoff);
+
+        const monthlyCutoff = new Date(Date.UTC(
+            today.getUTCFullYear(),
+            today.getUTCMonth() - DAILY_RETENTION_MONTHS,
+            1
         ));
+        await rollupDailyToMonthly(monthlyCutoff);
+
+        logger.info(`Archive maintenance completed. Raw cutoff: ${rawCutoff.toISOString()}, daily cutoff: ${monthlyCutoff.toISOString()}.`);
     } catch (error) {
-        console.error('Error fetching station coordinates:', error);
+        logger.error(`Archive maintenance failed: ${error.message}`);
     } finally {
-        await client.close();
-        const endTime = Date.now(); // Record end time
-        const duration = (endTime - startTime) / 1000;
-        console.log(`Scraper run completed in ${duration} seconds.`);
-        logger.info(`Scraper run completed in ${duration} seconds.`);
+        archiveRunActive = false;
     }
 }
 
-runScraper().then(() => logger.info('Initial run of the scraper completed.'));
+async function startScheduler() {
+    await Promise.all([StationData.init(), StationArchive.init()]);
+    cron.schedule('*/10 * * * *', runRealtimeSync);
+    cron.schedule('15 3 * * *', runArchiveMaintenance);
 
-cron.schedule('0 */6 * * *', async () => {
-    await runScraper();
-    console.log('Scheduled run of the scraper completed.');
-}); 
+    logger.info('Hydrometric realtime sync scheduled every ten minutes with a one-hour overlap; archive maintenance scheduled daily.');
+    runRealtimeSync();
+    runArchiveMaintenance();
+}
 
-console.log('Scheduler is set up to run every 6 hours.');
-logger.info('Scheduler is set up to run every 6 hours.');
+module.exports = { runArchiveMaintenance, runRealtimeSync, startScheduler };

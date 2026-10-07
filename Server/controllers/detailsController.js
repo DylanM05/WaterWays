@@ -2,6 +2,7 @@ const axios = require('axios');
 const moment = require('moment');
 const StationCoordinates = require('../models/StationCoordinates');
 const StationData = require('../models/StationData');
+const StationArchive = require('../models/StationArchive');
 require('dotenv').config();
 const NodeCache = require('node-cache');
 const waterDataCache = new NodeCache({ stdTTL: 900 }); // 15 minutes cache TTL
@@ -396,5 +397,40 @@ exports.getWaterData = async (req, res) => {
   } catch (error) {
     console.error('Error fetching water data:', error);
     res.status(500).json({ error: 'Failed to fetch water data' });
+  }
+};
+
+exports.getArchivedWaterData = async (req, res) => {
+  const { id: stationId, period } = req.params;
+  if (!['daily', 'monthly'].includes(period)) {
+    return res.status(400).json({ error: 'period must be daily or monthly' });
+  }
+
+  const filter = { station_id: stationId, period };
+  for (const bound of ['from', 'to']) {
+    if (!req.query[bound]) continue;
+    const date = new Date(req.query[bound]);
+    if (Number.isNaN(date.getTime())) {
+      return res.status(400).json({ error: `Invalid ${bound} date` });
+    }
+    filter.date_time = filter.date_time || {};
+    filter.date_time[bound === 'from' ? '$gte' : '$lte'] = date;
+  }
+
+  const requestedLimit = Number.parseInt(req.query.limit, 10) || 5000;
+  const limit = Math.min(Math.max(requestedLimit, 1), 10000);
+
+  try {
+    const records = await StationArchive.find(filter)
+      .sort({ date_time: -1 })
+      .limit(limit)
+      .lean();
+    return res.json(records.map(record => ({
+      ...record,
+      date_time: record.date_time.toISOString().slice(0, 19).replace('T', ' ')
+    })));
+  } catch (error) {
+    console.error('Error fetching archived water data:', error);
+    return res.status(500).json({ error: 'Failed to fetch archived water data' });
   }
 };

@@ -7,4 +7,6 @@ const stationDataSchema = new mongoose.Schema({
     station_id: String
 });
 
+stationDataSchema.index({ station_id: 1, date_time: 1 }, { unique: true });
+
 module.exports = mongoose.model('StationData', stationDataSchema);
