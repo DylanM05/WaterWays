@@ -4,6 +4,7 @@ const StationCoordinates = require('../models/StationCoordinates');
 const StationData = require('../models/StationData');
 const StationArchive = require('../models/StationArchive');
 const { fetchRealtimeData, upsertRealtimeData } = require('../utilities/hydrometricData');
+const { cleanReadings } = require('../utilities/waterQuality');
 require('dotenv').config();
 const NodeCache = require('node-cache');
 const waterDataCache = new NodeCache({ stdTTL: 900 }); // 15 minutes cache TTL
@@ -336,10 +337,13 @@ exports.getLatestWaterData = async (req, res) => {
   const stationId = req.params.id;
 
   try {
-    const record = await StationData.findOne({ station_id: stationId })
+    // Enough recent history (~12 hours) to judge whether the newest reading is a spike.
+    const recent = await StationData.find({ station_id: stationId })
       .sort({ date_time: -1 })
+      .limit(144)
       .select('station_id date_time water_level discharge')
       .lean();
+    const record = cleanReadings(recent.reverse()).pop();
 
     if (!record) {
       return res.status(404).json({ error: 'No data found for this station' });
@@ -405,7 +409,7 @@ exports.getWaterData = async (req, res) => {
       }
     }
 
-    const body = JSON.stringify(records.map(record => ({
+    const body = JSON.stringify(cleanReadings(records).map(record => ({
       date_time: record.date_time.toISOString().slice(0, 19).replace('T', ' '),
       water_level: record.water_level ?? null,
       discharge: record.discharge ?? null,

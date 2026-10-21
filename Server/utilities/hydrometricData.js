@@ -1,5 +1,6 @@
 const axios = require('axios');
 const StationData = require('../models/StationData');
+const { plausibleDischarge, plausibleLevel } = require('./waterQuality');
 
 const API_URL = 'https://api.weather.gc.ca/collections/hydrometric-realtime/items';
 const PAGE_SIZE = 1000;
@@ -17,8 +18,8 @@ function normalizeRealtimeFeature(feature) {
     return {
         station_id: properties.STATION_NUMBER,
         date_time,
-        water_level: finiteNumber(properties.LEVEL),
-        discharge: finiteNumber(properties.DISCHARGE)
+        water_level: plausibleLevel(finiteNumber(properties.LEVEL)),
+        discharge: plausibleDischarge(finiteNumber(properties.DISCHARGE))
     };
 }
 
