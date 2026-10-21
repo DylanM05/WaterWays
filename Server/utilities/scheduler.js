@@ -5,8 +5,9 @@ const StationArchive = require('../models/StationArchive');
 const { syncStationRealtime } = require('./hydrometricData');
 const logger = require('./logger');
 
-const REALTIME_LOOKBACK_HOURS = 1;
-const RAW_RETENTION_DAYS = 90;
+// Environment Canada often publishes readings an hour or more late, in batches; a short window never sees them.
+const REALTIME_LOOKBACK_HOURS = 6;
+const RAW_RETENTION_DAYS = 30;
 const DAILY_RETENTION_MONTHS = 12;
 const BULK_SIZE = 1000;
 let realtimeRunActive = false;
@@ -191,7 +192,7 @@ async function startScheduler() {
     cron.schedule('*/10 * * * *', runRealtimeSync);
     cron.schedule('15 3 * * *', runArchiveMaintenance);
 
-    logger.info('Hydrometric realtime sync scheduled every ten minutes with a one-hour overlap; archive maintenance scheduled daily.');
+    logger.info(`Hydrometric realtime sync scheduled every ten minutes with a ${REALTIME_LOOKBACK_HOURS}-hour lookback; archive maintenance scheduled daily.`);
     runRealtimeSync();
     runArchiveMaintenance();
 }

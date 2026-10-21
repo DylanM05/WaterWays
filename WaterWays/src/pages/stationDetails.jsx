@@ -155,8 +155,6 @@ const StationDetails = () => {
         const coordinatesResponse = await axios.get(ENDPOINTS.coordinates(stationId));
         setStationInfo(coordinatesResponse.data);
         
-        // Start loading 1-day water data immediately
-        fetchWaterData(1);
       } catch (err) {
         console.error('Error fetching station info:', err);
         setStationInfoError('Failed to load station information.');
@@ -172,42 +170,53 @@ const StationDetails = () => {
   }, [stationId]);
 
   const fetchWaterData = async (days) => {
-    // Skip if we already have this data
+    const windows = [1, 3, 7, 14, 30];
     if (waterData[days]) return;
-    
-    // Check if already loading
-    if (waterDataLoading[days]) return;
-    
-    // Set loading state for this timeframe
-    setWaterDataLoading(prev => ({ ...prev, [days]: true }));
-    setWaterDataError(prev => ({ ...prev, [days]: null }));
+
+    const cachedWindows = WATER_DATA_CACHE[`${stationId}-30`];
+    if (cachedWindows) {
+      setWaterData(prev => ({ ...prev, ...cachedWindows }));
+      return;
+    }
+
+    if (windows.some(windowDays => waterDataLoading[windowDays])) return;
+
+    setWaterDataLoading(prev => ({
+      ...prev,
+      ...Object.fromEntries(windows.map(windowDays => [windowDays, true]))
+    }));
+    setWaterDataError(prev => ({
+      ...prev,
+      ...Object.fromEntries(windows.map(windowDays => [windowDays, null]))
+    }));
     
     try {
-      // Check cache first
-      if (WATER_DATA_CACHE[`${stationId}-${days}`]) {
-        setWaterData(prev => ({
-          ...prev,
-          [days]: WATER_DATA_CACHE[`${stationId}-${days}`]
-        }));
-        setWaterDataLoading(prev => ({ ...prev, [days]: false }));
-        return;
-      }
-      
-      const response = await axios.get(`${API_BASE_URL}/details/water-data/${stationId}/${days}`);
-      
-      // Store in cache
-      WATER_DATA_CACHE[`${stationId}-${days}`] = response.data;
-      
-      // Update state
-      setWaterData(prev => ({ ...prev, [days]: response.data }));
+      const response = await axios.get(`${API_BASE_URL}/details/water-data/${stationId}/30`);
+      const now = Date.now();
+      const dataByWindow = Object.fromEntries(windows.map(windowDays => [
+        windowDays,
+        response.data.filter(entry => {
+          const timestamp = Date.parse(`${entry.date_time.replace(' ', 'T')}Z`);
+          return timestamp >= now - windowDays * 24 * 60 * 60 * 1000 && timestamp <= now;
+        })
+      ]));
+
+      WATER_DATA_CACHE[`${stationId}-30`] = dataByWindow;
+      setWaterData(prev => ({ ...prev, ...dataByWindow }));
     } catch (err) {
-      console.error(`Error fetching ${days}-day water data:`, err);
-      setWaterDataError(prev => ({ 
-        ...prev, 
-        [days]: `Failed to fetch ${days}-day water data.` 
+      console.error('Error fetching 30-day water data:', err);
+      setWaterDataError(prev => ({
+        ...prev,
+        ...Object.fromEntries(windows.map(windowDays => [
+          windowDays,
+          `Failed to fetch ${windowDays}-day water data.`
+        ]))
       }));
     } finally {
-      setWaterDataLoading(prev => ({ ...prev, [days]: false }));
+      setWaterDataLoading(prev => ({
+        ...prev,
+        ...Object.fromEntries(windows.map(windowDays => [windowDays, false]))
+      }));
     }
   };
 
@@ -216,10 +225,7 @@ const StationDetails = () => {
     
     try {
       const promises = [
-        // Load other time frames for water data
-        fetchWaterData(3),
-        fetchWaterData(7),
-        fetchWaterData(14),
+        // Fetch the longest range once; shorter ranges are derived locally.
         fetchWaterData(30),
         
         // Weather data

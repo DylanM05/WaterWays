@@ -14,9 +14,11 @@
     "nodemon": "^3.1.9"
   },
   "dependencies": {
+    "@apple/app-store-server-library": "^3.1.0",
     "@clerk/clerk-sdk-node": "^5.1.6",
     "axios": "^1.8.3",
     "cheerio": "^1.0.0",
+    "compression": "^1.8.2",
     "cors": "^2.8.5",
     "domutils": "^3.2.2",
     "dotenv": "^16.4.7",

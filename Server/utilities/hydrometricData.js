@@ -66,16 +66,57 @@ async function upsertRealtimeData(records) {
     };
 }
 
-async function syncStationRealtime(stationId, lookbackHours = 36) {
-    const endDate = new Date();
+async function syncStationRealtime(stationId, lookbackHours = 36, endDate = new Date()) {
     const startDate = new Date(endDate.getTime() - lookbackHours * 60 * 60 * 1000);
     const records = await fetchRealtimeData(stationId, startDate, endDate);
     const writes = await upsertRealtimeData(records);
     return { records, ...writes };
 }
 
+// Stations report every 5–60 minutes; a longer silence means readings are missing.
+const GAP_THRESHOLD_MS = 3 * 60 * 60 * 1000;
+// Past this many gaps, one request across the whole span is cheaper than many small ones.
+const MAX_GAP_REQUESTS = 5;
+
+async function findMissingRanges(stationId, startDate, endDate) {
+    const readings = await StationData.find({
+        station_id: stationId,
+        date_time: { $gte: startDate, $lte: endDate }
+    })
+        .select('-_id date_time')
+        .sort({ date_time: 1 })
+        .lean();
+
+    const ranges = [];
+    let previous = startDate;
+    for (const { date_time } of readings) {
+        if (date_time - previous > GAP_THRESHOLD_MS) ranges.push({ start: previous, end: date_time });
+        previous = date_time;
+    }
+    if (endDate - previous > GAP_THRESHOLD_MS) ranges.push({ start: previous, end: endDate });
+
+    return { ranges, storedCount: readings.length };
+}
+
+async function fillRecentGaps(stationId, lookbackHours = 30 * 24, endDate = new Date(), { dryRun = false } = {}) {
+    const startDate = new Date(endDate.getTime() - lookbackHours * 60 * 60 * 1000);
+    const { ranges, storedCount } = await findMissingRanges(stationId, startDate, endDate);
+    const result = { gaps: ranges, storedCount, records: [], inserted: 0, modified: 0 };
+    if (!ranges.length || dryRun) return result;
+
+    const requests = ranges.length > MAX_GAP_REQUESTS
+        ? [{ start: ranges[0].start, end: ranges[ranges.length - 1].end }]
+        : ranges;
+    for (const range of requests) {
+        result.records.push(...await fetchRealtimeData(stationId, range.start, range.end));
+    }
+
+    return { ...result, ...await upsertRealtimeData(result.records) };
+}
+
 module.exports = {
     fetchRealtimeData,
+    fillRecentGaps,
     normalizeRealtimeFeature,
     syncStationRealtime,
     upsertRealtimeData

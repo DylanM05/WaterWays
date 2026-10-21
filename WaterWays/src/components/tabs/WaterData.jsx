@@ -33,7 +33,8 @@ const WaterData = ({ stationId, waterData, waterDataLoading, waterDataError, onF
         }
 
         const times = dataToUse.map(entry =>
-            moment(entry.date_time, 'YYYY-MM-DD HH:mm:ss').valueOf() / 1000
+            // The API serializes timestamps in UTC.
+            moment.utc(entry.date_time, 'YYYY-MM-DD HH:mm:ss').valueOf() / 1000
         );
         const waterLevels = dataToUse.map(entry => entry.water_level ?? null);
         const discharges = dataToUse.map(entry => entry.discharge ?? null);
@@ -272,7 +273,7 @@ const WaterData = ({ stationId, waterData, waterDataLoading, waterDataError, onF
                                         <tr key={index}>
                                             <td>
                                                 {entry.date_time
-                                                    ? moment(entry.date_time, 'YYYY-MM-DD HH:mm:ss').format('MMMM Do YYYY, h:mm a')
+                                                    ? moment.utc(entry.date_time, 'YYYY-MM-DD HH:mm:ss').local().format('MMMM Do YYYY, h:mm a')
                                                     : 'N/A'}
                                             </td>
                                             <td>{entry.water_level !== null ? `${entry.water_level} m` : 'N/A'}</td>

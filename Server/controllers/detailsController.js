@@ -3,6 +3,7 @@ const moment = require('moment');
 const StationCoordinates = require('../models/StationCoordinates');
 const StationData = require('../models/StationData');
 const StationArchive = require('../models/StationArchive');
+const { fetchRealtimeData, upsertRealtimeData } = require('../utilities/hydrometricData');
 require('dotenv').config();
 const NodeCache = require('node-cache');
 const waterDataCache = new NodeCache({ stdTTL: 900 }); // 15 minutes cache TTL
@@ -182,8 +183,10 @@ exports.getHourlyWeather = async (req, res) => {
       params: {
         latitude: parseFloat(latitude),
         longitude: parseFloat(longitude),
-        hourly: 'temperature_2m,weather_code,relative_humidity_2m,apparent_temperature,precipitation_probability',
-        forecast_days: 3
+        hourly: 'temperature_2m,weather_code,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,wind_speed_10m,wind_gusts_10m,wind_direction_10m,is_day',
+        forecast_days: 3,
+        // Return times in the station's local time zone instead of GMT.
+        timezone: 'auto'
       }
     });
 
@@ -200,7 +203,15 @@ exports.getHourlyWeather = async (req, res) => {
       weatherCode: hourlyWeatherData.weather_code,
       relativeHumidity: hourlyWeatherData.relative_humidity_2m,
       apparentTemperature: hourlyWeatherData.apparent_temperature,
-      precipitationProbability: hourlyWeatherData.precipitation_probability
+      precipitationProbability: hourlyWeatherData.precipitation_probability,
+      rawTime: hourlyWeatherData.time,
+      utcOffsetSeconds: hourlyWeatherResponse.data.utc_offset_seconds,
+      timezone: hourlyWeatherResponse.data.timezone,
+      precipitation: hourlyWeatherData.precipitation,
+      windSpeed: hourlyWeatherData.wind_speed_10m,
+      windGusts: hourlyWeatherData.wind_gusts_10m,
+      windDirection: hourlyWeatherData.wind_direction_10m,
+      isDay: hourlyWeatherData.is_day
     });
   } catch (error) {
     console.error('Error fetching hourly weather data:', error);
@@ -246,8 +257,10 @@ exports.getWeeklyWeather = async (req, res) => {
       params: {
         latitude: parseFloat(latitude),
         longitude: parseFloat(longitude),
-        daily: 'weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,sunrise,sunset,daylight_duration,uv_index_max,uv_index_clear_sky_max,precipitation_sum,wind_speed_10m_max,rain_sum,showers_sum,snowfall_sum',
-        forecast_days: 7
+        daily: 'weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,apparent_temperature_min,sunrise,sunset,daylight_duration,uv_index_max,uv_index_clear_sky_max,precipitation_sum,wind_speed_10m_max,rain_sum,showers_sum,snowfall_sum,precipitation_probability_max,wind_gusts_10m_max,wind_direction_10m_dominant',
+        forecast_days: 7,
+        // Local days and sunrise/sunset times instead of GMT.
+        timezone: 'auto'
       }
     });
 
@@ -264,6 +277,8 @@ exports.getWeeklyWeather = async (req, res) => {
     res.json({
       dates: formattedDates,
       rawDates: dailyData.time,
+      utcOffsetSeconds: weeklyWeatherResponse.data.utc_offset_seconds,
+      timezone: weeklyWeatherResponse.data.timezone,
       weather: {
         codes: dailyData.weather_code,
         descriptions: weatherDescriptions
@@ -281,6 +296,8 @@ exports.getWeeklyWeather = async (req, res) => {
       sun: {
         sunrise: formattedSunrise,
         sunset: formattedSunset,
+        rawSunrise: dailyData.sunrise,
+        rawSunset: dailyData.sunset,
         daylightDuration: dailyData.daylight_duration.map(seconds => {
           const hours = Math.floor(seconds / 3600);
           const minutes = Math.floor((seconds % 3600) / 60);
@@ -296,6 +313,7 @@ exports.getWeeklyWeather = async (req, res) => {
         rain: dailyData.rain_sum,
         showers: dailyData.showers_sum,
         snow: dailyData.snowfall_sum,
+        probability: dailyData.precipitation_probability_max,
         units: {
           rain: weeklyWeatherResponse.data.daily_units.rain_sum,
           snow: weeklyWeatherResponse.data.daily_units.snowfall_sum
@@ -303,6 +321,8 @@ exports.getWeeklyWeather = async (req, res) => {
       },
       wind: {
         maxSpeed: dailyData.wind_speed_10m_max,
+        maxGusts: dailyData.wind_gusts_10m_max,
+        dominantDirection: dailyData.wind_direction_10m_dominant,
         units: weeklyWeatherResponse.data.daily_units.wind_speed_10m_max
       }
     });
@@ -316,84 +336,85 @@ exports.getLatestWaterData = async (req, res) => {
   const stationId = req.params.id;
 
   try {
-    const response = await axios.get('https://api.weather.gc.ca/collections/hydrometric-realtime/items', {
-      params: {
-        STATION_NUMBER: stationId,
-        sortby: '-DATETIME',
-        limit: 1,
-        f: 'json'
-      },
-      timeout: 20000
+    const record = await StationData.findOne({ station_id: stationId })
+      .sort({ date_time: -1 })
+      .select('station_id date_time water_level discharge')
+      .lean();
+
+    if (!record) {
+      return res.status(404).json({ error: 'No data found for this station' });
+    }
+
+    return res.json({
+      date_time: moment.utc(record.date_time).format('YYYY-MM-DD HH:mm:ss'),
+      water_level: record.water_level ?? null,
+      discharge: record.discharge ?? null,
+      station_id: record.station_id
     });
-
-    const feature = response.data?.features?.[0];
-    if (!feature) {
-      return res.status(404).json({ error: 'No data found for this station' });
-    }
-
-    const properties = feature.properties || {};
-    const sourceDateTime = properties.DATETIME_LST || properties.DATETIME;
-    if (!sourceDateTime) {
-      return res.status(404).json({ error: 'No data found for this station' });
-    }
-
-    const date_time = String(sourceDateTime).slice(0, 19).replace('T', ' ');
-    const water_level = Number.isFinite(properties.LEVEL) ? properties.LEVEL : null;
-    const discharge = Number.isFinite(properties.DISCHARGE) ? properties.DISCHARGE : null;
-
-    return res.json({ date_time, water_level, discharge, station_id: stationId });
   } catch (error) {
     console.error('Error fetching latest water data:', error);
     return res.status(500).json({ error: 'Error fetching latest water data' });
   }
 };
 
+// Realtime data syncs every 10 minutes, so a short cache saves repeat queries without hiding new readings for long.
+const WATER_DATA_CACHE_TTL_SECONDS = 2 * 60;
+// If the stored history starts this long after the requested start, fill it from the API.
+const COVERAGE_TOLERANCE_MS = 6 * 60 * 60 * 1000;
+// Some stations genuinely have less history upstream; don't refetch them on every request.
+const API_FALLBACK_COOLDOWN_MS = 6 * 60 * 60 * 1000;
+const apiFallbackAttempts = new Map();
+
 exports.getWaterData = async (req, res) => {
   const stationId = req.params.id;
-  const days = Math.max(1, parseInt(req.params.days, 10) || 1);
+  const parsedDays = Number.parseInt(req.params.days, 10);
+  const days = Number.isFinite(parsedDays) ? Math.min(Math.max(1, parsedDays), 30) : 1;
+  const cacheKey = `water-data-${stationId}-${days}`;
+
+  const cachedBody = waterDataCache.get(cacheKey);
+  if (cachedBody) {
+    res.type('application/json');
+    return res.send(cachedBody);
+  }
 
   try {
     const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - days);
+    const startDate = new Date(endDate.getTime() - days * 24 * 60 * 60 * 1000);
+    let records = await StationData.find({
+      station_id: stationId,
+      date_time: { $gte: startDate, $lte: endDate }
+    })
+      .select('-_id date_time water_level discharge')
+      .sort({ date_time: 1 })
+      .lean();
 
-    const data = [];
-    const pageSize = 1000;
-    let offset = 0;
-    let numberMatched = Infinity;
-
-    while (offset < numberMatched) {
-      const response = await axios.get('https://api.weather.gc.ca/collections/hydrometric-realtime/items', {
-        params: {
-          STATION_NUMBER: stationId,
-          datetime: `${startDate.toISOString()}/${endDate.toISOString()}`,
-          sortby: 'DATETIME',
-          limit: pageSize,
-          offset,
-          f: 'json'
-        },
-        timeout: 20000
-      });
-
-      const features = response.data?.features || [];
-      numberMatched = Number(response.data?.numberMatched) || 0;
-
-      for (const feature of features) {
-        const properties = feature.properties || {};
-        const sourceDateTime = properties.DATETIME_LST || properties.DATETIME;
-        if (!sourceDateTime) continue;
-
-        const date_time = String(sourceDateTime).slice(0, 19).replace('T', ' ');
-        const water_level = Number.isFinite(properties.LEVEL) ? properties.LEVEL : null;
-        const discharge = Number.isFinite(properties.DISCHARGE) ? properties.DISCHARGE : null;
-        data.push({ date_time, water_level, discharge, station_id: stationId });
+    const missingHistory = !records.length || records[0].date_time - startDate > COVERAGE_TOLERANCE_MS;
+    const lastAttempt = apiFallbackAttempts.get(stationId) || 0;
+    if (missingHistory && Date.now() - lastAttempt > API_FALLBACK_COOLDOWN_MS) {
+      apiFallbackAttempts.set(stationId, Date.now());
+      try {
+        const fetched = await fetchRealtimeData(stationId, startDate, endDate);
+        if (fetched.length > records.length) {
+          records = fetched;
+          upsertRealtimeData(fetched).catch(error => {
+            console.error(`Failed to store fallback water data for ${stationId}:`, error);
+          });
+        }
+      } catch (error) {
+        console.error(`Water data API fallback failed for ${stationId}:`, error.message);
       }
-
-      if (features.length < pageSize) break;
-      offset += features.length;
     }
 
-    return res.json(data);
+    const body = JSON.stringify(records.map(record => ({
+      date_time: record.date_time.toISOString().slice(0, 19).replace('T', ' '),
+      water_level: record.water_level ?? null,
+      discharge: record.discharge ?? null,
+      station_id: stationId
+    })));
+    waterDataCache.set(cacheKey, body, WATER_DATA_CACHE_TTL_SECONDS);
+
+    res.type('application/json');
+    return res.send(body);
   } catch (error) {
     console.error('Error fetching water data:', error);
     res.status(500).json({ error: 'Failed to fetch water data' });

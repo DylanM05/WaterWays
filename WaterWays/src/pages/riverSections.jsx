@@ -149,7 +149,8 @@ const RiverSections = ({ rivers }) => {
             const response = await axios.get(
               `${API_BASE_URL}/details/latest-water-data/${section.station_id}`
             );
-            const dateTime = new Date(response.data.date_time);
+            // The API serializes timestamps in UTC.
+            const dateTime = new Date(`${response.data.date_time.replace(' ', 'T')}Z`);
             const formattedTime = dateTime.toLocaleString('en-US', {
               month: 'long',
               day: 'numeric',

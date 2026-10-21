@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const mongoose = require('mongoose');
 const detailsRoute = require('./routes/DetailsRoute');
 const scrapeRoute = require('./routes/ScrapeRoute');
@@ -20,6 +21,7 @@ const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
 
 const app = express();
 
+app.use(compression());
 
 app.use((req, res, next) => {
   if (req.originalUrl === '/subscription/webhook') {
