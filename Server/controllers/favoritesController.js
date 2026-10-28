@@ -1,9 +1,15 @@
 const Favorite = require('../models/Favorite');
 
+// One saved river per user, province and (case-insensitive) river name.
+function riverFavoriteId(province, riverName) {
+  return `river:${Buffer.from(`${province}|${riverName.toLowerCase()}`).toString('base64url')}`;
+}
+exports.riverFavoriteId = riverFavoriteId;
+
 exports.addFavorite = async (req, res) => {
   try {
     const { stationId, stationName, province } = req.body;
-    const userId = req.auth?.userId || req.session?.userId;
+    const userId = req.userId;
     if (!userId) {
       return res.status(401).json({ error: 'Authentication required' });
     }
@@ -39,7 +45,7 @@ exports.addFavorite = async (req, res) => {
 
 exports.addRiverFavorite = async (req, res) => {
   try {
-    const userId = req.auth?.userId || req.session?.userId;
+    const userId = req.userId;
     const { riverName, province, stations } = req.body;
     if (!userId) return res.status(401).json({ error: 'Authentication required' });
     if (typeof riverName !== 'string' || !riverName.trim() || typeof province !== 'string' || !province.trim()) {
@@ -63,8 +69,7 @@ exports.addRiverFavorite = async (req, res) => {
 
     const cleanRiverName = riverName.trim();
     const cleanProvince = province.trim().toUpperCase();
-    const encodedKey = Buffer.from(`${cleanProvince}|${cleanRiverName.toLowerCase()}`).toString('base64url');
-    const stationId = `river:${encodedKey}`;
+    const stationId = riverFavoriteId(cleanProvince, cleanRiverName);
     const favorite = await Favorite.findOneAndUpdate(
       { userId: userId.toString(), stationId, favoriteType: 'river' },
       {
@@ -89,7 +94,7 @@ exports.addRiverFavorite = async (req, res) => {
 
 exports.removeRiverFavorite = async (req, res) => {
   try {
-    const userId = req.auth?.userId || req.session?.userId;
+    const userId = req.userId;
     const { favoriteId } = req.params;
     if (!userId) return res.status(401).json({ error: 'Authentication required' });
     if (typeof favoriteId !== 'string' || !favoriteId.startsWith('river:')) {
@@ -116,7 +121,7 @@ exports.removeFavorite = async (req, res) => {
     if (!stationId || typeof stationId !== 'string') {
       return res.status(400).json({ error: 'Valid station ID is required' });
     }
-    const userId = req.auth?.userId || req.session?.userId;
+    const userId = req.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Authentication required' });
@@ -137,7 +142,7 @@ exports.removeFavorite = async (req, res) => {
 
 exports.getFavorites = async (req, res) => {
   try {
-    const userId = req.auth?.userId || req.session?.userId;
+    const userId = req.userId;
     if (!userId) {
       return res.status(401).json({ error: 'Authentication required' });
     }
@@ -162,7 +167,7 @@ exports.checkFavorite = async (req, res) => {
     if (!stationId || typeof stationId !== 'string') {
       return res.status(400).json({ error: 'Valid station ID is required' });
     }
-    const userId = req.auth?.userId || req.session?.userId;
+    const userId = req.userId;
 
     if (!userId) {
       return res.status(401).json({ error: 'Authentication required' });

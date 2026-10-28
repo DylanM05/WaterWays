@@ -19,9 +19,13 @@
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#FFFFFF">
     
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>WaterWays</title>
     <script>
+      if (window.location.protocol === 'capacitor:') {
+        document.documentElement.classList.add('capacitor-app');
+      }
+
       window.addEventListener('DOMContentLoaded', () => {
         const savedMode = localStorage.getItem('darkMode');
         const isDark = savedMode !== null 

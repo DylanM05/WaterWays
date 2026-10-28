@@ -5,13 +5,15 @@ const StationCoordinates = require('../models/StationCoordinates');
 const StationData = require('../models/StationData');
 const { fillRecentGaps, syncStationRealtime } = require('../utilities/hydrometricData');
 
-const BACKFILL_HOURS = 30 * 24;
+// The API keeps 30 days; readings older than a week are rolled into hourly figures each night.
+const DEFAULT_HOURS = 7 * 24;
+const MAX_HOURS = 30 * 24;
 const STATION_CONCURRENCY = 2;
 const USAGE = 'Usage: node scripts/backfillRecentRealtime.js <stationId|--all> [--full] [--dry-run] [--hours N]\n'
     + '  default    fetch only time ranges missing from the window\n'
     + '  --full     refetch the whole window for each station\n'
     + '  --dry-run  report missing ranges without fetching or writing\n'
-    + '  --hours N  window size in hours (default 720, i.e. 30 days)';
+    + '  --hours N  window size in hours (default 168, i.e. 7 days; at most 720)';
 
 function hours(milliseconds) {
     return Math.round(milliseconds / (60 * 60 * 1000));
@@ -22,10 +24,10 @@ async function main() {
     const full = args.includes('--full');
     const dryRun = args.includes('--dry-run');
     const hoursIndex = args.indexOf('--hours');
-    const lookbackHours = hoursIndex === -1 ? BACKFILL_HOURS : Number.parseInt(args[hoursIndex + 1], 10);
+    const lookbackHours = hoursIndex === -1 ? DEFAULT_HOURS : Number.parseInt(args[hoursIndex + 1], 10);
     const target = args.find((arg, index) => !['--full', '--dry-run', '--hours'].includes(arg) && index !== hoursIndex + 1);
     if (!target || (target !== '--all' && !/^[A-Za-z0-9]+$/.test(target)) || (full && dryRun)
-        || !(lookbackHours > 0 && lookbackHours <= BACKFILL_HOURS)) {
+        || !(lookbackHours > 0 && lookbackHours <= MAX_HOURS)) {
         throw new Error(USAGE);
     }
 

@@ -2,7 +2,7 @@ import { Toast } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
 import './styling/subscriptionRequiredToast.css';
 
-export default function subscriptionRequiredToast({ showToast, setShowToast, toastMessage }) {
+export default function SubscriptionRequiredToast({ showToast, setShowToast, toastMessage }) {
   const navigate = useNavigate();
   
   return(

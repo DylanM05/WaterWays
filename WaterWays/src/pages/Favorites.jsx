@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Alert, Row, Col, Card, Badge, Spinner } from 'react-bootstrap';
 import { Link, Navigate } from 'react-router-dom';
-import { useAuth, useUser } from '@clerk/clerk-react';
+import { useAuth } from '@clerk/clerk-react';
 import { FaTrash, FaExclamationCircle, FaThermometerHalf, FaTint, FaCompass } from 'react-icons/fa';
 import { WiBarometer } from 'react-icons/wi';
 import axios from 'axios';
@@ -28,7 +28,6 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 const Favorites = () => {
   const { isLoaded, isSignedIn, getToken } = useAuth();
-  const { user } = useUser();
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);

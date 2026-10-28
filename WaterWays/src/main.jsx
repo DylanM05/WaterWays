@@ -6,7 +6,10 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import { ThemeProvider } from './components/utility/contexts/Theme.jsx';
 import { ClerkProvider } from '@clerk/clerk-react';
 import { SettingsProvider } from './components/utility/contexts/SettingsContext.jsx';
-import { PostHogProvider} from 'posthog-js/react'
+
+if (window.location.protocol === 'capacitor:' || window.Capacitor?.isNativePlatform?.()) {
+  document.body.classList.add('capacitor-app');
+}
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY
 
@@ -14,10 +17,24 @@ if (!PUBLISHABLE_KEY) {
   throw new Error('Missing Publishable Key')
 }
 
-const options = {
-  api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
-  defaults: '2025-05-24',
-}
+// A deploy replaces the hashed page chunks; a tab opened before it can't load them, so reload once.
+window.addEventListener('vite:preloadError', (event) => {
+  if (sessionStorage.getItem('chunkReload')) return;
+  sessionStorage.setItem('chunkReload', '1');
+  event.preventDefault();
+  window.location.reload();
+});
+window.addEventListener('load', () => sessionStorage.removeItem('chunkReload'));
+
+// Analytics is about a sixth of the app's code; load it after the page is up instead of before.
+window.addEventListener('load', () => {
+  import('posthog-js').then(({ default: posthog }) => {
+    posthog.init(import.meta.env.VITE_PUBLIC_POSTHOG_KEY, {
+      api_host: import.meta.env.VITE_PUBLIC_POSTHOG_HOST,
+      defaults: '2025-05-24',
+    });
+  });
+});
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
@@ -26,12 +43,7 @@ createRoot(document.getElementById('root')).render(
       publishableKey={PUBLISHABLE_KEY} 
       afterSignOutUrl='/'>
     <SettingsProvider>
-    <PostHogProvider 
-      apiKey={import.meta.env.VITE_PUBLIC_POSTHOG_KEY}
-      options={options}
-    >
     <App />
-    </PostHogProvider>
     </SettingsProvider>
     </ClerkProvider>
     </ThemeProvider>

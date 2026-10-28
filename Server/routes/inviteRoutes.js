@@ -1,12 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const inviteController = require('../controllers/inviteController');
-const { verifyAuth, getUserIfExists } = require('../middleware/authMiddleware');
+const { requireAuth } = require('../middleware/authMiddleware');
+const { requireAdmin } = require('../middleware/adminMiddleware');
 const { strictLimiter } = require('../utilities/ratelimiter');
 
 router.use(strictLimiter);
-router.post('/generate', verifyAuth, getUserIfExists, inviteController.generateInviteLink);
-router.get('/list', verifyAuth, getUserIfExists, inviteController.listInviteLinks);
-router.post('/redeem', verifyAuth, getUserIfExists, inviteController.redeemInviteLink);
+// Invite links grant lifetime premium, so only admins can create or see them.
+router.post('/generate', requireAuth, requireAdmin, inviteController.generateInviteLink);
+router.get('/list', requireAuth, requireAdmin, inviteController.listInviteLinks);
+router.post('/redeem', requireAuth, inviteController.redeemInviteLink);
 
 module.exports = router;

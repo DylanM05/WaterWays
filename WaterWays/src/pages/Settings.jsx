@@ -114,8 +114,11 @@ const Settings = () => {
     if (!user) return;
 
     try {
+      const token = await getToken();
       await axios.post(`${API_BASE_URL}/s/${user.id}`, {
         settings: settingsToSave
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
     } catch (error) {
       console.error('Error saving settings to server:', error);
@@ -331,7 +334,7 @@ const Settings = () => {
     });
   };
 
-  const handleCancellationSuccess = (result) => {
+  const handleCancellationSuccess = () => {
     checkSubscription(true); // Refresh subscription status
     setNotification({
       show: true,

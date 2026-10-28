@@ -1,6 +1,7 @@
 const winston = require('winston');
 const path = require('path');
 const fs = require('fs');
+const { reportError } = require('./monitoring');
 
 const logsDir = path.join(__dirname, '../logs');
 if (!fs.existsSync(logsDir)) {
@@ -13,6 +14,14 @@ const logFormat = winston.format.combine(
     return `${timestamp} ${level}: ${message}`;
   })
 );
+
+// Sends logged errors (from the scheduler and scripts) to error monitoring.
+class ErrorReportingTransport extends winston.Transport {
+  log(info, callback) {
+    reportError(info.message);
+    callback();
+  }
+}
 
 const logger = winston.createLogger({
   level: 'info',
@@ -33,7 +42,8 @@ const logger = winston.createLogger({
         winston.format.colorize(),
         logFormat
       )
-    })
+    }),
+    new ErrorReportingTransport({ level: 'error' })
   ],
 });
 

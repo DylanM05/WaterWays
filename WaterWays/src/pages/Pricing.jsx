@@ -1,16 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Button } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import { useClerk, useUser } from '@clerk/clerk-react';
+import { useUser } from '@clerk/clerk-react';
 import MonthlyModal from '../components/modals/MonthlyBilling';
 import AnnualModal from '../components/modals/AnnualBilling';
 
 const Pricing = () => {
   const navigate = useNavigate();
-  const { openUserProfile } = useClerk();
-  const { user, isSignedIn } = useUser();
-  const [showToast, setShowToast] = useState(false);
-  const [showProfileModal, setShowProfileModal] = useState(false); 
+  const { isSignedIn } = useUser();
   const [showMonthlyModal, setShowMonthlyModal] = useState(false);
   const [showAnnualModal, setShowAnnualModal] = useState(false);
   const [referringPage, setReferringPage] = useState('');

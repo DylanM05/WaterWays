@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Row, Col, Badge, Container, Alert } from 'react-bootstrap';
-import moment from 'moment';
+import { localDateKey, weekdayName } from '../utility/dates';
 import './styling/WeeklyForecast.css';
 import { useSettings } from '../utility/contexts/SettingsContext';
 
@@ -75,7 +75,7 @@ function WeeklyForecast({ weeklyData, error }) {
     );
   };
 
-  const today = moment().startOf('day');
+  const today = localDateKey();
   
   return (
     <Container fluid className="px-0">
@@ -112,8 +112,7 @@ function WeeklyForecast({ weeklyData, error }) {
           ) : (
             <div className="weekly-forecast-container">
               {weeklyData.dates.map((date, index) => {
-                const forecastDate = moment(weeklyData.rawDates[index]);
-                const isToday = forecastDate.isSame(today, 'day');
+                const isToday = weeklyData.rawDates[index] === today;
                 
                 return (
                   <Card 
@@ -132,7 +131,7 @@ function WeeklyForecast({ weeklyData, error }) {
                         <Col xs={6} md={2} className="mb-2 mb-md-0">
                           <div className="d-flex flex-column align-items-start">
                             <small className="label mb-1">
-                              {isToday ? 'Today' : moment(weeklyData.rawDates[index]).format('dddd')}
+                              {isToday ? 'Today' : weekdayName(weeklyData.rawDates[index])}
                             </small>
                             <strong style={{ color: 'var(--text-colour)', fontSize: windowWidth < 576 ? '1rem' : '1.1rem' }}>
                               {date.split(' ').slice(0, 2).join(' ')}

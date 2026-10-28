@@ -4,7 +4,7 @@ const secretsController = require('../controllers/secretsController');
 const { defaultLimiter } = require('../utilities/ratelimiter');
 
 router.use(defaultLimiter);
-router.get('/proxy-maps/:latitude/:longitude', defaultLimiter, secretsController.getMapProxyUrl);
-router.get('/proxy/map', defaultLimiter, secretsController.serveMapProxy);
+router.get('/proxy-maps/:latitude/:longitude', secretsController.getMapProxyUrl);
+router.get('/proxy/map', secretsController.serveMapProxy);
 
 module.exports = router;

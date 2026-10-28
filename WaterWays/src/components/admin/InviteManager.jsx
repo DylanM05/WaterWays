@@ -24,7 +24,7 @@ const InviteManager = () => {
       );
       
       setInvites(response.data.inviteLinks);
-    } catch (err) {
+    } catch {
       setError('Failed to load invite links');
     } finally {
       setLoading(false);
@@ -42,7 +42,7 @@ const InviteManager = () => {
       setCopied(false);
       
       const token = await getToken();
-      const response = await axios.post(
+      await axios.post(
         `${API_BASE_URL}/inv/generate`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }

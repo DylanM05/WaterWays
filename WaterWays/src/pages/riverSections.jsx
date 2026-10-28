@@ -18,7 +18,6 @@ const RiverSections = ({ rivers }) => {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [subscriptionStatus, setSubscriptionStatus] = useState({ subscribed: false });
-  const [checkingSubscription, setCheckingSubscription] = useState(false);
   const [hoveredCard, setHoveredCard] = useState(null);
   
   const isMounted = useRef(true);
@@ -79,7 +78,6 @@ const RiverSections = ({ rivers }) => {
     if (!isSignedIn) return;
     
     try {
-      setCheckingSubscription(true);
       const token = await getToken();
       const response = await axios.get(`${API_BASE_URL}/sub/status`, {
         headers: { Authorization: `Bearer ${token}` }
@@ -89,8 +87,6 @@ const RiverSections = ({ rivers }) => {
     } catch (err) {
       console.error('Error checking subscription status:', err);
       setSubscriptionStatus({ subscribed: false });
-    } finally {
-      setCheckingSubscription(false);
     }
   };
 

@@ -1,6 +1,6 @@
 import React, { useState, useContext, useMemo, useRef, useEffect } from 'react';
 import { Card, Row, Col, Container, Alert } from 'react-bootstrap';
-import moment from 'moment';
+import { formatTickDateTime, parseLongDateTime } from '../utility/dates';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import './styling/PressureData.css';
@@ -57,7 +57,7 @@ const PressureData = ({ pressureData, error, loading }) => {
     
     // Convert dates to timestamps
     const times = pressureData.localTime.slice(0, dataLength).map(timeString => 
-      moment(timeString, 'MMMM Do YYYY, h:mm:ss a').valueOf() / 1000
+      (parseLongDateTime(timeString)?.getTime() ?? NaN) / 1000
     );
     
     const mslValues = pressureData.pressureMsl.slice(0, dataLength);
@@ -133,12 +133,11 @@ const PressureData = ({ pressureData, error, loading }) => {
           label: 'Date/Time',
           size: 60,
           values: (self, ticks) => {
-            const format = "MM/DD HH:mm";
             const tickSpacing = Math.ceil(ticks.length / (chartRef.current.offsetWidth / 100));
             
             return ticks.map((tick, i) => {
               if (i % tickSpacing !== 0) return "";
-              return moment(tick * 1000).format(format);
+              return formatTickDateTime(new Date(tick * 1000));
             });
           }
         },

@@ -1,13 +1,13 @@
 import React, { useState, useContext, useMemo, useRef, useEffect } from 'react';
 import { Card, Table, Container, Alert } from 'react-bootstrap';
-import moment from 'moment';
+import { formatLongDateTime, formatTickDate, formatTickDateTime, parseUtcTimestamp } from '../utility/dates';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import './styling/waterData.css';
 import { ThemeContext } from '../utility/contexts/Theme';
 import Spinner from '../spinners/Spinner';
 
-const WaterData = ({ stationId, waterData, waterDataLoading, waterDataError, onFetchWaterData }) => {
+const WaterData = ({ waterData, waterDataLoading, waterDataError, onFetchWaterData }) => {
     const { darkMode } = useContext(ThemeContext);
     const [timeWindow, setTimeWindow] = useState(1);
     const [recordsPerPage, setRecordsPerPage] = useState(10);
@@ -34,7 +34,7 @@ const WaterData = ({ stationId, waterData, waterDataLoading, waterDataError, onF
 
         const times = dataToUse.map(entry =>
             // The API serializes timestamps in UTC.
-            moment.utc(entry.date_time, 'YYYY-MM-DD HH:mm:ss').valueOf() / 1000
+            parseUtcTimestamp(entry.date_time).getTime() / 1000
         );
         const waterLevels = dataToUse.map(entry => entry.water_level ?? null);
         const discharges = dataToUse.map(entry => entry.discharge ?? null);
@@ -81,15 +81,13 @@ const WaterData = ({ stationId, waterData, waterDataLoading, waterDataError, onF
                     label: 'Date/Time',
                     size: 60,
                     values: (self, ticks) => {
-                        const format = timeWindow <= 3 
-                            ? "MM/DD HH:mm" 
-                            : (timeWindow <= 3 ? "MM/DD" : "MMM DD");
-                        
+                        const formatTick = timeWindow <= 3 ? formatTickDateTime : formatTickDate;
+
                         const tickSpacing = Math.ceil(ticks.length / (chartRef.current.offsetWidth / 100));
                         
                         return ticks.map((tick, i) => {
                             if (i % tickSpacing !== 0) return "";
-                            return moment(tick * 1000).format(format);
+                            return formatTick(new Date(tick * 1000));
                         });
                     }
                 },
@@ -273,7 +271,7 @@ const WaterData = ({ stationId, waterData, waterDataLoading, waterDataError, onF
                                         <tr key={index}>
                                             <td>
                                                 {entry.date_time
-                                                    ? moment.utc(entry.date_time, 'YYYY-MM-DD HH:mm:ss').local().format('MMMM Do YYYY, h:mm a')
+                                                    ? formatLongDateTime(parseUtcTimestamp(entry.date_time), { seconds: false })
                                                     : 'N/A'}
                                             </td>
                                             <td>{entry.water_level !== null ? `${entry.water_level} m` : 'N/A'}</td>

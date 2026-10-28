@@ -1,11 +1,29 @@
 const StationCoordinates = require('../models/StationCoordinates');
+const { splitStationName } = require('../utilities/riverNames');
+
+const MAX_QUERY_LENGTH = 100;
+
+// Search text is matched literally; unescaped, it would run as a user-supplied regular expression.
+function searchRegex(query) {
+  return new RegExp(query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+}
+
+function readQuery(req, res) {
+  const query = req.query.query;
+  if (typeof query !== 'string') {
+    res.status(400).json({ error: 'query is required' });
+    return null;
+  }
+  return query.trim().slice(0, MAX_QUERY_LENGTH);
+}
 
 exports.searchStationByName = async (req, res) => {
+  const searchQuery = readQuery(req, res);
+  if (searchQuery === null) return;
+  if (!searchQuery) return res.json([]);
+
   try {
-    const searchQuery = req.query.query;
-    
-    const escapedQuery = searchQuery.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(escapedQuery, 'i');
+    const regex = searchRegex(searchQuery);
   
     const stations = await StationCoordinates.find({ stationName: regex }).limit(20);
     res.json(stations);
@@ -16,25 +34,29 @@ exports.searchStationByName = async (req, res) => {
 };
 
 exports.searchAllRivers = async (req, res) => {
+  const rawQuery = readQuery(req, res);
+  if (rawQuery === null) return;
+  if (!rawQuery) return res.json([]);
+
   try {
-    const searchQuery = req.query.query.toLowerCase();
-    const allStations = await StationCoordinates.find({
-      stationName: { $regex: searchQuery, $options: 'i' }
-    }).limit(100);
+    const searchQuery = rawQuery.toLowerCase();
+    const allStations = await StationCoordinates.find({ stationName: searchRegex(searchQuery) })
+      .limit(100)
+      .lean();
     const groupedResults = {};
     
+    // Same river names as /details/rivers, so a result opens that river's page.
     allStations.forEach(station => {
-      const fullName = station.stationName;
-      const baseNameMatch = fullName.match(/^(.*?)\s(NEAR|ABOVE|BELOW|AT|SOUTH OF|NORTH OF|EAST OF|WEST OF|UPSTREAM|DOWNSTREAM)/i);
-      const baseName = baseNameMatch ? baseNameMatch[1].trim() : fullName.trim();
-      if (baseName.toLowerCase().includes(searchQuery)) {
-        if (!groupedResults[baseName]) {
-          groupedResults[baseName] = {
-            stationName: baseName, 
-            station_id: station.station_id,
-            province: station.province
-          };
-        }
+      const { riverName } = splitStationName(station.stationName);
+      if (!riverName.toLowerCase().includes(searchQuery)) return;
+      // Rivers such as the Red River exist in more than one province.
+      const key = `${station.province}|${riverName}`;
+      if (!groupedResults[key]) {
+        groupedResults[key] = {
+          stationName: riverName,
+          station_id: station.station_id,
+          province: station.province
+        };
       }
     });
     

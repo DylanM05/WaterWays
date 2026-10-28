@@ -1,16 +1,27 @@
 import React from 'react';
 import { Card, Alert, Container } from 'react-bootstrap';
-import moment from 'moment';
+import { parseLongDateTime } from '../utility/dates';
 import './styling/HourlyForecast.css';
 import { useSettings } from '../utility/contexts/SettingsContext';
 
+const HOUR_MS = 60 * 60 * 1000;
+
 const HourlyForecast = ({ forecastData, pressureData, error }) => {
-  const now = moment();
+  const now = Date.now();
   const { formatTemperature } = useSettings(); // Add this hook
 
-  const futureForecasts = forecastData?.localTime?.map((timeString, index) => {
-    const forecastTime = moment(timeString, 'MMMM Do YYYY, h:mm:ss a');
-    if (forecastTime.isBefore(now)) return null;
+  // Pressure times are UTC while forecast times are station-local, so pair them by the actual hour
+  // (rounded, for half-hour time zones such as Newfoundland's) rather than by position.
+  const pressureByHour = new Map((pressureData?.time ?? []).map((timeString, index) => [
+    Math.round((parseLongDateTime(timeString, { utc: true })?.getTime() ?? NaN) / HOUR_MS),
+    pressureData.pressureMsl?.[index]
+  ]));
+
+  // `time` is the station's local time for display; rawTime minus the UTC offset gives the real time.
+  const futureForecasts = forecastData?.time?.map((timeString, index) => {
+    const startsAt = Date.parse(`${forecastData.rawTime?.[index]}Z`) - (forecastData.utcOffsetSeconds ?? 0) * 1000;
+    if (startsAt < now) return null;
+    const pressure = pressureByHour.get(Math.round(startsAt / HOUR_MS));
 
     const datePart = timeString.split(',')[0];
     const timePart = timeString.split(',')[1].trim();
@@ -157,7 +168,7 @@ const HourlyForecast = ({ forecastData, pressureData, error }) => {
               </div>
             )}
 
-            {pressureData?.pressureMsl && (
+            {pressure != null && (
               <div 
                 className="metric"
                 style={{
@@ -178,7 +189,7 @@ const HourlyForecast = ({ forecastData, pressureData, error }) => {
                   <span style={{ color: 'var(--text-colour)' }}>Pressure:</span>
                 </strong>
                 <span style={{ color: 'var(--text-colour)', marginLeft: 'auto' }}>
-                  {pressureData.pressureMsl[index]} hPa
+                  {pressure} hPa
                 </span>
               </div>
             )}

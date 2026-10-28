@@ -8,4 +8,8 @@ const stationCoordinatesSchema = new mongoose.Schema({
     longitude: String
 });
 
+// Weather, coordinates and river-list lookups query by these.
+stationCoordinatesSchema.index({ station_id: 1 });
+stationCoordinatesSchema.index({ province: 1 });
+
 module.exports = mongoose.model('StationCoordinates', stationCoordinatesSchema);

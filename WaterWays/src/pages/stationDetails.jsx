@@ -1,20 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import moment from 'moment';
 import { useSettings } from '../components/utility/contexts/SettingsContext';
 import { useAuth } from '@clerk/clerk-react';
 import { FaHeart, FaRegHeart } from 'react-icons/fa';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-} from 'chart.js';
 
 import StationInfo from '../components/tabs/StationInfo';
 import HourlyForecast from '../components/tabs/HourlyForecast';
@@ -24,16 +13,6 @@ import WaterData from '../components/tabs/WaterData';
 import WeeklyForecast from '../components/tabs/WeeklyForecast';
 import { convertToLocalTime, convertTimeArrayToLocal } from '../components/utility/utility';
 import FavouritesSubscribeToast from '../components/toasts/subscriptionRequiredToast';
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend
-);
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -111,7 +90,6 @@ const StationDetails = () => {
   const [activeKey, setActiveKey] = useState(settings.defaultTab);
   const [initialLoading, setInitialLoading] = useState(true);
   const [secondaryLoading, setSecondaryLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [stationInfo, setStationInfo] = useState(null);
@@ -128,7 +106,6 @@ const StationDetails = () => {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [subscriptionStatus, setSubscriptionStatus] = useState({ subscribed: false });
-  const [checkingSubscription, setCheckingSubscription] = useState(false);
   const [waterData, setWaterData] = useState({});
   const [waterDataLoading, setWaterDataLoading] = useState({});
   const [waterDataError, setWaterDataError] = useState({});
@@ -149,7 +126,6 @@ const StationDetails = () => {
   useEffect(() => {
     const fetchStationCoordinates = async () => {
       setInitialLoading(true);
-      setError(null);
       
       try {
         const coordinatesResponse = await axios.get(ENDPOINTS.coordinates(stationId));
@@ -236,14 +212,9 @@ const StationDetails = () => {
             setWeatherDataError('Failed to load weather data.');
           }),
         
-        // Forecast data
+        // Forecast data; its times are already in the station's time zone.
         axios.get(ENDPOINTS.forecast(stationId))
-          .then(res => {
-            if (res.data && res.data.time) {
-              res.data.localTime = convertTimeArrayToLocal(res.data.time);
-            }
-            setForecastData(res.data);
-          })
+          .then(res => setForecastData(res.data))
           .catch(err => {
             console.error('Error fetching forecast data:', err);
             setForecastDataError('Failed to load forecast data.');
@@ -288,7 +259,6 @@ const StationDetails = () => {
     if (!isSignedIn) return;
     
     try {
-      setCheckingSubscription(true);
        const token = await getToken();
          const response = await axios.get(`${API_BASE_URL}/sub/status`, {
            headers: { Authorization: `Bearer ${token}` }
@@ -298,8 +268,6 @@ const StationDetails = () => {
     } catch (err) {
       console.error('Error checking subscription status:', err);
       setSubscriptionStatus({ subscribed: false });
-    } finally {
-      setCheckingSubscription(false);
     }
   };
 

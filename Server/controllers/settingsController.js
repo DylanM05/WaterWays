@@ -7,6 +7,10 @@ const getUserSettings = async (req, res) => {
     return res.status(400).json({ error: 'User ID is required' });
   }
 
+  if (req.userId !== userId) {
+    return res.status(403).json({ error: 'Not authorized to view settings for this user' });
+  }
+
   try {
     const settings = await UserSettings.findOne({ userId });
     
@@ -25,7 +29,6 @@ const getUserSettings = async (req, res) => {
 };
 
 const saveUserSettings = async (req, res) => {
-  const authenticatedUserId = req.auth?.userId || req.session?.userId;
   const { userId } = req.params;
   const { settings } = req.body;
   
@@ -37,7 +40,7 @@ const saveUserSettings = async (req, res) => {
     return res.status(400).json({ error: 'Settings must be a valid object' });
   }
   
-  if (authenticatedUserId && authenticatedUserId !== userId) {
+  if (req.userId !== userId) {
     return res.status(403).json({ error: 'Not authorized to modify settings for this user' });
   }
 

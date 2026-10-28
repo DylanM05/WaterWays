@@ -1,13 +1,14 @@
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const CustomerMap = require('../models/CustomerMap');
 const LifetimePremium = require('../models/LifetimePremium');
+const AppleSubscription = require('../models/AppleSubscription');
 const cron = require('node-cron');
 
 
 exports.createMonthlyCheckoutSession = async (req, res) => {
   try {
-    const userId = req.auth?.userId || req.session?.userId;
-    const userEmail = req.auth?.sessionClaims?.email || req.user?.email || null;
+    const userId = req.userId;
+    const userEmail = req.sessionClaims?.email || req.user?.email || null;
     
     // Find or create a Stripe customer for this user
     let customerMap = await CustomerMap.findOne({ userId });
@@ -63,7 +64,7 @@ exports.createMonthlyCheckoutSession = async (req, res) => {
 
 exports.createAnnualCheckoutSession = async (req, res) => {
    try {
-    const userId = req.auth?.userId || req.session?.userId;
+    const userId = req.userId;
     const userEmail = req.user?.email || "dylan.mcmullen@live.com";
     
     // Find or create a Stripe customer for this user
@@ -129,6 +130,22 @@ exports.checkSubscriptionStatus = async (req, res) => {
       return res.json({
         subscribed: true,
         plan: 'lifetime',
+        source: 'lifetime',
+      });
+    }
+
+    const appleSubscription = await AppleSubscription.findOne(AppleSubscription.activeFilter(userId))
+      .sort({ expiresAt: -1 });
+
+    if (appleSubscription) {
+      const productId = appleSubscription.productId.toLowerCase();
+      const plan = productId.includes('annual') || productId.includes('year') ? 'apple-annual' : 'apple-monthly';
+      return res.json({
+        subscribed: true,
+        plan,
+        source: 'apple',
+        expiresAt: appleSubscription.expiresAt.toISOString(),
+        cancelAtPeriodEnd: appleSubscription.autoRenewEnabled === false
       });
     }
     
@@ -139,7 +156,8 @@ exports.checkSubscriptionStatus = async (req, res) => {
     if (!customerMap || !customerMap.stripeCustomerId) {
       return res.json({
         subscribed: false,
-        plan: 'free'
+        plan: 'free',
+        source: 'none'
       });
     }
     
@@ -181,6 +199,7 @@ exports.checkSubscriptionStatus = async (req, res) => {
         return res.json({
           subscribed: true,
           plan: customerMap.plan || 'paid',
+          source: 'stripe',
           expiresAt: expiresAt,
           cancelAtPeriodEnd: subscription.cancel_at_period_end || false
         });
@@ -192,7 +211,8 @@ exports.checkSubscriptionStatus = async (req, res) => {
     // If we get here, either there was no active subscription or there was an API error
     return res.json({
       subscribed: false,
-      plan: 'free'
+        plan: 'free',
+        source: 'none'
     });
   } catch (error) {
     console.error('Error checking subscription:', error);
@@ -471,7 +491,7 @@ exports.syncStripeDataToDB = async (customerId) => {
 
 exports.handleSubscriptionSuccess = async (req, res) => {
   try {
-    const userId = req.auth?.userId || req.session?.userId;
+    const userId = req.userId;
     console.log(`Processing subscription success for user: ${userId}`);
     
     // Find customer mapping to get Stripe customer ID
@@ -552,7 +572,7 @@ exports.handleSubscriptionSuccess = async (req, res) => {
 
 exports.cancelSubscription = async (req, res) => {
   try {
-    const userId = req.auth?.userId || req.session?.userId;
+    const userId = req.userId;
     console.log(`Attempting to cancel subscription for user: ${userId}`);
     
     if (!userId) {
@@ -653,7 +673,7 @@ exports.cancelSubscription = async (req, res) => {
 
 exports.reactivateSubscription = async (req, res) => {
   try {
-    const userId = req.auth?.userId || req.session?.userId;
+    const userId = req.userId;
     console.log(`Attempting to reactivate subscription for user: ${userId}`);
     
     if (!userId) {
@@ -715,7 +735,7 @@ exports.reactivateSubscription = async (req, res) => {
 
 exports.createBillingPortalSession = async (req, res) => {
   try {
-    const userId = req.auth?.userId || req.session?.userId;
+    const userId = req.userId;
     console.log(`Creating billing portal session for user: ${userId}`);
     
     if (!userId) {

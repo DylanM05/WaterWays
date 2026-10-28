@@ -1,11 +1,12 @@
 require('dotenv').config();
+// Loaded first so error monitoring is running before anything else can fail.
+const { Sentry, enabled: monitoringEnabled } = require('./utilities/monitoring');
 
 const express = require('express');
 const cors = require('cors');
 const compression = require('compression');
 const mongoose = require('mongoose');
 const detailsRoute = require('./routes/DetailsRoute');
-const scrapeRoute = require('./routes/ScrapeRoute');
 const searchRoute = require('./routes/SearchRoute');
 const secretRoute = require('./routes/SecretsRoute');
 const settingsRoute = require('./routes/settingsRoutes');
@@ -68,6 +69,9 @@ app.post('/subscription/webhook', async (req, res) => {
   }
 });
 
+// Clerk (Svix) signs the exact request body, so this route must read it raw, before express.json().
+app.post('/clerk/webhook', express.raw({ type: 'application/json' }), require('./controllers/clerkWebhookController').handleClerkWebhook);
+
 app.set('trust proxy', 1);
 
 mongoose.connect(mongoUri).then(() => {
@@ -111,9 +115,9 @@ app.use(cors({
 
 // Handle preflight requests
 app.options('*', cors());
+// The one general limit for every route below; routes add stricter limiters where needed.
 app.use(lenientLimiter);
 app.use('/details', detailsRoute);
-app.use('/work', scrapeRoute);
 app.use('/search', searchRoute);
 app.use('/api', secretRoute);
 app.use('/s', settingsRoute);
@@ -128,7 +132,9 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-app.use(lenientLimiter);
+// Reports errors that reach Express without being handled by a route.
+if (monitoringEnabled) Sentry.setupExpressErrorHandler(app);
+
 const port = 42069;
 app.listen(port, '0.0.0.0', () => {
   console.log(`Server is running on http://0.0.0.0:${port}`);

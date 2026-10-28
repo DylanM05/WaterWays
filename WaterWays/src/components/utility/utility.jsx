@@ -1,34 +1,12 @@
-import moment from 'moment';
-import { useSettings } from './contexts/SettingsContext';
+import { formatLongDateTime, parseLongDateTime } from './dates';
 
 
-export const convertToLocalTime = (timeString) => {
-  const utcTime = moment.utc(timeString, 'MMMM Do YYYY, h:mm:ss a');
-  return utcTime.local().format('MMMM Do YYYY, h:mm:ss a') + ' (Local Time)';
+// Converts the API's UTC display times ("October 28th 2026, 3:00:00 pm") to the browser's time zone.
+const utcToLocal = (timeString) => {
+  const time = parseLongDateTime(timeString, { utc: true });
+  return time ? formatLongDateTime(time) : timeString;
 };
 
-export const convertTimeArrayToLocal = (timeArray) => {
-  return timeArray.map(timeString => {
-    const utcTime = moment.utc(timeString, 'MMMM Do YYYY, h:mm:ss a');
-    return utcTime.local().format('MMMM Do YYYY, h:mm:ss a');
-  });
-};
+export const convertToLocalTime = (timeString) => `${utcToLocal(timeString)} (Local Time)`;
 
-export const formatLocalTime = (timestamp) => {
-  const { settings } = useSettings();
-  const date = new Date(timestamp);
-  
-  if (settings.timeFormat === '12h') {
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-  }
-  
-  return date.toLocaleTimeString('en-US', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  });
-};
+export const convertTimeArrayToLocal = (timeArray) => timeArray.map(utcToLocal);
