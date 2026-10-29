@@ -5,7 +5,11 @@ const stationCoordinatesSchema = new mongoose.Schema({
     station_id: String,
     province: String,
     latitude: String,
-    longitude: String
+    longitude: String,
+    // From Environment Canada's station catalogue (scripts/syncStationCatalogue.js): whether the station has
+    // a real-time feed, and its status (Active or Discontinued). Unset until the catalogue sync has run.
+    realtime: Boolean,
+    catalogueStatus: String
 });
 
 // Weather, coordinates and river-list lookups query by these.

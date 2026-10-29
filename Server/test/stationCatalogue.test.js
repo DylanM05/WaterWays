@@ -2,7 +2,8 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const StationCoordinates = require('../models/StationCoordinates');
-const { applyCorrections, compareWithCatalogue, distanceKm } = require('../scripts/syncStationCatalogue');
+const axios = require('axios');
+const { addStations, applyCorrections, compareWithCatalogue, distanceKm, fetchReportingStations, removeDiscontinued, stationsToAdd } = require('../scripts/syncStationCatalogue');
 const { fakeModel } = require('./helpers');
 
 const feature = (stationId, name, latitude, longitude, { status = 'Active', realtime = 1, province = 'AB' } = {}) => ({
@@ -52,10 +53,60 @@ test('a few metres of difference is not reported as a move', () => {
 test('applying corrects names and coordinates without adding or removing stations', async () => {
   const stored = fakeModel(StationCoordinates, stations);
   const updated = await applyCorrections(compareWithCatalogue(stored, catalogue));
-  assert.equal(updated, 2);
+  assert.equal(updated, 4, 'every catalogued station gets its real-time flag recorded');
   assert.equal(stored.length, stations.length);
   const steepbank = stored.find(record => record.station_id === '07DA044');
   assert.deepEqual([steepbank.latitude, steepbank.longitude], ['56.86738', '-111.13975']);
   assert.equal(stored.find(record => record.station_id === '02ZM016').stationName, 'MAHERS RIVER NEAR HOLYROOD');
   assert.equal(stored.find(record => record.station_id === '05BH004').latitude, '51.05');
+});
+
+test('records which stations have a real-time feed, and only rewrites flags that changed', async () => {
+  const stored = fakeModel(StationCoordinates, stations);
+  await applyCorrections(compareWithCatalogue(stored, catalogue));
+  const fontas = stored.find(record => record.station_id === '10CA001');
+  assert.deepEqual([fontas.realtime, fontas.catalogueStatus], [false, 'Discontinued']);
+  const bow = stored.find(record => record.station_id === '05BH004');
+  assert.deepEqual([bow.realtime, bow.catalogueStatus], [true, 'Active']);
+  assert.equal(stored.find(record => record.station_id === '07FA008').realtime, undefined, 'uncatalogued stations are left alone');
+  assert.equal(compareWithCatalogue(stored, catalogue).flags.length, 0, 'a second run has nothing to change');
+});
+
+test('adds only unlisted stations that are reporting now and are in Canada', async () => {
+  const withBorderStation = [...catalogue,
+    feature('05AA997', 'MILK RIVER AT EASTERN CROSSING', 49.0, -110.2, { province: 'MT' }),
+    feature('05AA996', 'QUIET CREEK NEAR NOWHERE', 49.7, -114.7)];
+  const findings = compareWithCatalogue(stations, withBorderStation);
+  const reporting = new Set(['05AA999', '05AA997', '08MF005']);
+  const additions = stationsToAdd(findings, reporting);
+  assert.deepEqual(additions, [{
+    stationName: 'NEW CREEK NEAR SOMEWHERE', station_id: '05AA999', province: 'AB',
+    latitude: '49.5', longitude: '-114.5', realtime: true, catalogueStatus: 'Active'
+  }]);
+  const stored = fakeModel(StationCoordinates, stations);
+  assert.equal(await addStations(additions), 1);
+  assert.equal(stored.length, stations.length + 1);
+  assert.equal(compareWithCatalogue(stored, withBorderStation).notListed.some(({ stationId }) => stationId === '05AA999'), false);
+});
+
+test('removes discontinued stations and nothing else', async () => {
+  const stored = fakeModel(StationCoordinates, stations);
+  assert.equal(await removeDiscontinued(compareWithCatalogue(stored, catalogue)), 1);
+  assert.deepEqual(stored.map(station => station.station_id).sort(), ['02ZM016', '05BH004', '07DA044', '07FA008']);
+});
+
+test('collects reporting stations across pages of the real-time API', async () => {
+  const pages = [
+    Array.from({ length: 10000 }, (_, index) => ({ properties: { STATION_NUMBER: `S${index % 2500}` } })),
+    [{ properties: { STATION_NUMBER: 'S9999' } }]
+  ];
+  const offsets = [];
+  axios.get = async (url, { params }) => {
+    offsets.push(params.offset);
+    assert.match(params.datetime, /Z\/.+Z$/);
+    return { data: { features: pages[offsets.length - 1] } };
+  };
+  const reporting = await fetchReportingStations(3, new Date('2026-10-28T12:00:00Z'));
+  assert.deepEqual(offsets, [0, 10000]);
+  assert.equal(reporting.size, 2501);
 });

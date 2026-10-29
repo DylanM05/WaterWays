@@ -19,11 +19,13 @@ router.get('/pressure/:id', WEATHER, DetailsController.getPressure);
 router.get('/weather/hourly/:id', WEATHER, DetailsController.getHourlyWeather);
 router.get('/rivers/:province', RIVER_LIST, DetailsController.getRiversByProvince);
 router.get('/weather/weekly/:id', WEATHER, DetailsController.getWeeklyWeather);
+router.get('/alerts/:id', cacheFor(5 * 60), DetailsController.getWeatherAlerts);
 router.get('/latest-water-data', READINGS, DetailsController.getLatestWaterDataBatch);
 router.get('/latest-water-data/:id', READINGS, DetailsController.getLatestWaterData);
 router.get('/water-data/:id/:days', READINGS, DetailsController.getWaterData);
 // Historical data is a premium feature.
 router.get('/water-archive/:id/:period', requireAuth, requirePremium, DetailsController.getArchivedWaterData);
 router.get('/water-history/:id', requireAuth, requirePremium, HistoryController.getWaterHistory);
+router.get('/water-records/:id', requireAuth, requirePremium, HistoryController.getWaterRecords);
 
 module.exports = router;

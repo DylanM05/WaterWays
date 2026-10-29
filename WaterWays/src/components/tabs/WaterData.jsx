@@ -6,6 +6,7 @@ import 'uplot/dist/uPlot.min.css';
 import './styling/waterData.css';
 import { ThemeContext } from '../utility/contexts/Theme';
 import Spinner from '../spinners/Spinner';
+import WaterSummary from './WaterSummary';
 
 const WaterData = ({ waterData, waterDataLoading, waterDataError, onFetchWaterData }) => {
     const { darkMode } = useContext(ThemeContext);
@@ -244,6 +245,11 @@ const WaterData = ({ waterData, waterDataLoading, waterDataError, onFetchWaterDa
                         <div>
                             <div ref={chartRef} className="uplot-wrapper mb-3" style={{ width: '100%' }} />
                         </div>
+                    )}
+
+                    {/* Conditions always use the full 30 days the page loads, whatever window the chart shows. */}
+                    {!waterDataLoading[timeWindow] && (
+                        <WaterSummary readings={waterData[30] || waterData[timeWindow]} series={selectedSeries} />
                     )}
 
                     <div className="table-responsive">

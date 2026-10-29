@@ -7,6 +7,7 @@ const { cleanReadings } = require('../utilities/waterQuality');
 const { splitStationName } = require('../utilities/riverNames');
 const { formatDate, formatDateTime, formatTime } = require('../utilities/dateFormat');
 const { HOUR_MS, readingsWithHourly } = require('../utilities/rollups');
+const { activeAlertFeatures, alertsAt } = require('../utilities/weatherAlerts');
 require('dotenv').config();
 const NodeCache = require('node-cache');
 const waterDataCache = new NodeCache({ stdTTL: 900 }); // 15 minutes cache TTL
@@ -78,7 +79,9 @@ const OPEN_METEO_URL = process.env.OPEN_METEO_API_KEY
 const WEATHER_QUERIES = {
   gmt: {
     current: 'temperature_2m,relative_humidity_2m,precipitation,rain,snowfall,showers,pressure_msl,surface_pressure,wind_speed_10m,wind_direction_10m,wind_gusts_10m,cloud_cover,weather_code,apparent_temperature,is_day',
-    hourly: 'surface_pressure,pressure_msl'
+    hourly: 'surface_pressure,pressure_msl',
+    // Two days of past pressure, so the chart shows where it's been as well as the forecast.
+    past_days: 2
   },
   local: {
     hourly: 'temperature_2m,weather_code,relative_humidity_2m,apparent_temperature,precipitation_probability,precipitation,wind_speed_10m,wind_gusts_10m,wind_direction_10m,is_day',
@@ -241,6 +244,22 @@ exports.getHourlyWeather = async (req, res) => {
 // The station list only changes when stations are re-imported.
 const RIVERS_CACHE_TTL_SECONDS = 6 * 60 * 60;
 
+// GET /details/alerts/:id: Environment Canada weather alerts covering the station. Free for everyone,
+// since they're safety information.
+exports.getWeatherAlerts = async (req, res) => {
+  try {
+    const coordinates = await StationCoordinates.findOne({ station_id: req.params.id }).lean();
+    if (!coordinates) return res.status(404).json({ error: 'Coordinates not found' });
+    const longitude = Number.parseFloat(coordinates.longitude);
+    const latitude = Number.parseFloat(coordinates.latitude);
+    if (!Number.isFinite(longitude) || !Number.isFinite(latitude)) return res.json({ alerts: [] });
+    return res.json({ alerts: alertsAt(await activeAlertFeatures(), longitude, latitude) });
+  } catch (error) {
+    console.error('Error fetching weather alerts:', error.message);
+    return res.status(502).json({ error: 'Weather alerts are unavailable right now' });
+  }
+};
+
 exports.getRiversByProvince = async (req, res) => {
   const province = req.params.province.toUpperCase();
   const cacheKey = `rivers-${province}`;
@@ -387,7 +406,30 @@ exports.getLatestWaterData = async (req, res) => {
   }
 };
 
+// The date of a station's newest stored figure, for stations with no recent readings (e.g. seasonal gauges).
+const LAST_REPORTED_CACHE_TTL_SECONDS = 60 * 60;
+async function lastReportedDate(stationId) {
+  const cacheKey = `last-reported-${stationId}`;
+  const cached = waterDataCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+  let date = null;
+  // Newest tier first; each lookup uses the station/period/date index.
+  for (const period of ['hourly', 'daily', 'monthly']) {
+    const latest = await StationArchive.findOne({ station_id: stationId, period }).sort({ date_time: -1 }).select('date_time').lean();
+    if (latest) {
+      // A monthly mean only says the station reported some time that month.
+      date = latest.date_time.toISOString().slice(0, period === 'monthly' ? 7 : 10);
+      break;
+    }
+  }
+  waterDataCache.set(cacheKey, date, LAST_REPORTED_CACHE_TTL_SECONDS);
+  return date;
+}
+
 // GET /details/latest-water-data?ids=A,B,C returns { stationId: reading }; stations without data are left out.
+// With includeLastReported=true it returns { readings, lastReported }, where lastReported gives the date
+// ("2026-09-30"), or just the month ("2024-08") when only monthly means remain, of the newest stored figure
+// for each station without a recent reading.
 exports.getLatestWaterDataBatch = async (req, res) => {
   const ids = [...new Set(String(req.query.ids || '').split(',').map(id => id.trim()).filter(Boolean))];
   if (!ids.length) {
@@ -403,7 +445,15 @@ exports.getLatestWaterDataBatch = async (req, res) => {
     ids.forEach((id, index) => {
       if (readings[index]) body[id] = readings[index];
     });
-    return res.json(body);
+    if (req.query.includeLastReported !== 'true') return res.json(body);
+
+    const silent = ids.filter(id => !body[id]);
+    const dates = await Promise.all(silent.map(lastReportedDate));
+    const lastReported = {};
+    silent.forEach((id, index) => {
+      if (dates[index]) lastReported[id] = dates[index];
+    });
+    return res.json({ readings: body, lastReported });
   } catch (error) {
     console.error('Error fetching latest water data batch:', error);
     return res.status(500).json({ error: 'Error fetching latest water data' });

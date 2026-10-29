@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useNavigate, Outlet } from 'react-router-dom';
 import './styling/canada.css';
 import Sidebar from '../components/sidebar/sidebar';
+import DataCredits from '../components/utility/DataCredits';
 
 const provincesAndTerritories = [
   { name: 'Alberta', abbreviation: 'AB' },
@@ -147,6 +148,7 @@ const Canada = ({ setRivers, rivers }) => {
       {/* Main content container */}
       <div className={`content ${!sidebarOpen ? 'full-width' : ''}`}>
         <Outlet />
+        <DataCredits />
       </div>
     </div>
   );

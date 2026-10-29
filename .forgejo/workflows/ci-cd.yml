@@ -56,6 +56,14 @@ jobs:
           echo "Client settings present: $(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' ./WaterWays/.env | tr -d '=' | sort | tr '\n' ' ')"
           exit $missing
 
+      - name: Run server tests
+        run: |
+          # Before anything is rebuilt or stopped, so a failing test leaves the running version up.
+          cd Server
+          node --version
+          npm ci --no-audit --no-fund
+          npm test
+
       - name: Build images
         run: |
           docker-compose build --no-cache

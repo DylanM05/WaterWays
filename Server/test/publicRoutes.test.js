@@ -119,3 +119,43 @@ test('visits are logged once per device per day, and only for real visitor IDs',
     await logging.close();
   }
 });
+
+test('official records are premium, like History', async () => {
+  const response = await api.request('/details/water-records/08MF005');
+  assert.equal(response.status, 401);
+  assert.equal(response.headers['cache-control'], undefined);
+});
+
+test('alerts for a station are public and briefly cacheable', async () => {
+  const { resetAlertCache } = require('../utilities/weatherAlerts');
+  resetAlertCache();
+  const axios = require('axios');
+  axios.get = async () => ({ data: { features: [{
+    geometry: { type: 'Polygon', coordinates: [[[-122, 49], [-121, 49], [-121, 50], [-122, 50], [-122, 49]]] },
+    properties: { alert_name_en: 'rainfall warning', alert_type: 'warning', expiration_datetime: new Date(Date.now() + 3600e3).toISOString(), status_en: 'issued' }
+  }] } });
+  StationCoordinates.findOne = (filter) => ({ lean: async () => (filter.station_id === '08MF005' ? { latitude: '49.38', longitude: '-121.45' } : null) });
+  const response = await api.request('/details/alerts/08MF005');
+  assert.equal(response.status, 200);
+  assert.deepEqual(response.body.alerts.map(alert => alert.name), ['rainfall warning']);
+  assert.equal(response.headers['cache-control'], 'public, max-age=300');
+  assert.equal((await api.request('/details/alerts/NOPE')).status, 404);
+});
+
+test('batch readings can include when silent stations last reported', async () => {
+  const StationArchive = require('../models/StationArchive');
+  fakeModel(StationArchive, [
+    { station_id: '05SEASON', period: 'daily', date_time: new Date('2026-09-30T00:00:00Z') },
+    { station_id: '05SEASON', period: 'monthly', date_time: new Date('2026-08-01T00:00:00Z') },
+    { station_id: '05PAUSED', period: 'hourly', date_time: new Date('2026-10-18T14:00:00Z') },
+    { station_id: '05PAUSED', period: 'hourly', date_time: new Date('2026-10-12T09:00:00Z') },
+    { station_id: '05OLDONE', period: 'monthly', date_time: new Date('2024-08-01T00:00:00Z') }
+  ]);
+  const plain = await api.request('/details/latest-water-data?ids=08MF005,05SEASON');
+  assert.deepEqual(Object.keys(plain.body), ['08MF005'], 'unchanged without the option');
+
+  const response = await api.request('/details/latest-water-data?ids=08MF005,05SEASON,05PAUSED,05OLDONE,05NEVER&includeLastReported=true');
+  assert.equal(response.status, 200);
+  assert.deepEqual(Object.keys(response.body.readings), ['08MF005']);
+  assert.deepEqual(response.body.lastReported, { '05SEASON': '2026-09-30', '05PAUSED': '2026-10-18', '05OLDONE': '2024-08' });
+});

@@ -10,6 +10,7 @@
     "stations:catalogue": "node scripts/syncStationCatalogue.js",
     "report:storage": "node scripts/storageReport.js",
     "compact:storage": "node scripts/compactStorage.js",
+    "migrate:river-favorites": "node scripts/migrateRiverFavoriteNames.js",
     "test": "node --test test/*.test.js"
   },
   "keywords": [],

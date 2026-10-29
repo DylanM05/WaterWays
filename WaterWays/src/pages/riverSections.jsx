@@ -9,6 +9,16 @@ import '../pages/styling/RiverSection.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
+// "2026-09-30" -> "Sep 30, 2026"; a month alone ("2024-08", when only monthly means remain) -> "Aug 2024".
+// The dates are UTC calendar dates, so they're formatted in UTC to avoid shifting a day.
+const formatLastReported = (value) => {
+  const [year, month, day] = value.split('-').map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day || 1));
+  return date.toLocaleDateString('en-CA', day
+    ? { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' }
+    : { month: 'short', year: 'numeric', timeZone: 'UTC' });
+};
+
 const RiverSections = ({ rivers }) => {
   const { riverName } = useParams();
   const [sections, setSections] = useState([]);
@@ -39,23 +49,26 @@ const RiverSections = ({ rivers }) => {
       try {
         const token = await getToken();
         
-        const favoritesStatus = {};
-        for (const section of sections) {
-          try {
-            setFavoriteLoading(prev => ({ ...prev, [section.station_id]: true }));
-            const response = await axios.get(`${API_BASE_URL}/u/favorites/check/${section.station_id}`, {
-              headers: { Authorization: `Bearer ${token}` }
-            });
-            favoritesStatus[section.station_id] = response.data.isFavorite;
-          } catch (err) {
-            console.error(`Error checking favorite for ${section.station_id}:`, err);
-            favoritesStatus[section.station_id] = false;
-          } finally {
-            if (isMounted.current) {
-              setFavoriteLoading(prev => ({ ...prev, [section.station_id]: false }));
-            }
-          }
+        const stationIds = sections.map(section => section.station_id);
+        const setLoading = (loading) => setFavoriteLoading(prev => ({
+          ...prev,
+          ...Object.fromEntries(stationIds.map(stationId => [stationId, loading]))
+        }));
+
+        // One request for all of the user's saved stations, instead of one check per station.
+        let saved = new Set();
+        setLoading(true);
+        try {
+          const response = await axios.get(`${API_BASE_URL}/u/favorites`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          saved = new Set(response.data.map(favorite => favorite.stationId));
+        } catch (err) {
+          console.error('Error loading saved stations:', err);
+        } finally {
+          if (isMounted.current) setLoading(false);
         }
+        const favoritesStatus = Object.fromEntries(stationIds.map(stationId => [stationId, saved.has(stationId)]));
         
         if (isMounted.current) {
           setFavorites(favoritesStatus);
@@ -139,43 +152,54 @@ const RiverSections = ({ rivers }) => {
     const fetchLatestWaterData = async () => {
       if (sections.length === 0) return;
 
-      try {
-        const dataPromises = sections.map(async (section) => {
-          try {
-            const response = await axios.get(
-              `${API_BASE_URL}/details/latest-water-data/${section.station_id}`
-            );
-            // The API serializes timestamps in UTC.
-            const dateTime = new Date(`${response.data.date_time.replace(' ', 'T')}Z`);
-            const formattedTime = dateTime.toLocaleString('en-US', {
-              month: 'long',
-              day: 'numeric',
-              year: 'numeric',
-              hour: 'numeric',
-              minute: 'numeric',
-              hour12: true,
-            });
-            return { stationId: section.station_id, data: response.data, time: formattedTime };
-          } catch (error) {
-            console.error(
-              `Error fetching latest water data for station ${section.station_id}:`,
-              error
-            );
-            return { stationId: section.station_id, data: null, time: null };
-          }
-        });
+      // The API serializes timestamps in UTC.
+      const formatTime = (value) => new Date(`${value.replace(' ', 'T')}Z`).toLocaleString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+        hour: 'numeric',
+        minute: 'numeric',
+        hour12: true,
+      });
 
-        const data = await Promise.all(dataPromises);
-        const dataMap = data.reduce((acc, item) => {
-          acc[item.stationId] = item;
-          return acc;
-        }, {});
+      try {
+        // One request per 100 stations, instead of one per station.
+        const stationIds = sections.map(section => section.station_id);
+        const readings = {};
+        const lastReported = {};
+        for (let start = 0; start < stationIds.length; start += 100) {
+          const response = await axios.get(`${API_BASE_URL}/details/latest-water-data`, {
+            params: { ids: stationIds.slice(start, start + 100).join(','), includeLastReported: true }
+          });
+          // Servers without the includeLastReported option send the readings map on its own.
+          const page = response.data || {};
+          const isCombined = page.readings && typeof page.readings === 'object' && 'lastReported' in page;
+          Object.assign(readings, isCombined ? page.readings : page);
+          if (isCombined) Object.assign(lastReported, page.lastReported);
+        }
+
+        const dataMap = Object.fromEntries(stationIds.map(stationId => {
+          const reading = readings[stationId];
+          return [stationId, {
+            stationId,
+            data: reading || null,
+            time: reading ? formatTime(reading.date_time) : null,
+            lastReported: lastReported[stationId] || null
+          }];
+        }));
 
         if (isMounted.current) {
           setLatestWaterData(dataMap);
         }
       } catch (error) {
         console.error('Error in fetchLatestWaterData:', error);
+        // Stop the spinners and say so, rather than showing every station as having no data.
+        if (isMounted.current) {
+          setLatestWaterData(Object.fromEntries(sections.map(section => [
+            section.station_id,
+            { stationId: section.station_id, data: null, time: null, lastReported: null, failed: true }
+          ])));
+        }
       }
     };
 
@@ -379,7 +403,13 @@ const RiverSections = ({ rivers }) => {
                       fontSize: '0.8rem'
                     }}
                   >
-                    No data available
+                    {/* The station catalogue marks some stations as having no real-time feed. */}
+                    {waterData?.failed
+                      ? 'Couldn’t load the latest reading. Refresh to try again.'
+                      : section.realtime === false ? 'No live readings' : 'No recent readings'}
+                    {section.realtime !== false && waterData?.lastReported && (
+                      <div style={{ fontSize: '0.75rem' }}>Last reported {formatLastReported(waterData.lastReported)}</div>
+                    )}
                   </div>
                 )}
               </div>

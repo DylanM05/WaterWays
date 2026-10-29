@@ -13,6 +13,7 @@ import WaterData from '../components/tabs/WaterData';
 import WeeklyForecast from '../components/tabs/WeeklyForecast';
 import { convertToLocalTime, convertTimeArrayToLocal } from '../components/utility/utility';
 import FavouritesSubscribeToast from '../components/toasts/subscriptionRequiredToast';
+import WeatherAlerts from '../components/tabs/WeatherAlerts';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -94,6 +95,7 @@ const StationDetails = () => {
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [stationInfo, setStationInfo] = useState(null);
   const [weatherData, setWeatherData] = useState(null);
+  const [alerts, setAlerts] = useState([]);
   const [forecastData, setForecastData] = useState(null);
   const [pressureData, setPressureData] = useState(null);
   const [weeklyData, setWeeklyData] = useState(null);
@@ -233,6 +235,11 @@ const StationDetails = () => {
             setPressureDataError('Failed to load pressure data.');
           }),
         
+        // Environment Canada weather alerts for the station; without them the page just shows none.
+        axios.get(`${API_BASE_URL}/details/alerts/${stationId}`)
+          .then(res => setAlerts(res.data.alerts || []))
+          .catch(() => setAlerts([])),
+
         // Weekly forecast data
         axios.get(`${API_BASE_URL}/details/weather/weekly/${stationId}`)
           .then(res => setWeeklyData(res.data))
@@ -407,6 +414,8 @@ const StationDetails = () => {
         toastMessage={toastMessage}
       />
       
+      <WeatherAlerts alerts={alerts} />
+
       {/* Tab Navigation */}
       <div style={{ borderBottom: '1px solid var(--border-colour)', marginBottom: '1.5rem' }}>
         <div className="flex overflow-x-auto hide-scrollbar">

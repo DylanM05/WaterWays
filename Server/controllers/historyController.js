@@ -1,3 +1,4 @@
+const axios = require('axios');
 const NodeCache = require('node-cache');
 const StationArchive = require('../models/StationArchive');
 const StationData = require('../models/StationData');
@@ -266,3 +267,74 @@ exports.getWaterHistory = async (req, res) => {
     return res.status(500).json({ error: 'Failed to load water history' });
   }
 };
+
+// Official yearly extremes from Environment Canada (HYDAT): each year's highest and lowest instantaneous
+// water level and flow, with the date. HYDAT is updated about once a year, so a day of caching is plenty.
+const ANNUAL_PEAKS_URL = 'https://api.weather.gc.ca/collections/hydrometric-annual-peaks/items';
+const recordsCache = new NodeCache({ stdTTL: 24 * 60 * 60 });
+const PEAK_METRICS = { 'Water Level': 'water_level', Discharge: 'discharge' };
+
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+/** Record high and low, typical yearly high and low, and the years covered, per metric (null without data). */
+function summarizeAnnualPeaks(features) {
+  const peaks = { water_level: { Maximum: [], Minimum: [] }, discharge: { Maximum: [], Minimum: [] } };
+  for (const { properties } of features) {
+    const metric = PEAK_METRICS[properties?.DATA_TYPE_EN];
+    const kind = properties?.PEAK_CODE_EN;
+    if (!metric || !peaks[metric][kind]) continue;
+    const value = (metric === 'water_level' ? plausibleLevel : plausibleDischarge)(properties.PEAK);
+    const date = typeof properties.DATE === 'string' ? properties.DATE.slice(0, 10) : null;
+    if (value === null || !date) continue;
+    peaks[metric][kind].push({ value: round(value), date });
+  }
+
+  const summary = {};
+  for (const [metric, { Maximum: highs, Minimum: lows }] of Object.entries(peaks)) {
+    if (!highs.length && !lows.length) {
+      summary[metric] = null;
+      continue;
+    }
+    const years = [...new Set([...highs, ...lows].map(peak => Number(peak.date.slice(0, 4))))].sort((a, b) => a - b);
+    summary[metric] = {
+      recordHigh: highs.length ? highs.reduce((max, peak) => (peak.value > max.value ? peak : max)) : null,
+      recordLow: lows.length ? lows.reduce((min, peak) => (peak.value < min.value ? peak : min)) : null,
+      typicalHigh: highs.length ? round(median(highs.map(peak => peak.value))) : null,
+      typicalLow: lows.length ? round(median(lows.map(peak => peak.value))) : null,
+      firstYear: years[0],
+      lastYear: years[years.length - 1],
+      years: years.length
+    };
+  }
+  return summary;
+}
+
+/** GET /details/water-records/:id — official record highs and lows for a station (premium, like History). */
+exports.getWaterRecords = async (req, res) => {
+  const stationId = String(req.params.id || '').toUpperCase();
+  if (!/^[A-Z0-9]{5,10}$/.test(stationId)) {
+    return res.status(400).json({ error: 'Invalid station ID' });
+  }
+
+  const cached = recordsCache.get(stationId);
+  if (cached) return res.json(cached);
+
+  try {
+    const response = await axios.get(ANNUAL_PEAKS_URL, {
+      params: { STATION_NUMBER: stationId, limit: 10000, f: 'json', skipGeometry: true },
+      timeout: 30000
+    });
+    const body = { stationId, ...summarizeAnnualPeaks(response.data?.features || []) };
+    recordsCache.set(stationId, body);
+    return res.json(body);
+  } catch (error) {
+    console.error(`Failed to load annual peaks for ${stationId}:`, error.message);
+    return res.status(502).json({ error: 'Records are unavailable right now' });
+  }
+};
+
+exports.summarizeAnnualPeaks = summarizeAnnualPeaks;

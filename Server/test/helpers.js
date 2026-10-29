@@ -76,6 +76,10 @@ function fakeModel(Model, documents = []) {
     distinct: async (field, filter) => [...new Set(docs.filter(doc => matches(doc, filter)).map(doc => doc[field]))],
     exists: async (filter) => (docs.some(doc => matches(doc, filter)) ? { _id: 'exists' } : null),
     countDocuments: async (filter) => docs.filter(doc => matches(doc, filter)).length,
+    insertMany: async (newDocs) => {
+      docs.push(...newDocs.map(doc => ({ ...doc })));
+      return newDocs;
+    },
     create: async (doc) => {
       docs.push({ ...doc });
       return { ...doc };

@@ -41,27 +41,58 @@ const ToggleButton = ({ label, isActive, onClick }) => (
   </button>
 );
 
+const HOUR_MS = 60 * 60 * 1000;
+
+// Steady under 0.5 hPa in three hours; 3 hPa or more is a rapid change.
+const tendency = (change) => {
+  if (Math.abs(change) < 0.5) return 'Steady';
+  return `${Math.abs(change) >= 3 ? 'Rapidly ' : ''}${change > 0 ? 'rising' : 'falling'}`.replace(/^./, letter => letter.toUpperCase());
+};
+
 const PressureData = ({ pressureData, error, loading }) => {
   const { darkMode } = useContext(ThemeContext);
   const [pressureChartTab, setPressureChartTab] = useState('msl');
   const chartRef = useRef(null);
   const uplotInstance = useRef(null);
   
-  // Prepare data for the uPlot chart
+  // Each hour as an instant; localTime is the API's UTC times converted to this browser's zone.
+  // The server sends the past two days and the forecast.
+  const hours = useMemo(() => (pressureData?.localTime || [])
+    .map((timeString, index) => ({
+      time: parseLongDateTime(timeString)?.getTime() ?? NaN,
+      msl: pressureData.pressureMsl?.[index] ?? null,
+      surface: pressureData.surfacePressure?.[index] ?? null
+    }))
+    .filter(hour => Number.isFinite(hour.time)), [pressureData]);
+
+  // The hour nearest now, the last 24 hours, and the change over the last 3 hours (sea-level pressure).
+  const conditions = useMemo(() => {
+    const now = Date.now();
+    const nearest = (time) => hours.reduce((best, hour) =>
+      (!best || Math.abs(hour.time - time) < Math.abs(best.time - time) ? hour : best), null);
+    const current = nearest(now);
+    if (!current || Math.abs(current.time - now) > HOUR_MS || current.msl === null) return null;
+    const earlier = nearest(current.time - 3 * HOUR_MS);
+    const change3h = earlier && earlier.msl !== null && Math.abs(earlier.time - (current.time - 3 * HOUR_MS)) <= HOUR_MS
+      ? current.msl - earlier.msl
+      : null;
+    const lastDay = hours.filter(hour => hour.time >= now - 24 * HOUR_MS && hour.time <= now && hour.msl !== null).map(hour => hour.msl);
+    return {
+      current,
+      change3h,
+      dayMax: lastDay.length ? Math.max(...lastDay) : null,
+      dayMin: lastDay.length ? Math.min(...lastDay) : null
+    };
+  }, [hours]);
+
+  // Prepare data for the uPlot chart: 48 hours either side of now.
   const plotData = useMemo(() => {
-    if (!pressureData?.pressureMsl || !pressureData?.surfacePressure || !pressureData?.localTime) {
-      return null;
-    }
-    
-    const dataLength = Math.min(48, pressureData.pressureMsl.length);
-    
-    // Convert dates to timestamps
-    const times = pressureData.localTime.slice(0, dataLength).map(timeString => 
-      (parseLongDateTime(timeString)?.getTime() ?? NaN) / 1000
-    );
-    
-    const mslValues = pressureData.pressureMsl.slice(0, dataLength);
-    const surfaceValues = pressureData.surfacePressure.slice(0, dataLength);
+    if (!hours.length) return null;
+    const now = Date.now();
+    const window = hours.filter(hour => Math.abs(hour.time - now) <= 48 * HOUR_MS);
+    const times = window.map(hour => hour.time / 1000);
+    const mslValues = window.map(hour => hour.msl);
+    const surfaceValues = window.map(hour => hour.surface);
     
     // Return appropriate data based on selected tab
     if (pressureChartTab === 'msl') {
@@ -69,7 +100,7 @@ const PressureData = ({ pressureData, error, loading }) => {
     } else { // surface
       return [times, surfaceValues];
     }
-  }, [pressureData, pressureChartTab]);
+  }, [hours, pressureChartTab]);
 
   // Create and update the chart when data or theme changes
   useEffect(() => {
@@ -252,32 +283,29 @@ const PressureData = ({ pressureData, error, loading }) => {
               {pressureData?.pressureMsl ? (
                 <>
                   <div className="d-flex justify-content-between mb-2" style={{ color: 'var(--text-colour)' }}>
-                    <span>Current MSL Pressure:</span>
-                    <strong>{pressureData.pressureMsl[0]} hPa</strong>
+                    <span>MSL pressure now:</span>
+                    <strong>{conditions ? `${conditions.current.msl.toFixed(1)} hPa` : '—'}</strong>
                   </div>
                   <div className="d-flex justify-content-between mb-2" style={{ color: 'var(--text-colour)' }}>
-                    <span>Current Surface Pressure:</span>
-                    <strong>{pressureData.surfacePressure[0]} hPa</strong>
+                    <span>Surface pressure now:</span>
+                    <strong>{conditions?.current.surface != null ? `${conditions.current.surface.toFixed(1)} hPa` : '—'}</strong>
                   </div>
                   <div className="d-flex justify-content-between mb-2" style={{ color: 'var(--text-colour)' }}>
-                    <span>Difference:</span>
-                    <strong>{(pressureData.pressureMsl[0] - pressureData.surfacePressure[0]).toFixed(1)} hPa</strong>
+                    <span>Last 3 hours:</span>
+                    <strong>{conditions?.change3h != null ? `${tendency(conditions.change3h)} · ${conditions.change3h > 0 ? '+' : ''}${conditions.change3h.toFixed(1)} hPa` : '—'}</strong>
                   </div>
                   <hr style={{ borderColor: 'var(--border-colour)' }} />
                   <div className="d-flex justify-content-between mb-2" style={{ color: 'var(--text-colour)' }}>
-                    <span>24hr Max MSL:</span>
-                    <strong>{Math.max(...pressureData.pressureMsl.slice(0, 24)).toFixed(1)} hPa</strong>
+                    <span>Last 24 hours, max MSL:</span>
+                    <strong>{conditions?.dayMax != null ? `${conditions.dayMax.toFixed(1)} hPa` : '—'}</strong>
                   </div>
                   <div className="d-flex justify-content-between mb-2" style={{ color: 'var(--text-colour)' }}>
-                    <span>24hr Min MSL:</span>
-                    <strong>{Math.min(...pressureData.pressureMsl.slice(0, 24)).toFixed(1)} hPa</strong>
+                    <span>Last 24 hours, min MSL:</span>
+                    <strong>{conditions?.dayMin != null ? `${conditions.dayMin.toFixed(1)} hPa` : '—'}</strong>
                   </div>
                   <div className="d-flex justify-content-between" style={{ color: 'var(--text-colour)' }}>
-                    <span>24hr Range:</span>
-                    <strong>
-                      {(Math.max(...pressureData.pressureMsl.slice(0, 24)) - 
-                       Math.min(...pressureData.pressureMsl.slice(0, 24))).toFixed(1)} hPa
-                    </strong>
+                    <span>Last 24 hours, range:</span>
+                    <strong>{conditions?.dayMax != null ? `${(conditions.dayMax - conditions.dayMin).toFixed(1)} hPa` : '—'}</strong>
                   </div>
                 </>
               ) : (

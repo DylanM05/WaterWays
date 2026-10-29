@@ -12,7 +12,6 @@
   "dependencies": {
     "@clerk/clerk-react": "^5.30.4",
     "@clerk/elements": "^0.23.22",
-    "@react-google-maps/api": "^2.20.6",
     "@stripe/react-stripe-js": "^3.7.0",
     "@stripe/stripe-js": "^7.3.0",
     "axios": "^1.8.4",
