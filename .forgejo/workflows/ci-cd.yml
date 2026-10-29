@@ -24,6 +24,9 @@ jobs:
           echo "VITE_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}" >> $GITHUB_ENV
 
       - name: Create .env files
+        env:
+          # Passed as an environment variable so characters in a password can't break the shell.
+          MONGO_URI_SECRET: ${{ secrets.MONGO_URI }}
         run: |
           cat > ./WaterWays/.env << 'EOF'
           ${{ secrets.CLIENT_ENV_FILE }}
@@ -31,17 +34,27 @@ jobs:
           cat > ./Server/.env << 'EOF'
           ${{ secrets.SERVER_ENV_FILE }}
           EOF
+          # The database address has its own secret, so it can't go missing from the env file.
+          if [ -n "$MONGO_URI_SECRET" ]; then
+            { grep -v '^MONGO_URI=' ./Server/.env || true; } > ./Server/.env.next
+            printf 'MONGO_URI=%s\n' "$MONGO_URI_SECRET" >> ./Server/.env.next
+            mv ./Server/.env.next ./Server/.env
+          fi
 
-      - name: Verify .env files
+      - name: Check required settings
         run: |
-          echo "=== WaterWays/.env ===" 
-          head -3 ./WaterWays/.env
-          echo ""
-          echo "=== Server/.env ===" 
-          cat ./Server/.env | head -10
-          echo ""
-          echo "Checking for STRIPE_SECRET_KEY:"
-          grep STRIPE_SECRET_KEY ./Server/.env || echo "NOT FOUND"
+          # Runs before the old containers are stopped, so a deploy missing these leaves the current
+          # version running. Prints names only: the values are secrets.
+          missing=0
+          for name in MONGO_URI CLERK_SECRET_KEY CLERK_PUBLISHABLE_KEY STRIPE_SECRET_KEY; do
+            if ! grep -q "^${name}=." ./Server/.env; then
+              echo "::error::${name} is missing from Server/.env (add it to the SERVER_ENV_FILE secret, or the MONGO_URI secret for the database)"
+              missing=1
+            fi
+          done
+          echo "Server settings present: $(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' ./Server/.env | tr -d '=' | sort | tr '\n' ' ')"
+          echo "Client settings present: $(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' ./WaterWays/.env | tr -d '=' | sort | tr '\n' ' ')"
+          exit $missing
 
       - name: Build images
         run: |
@@ -61,5 +74,6 @@ jobs:
       - name: Show logs
         run: |
           sleep 15
-          docker-compose logs server | grep -i "stripe\|error\|listening" | head -20
-          docker exec waterways-server-1 env | grep STRIPE || echo "STRIPE vars not found in container"
+          docker-compose logs server | grep -i "mongodb\|stripe\|error\|running" | head -20
+          # Reports whether the server reached the database, without printing any settings.
+          docker exec waterways-server-1 wget -qO- http://localhost:42069/health || echo "Server health check failed"

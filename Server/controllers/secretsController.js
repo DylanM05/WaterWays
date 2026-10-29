@@ -10,6 +10,12 @@ const getMapProxyUrl = (req, res) => {
     if (isNaN(lat) || isNaN(lng)) {
         return res.status(400).json({ error: 'Invalid coordinates' });
     }
+    // Tokens that were never used would otherwise stay in memory forever.
+    const now = Date.now();
+    for (const [existing, data] of validTokens) {
+        if (data.expires < now) validTokens.delete(existing);
+    }
+
     const token = crypto.randomBytes(20).toString('hex');
 
     validTokens.set(token, {

@@ -5,7 +5,7 @@ const { Sentry, enabled: monitoringEnabled } = require('./utilities/monitoring')
 const express = require('express');
 const cors = require('cors');
 const compression = require('compression');
-const mongoose = require('mongoose');
+const { connectWithRetry, databaseState } = require('./utilities/database');
 const detailsRoute = require('./routes/DetailsRoute');
 const searchRoute = require('./routes/SearchRoute');
 const secretRoute = require('./routes/SecretsRoute');
@@ -74,16 +74,20 @@ app.post('/clerk/webhook', express.raw({ type: 'application/json' }), require('.
 
 app.set('trust proxy', 1);
 
-mongoose.connect(mongoUri).then(() => {
-    console.log('Connected to MongoDB');
-    if (process.env.ENABLE_SCHEDULER !== 'false') {
-      require('./utilities/scheduler').startScheduler().catch(error => {
-        console.error('Unable to start hydrometric scheduler:', error);
-      });
+if (!mongoUri) {
+  // Retrying can't help without an address, so say clearly what's missing.
+  console.error('MONGO_URI is not set, so the server has no database. Add it to Server/.env (in CI: the MONGO_URI secret).');
+} else {
+  connectWithRetry(mongoUri, {
+    onConnected: () => {
+      if (process.env.ENABLE_SCHEDULER !== 'false') {
+        require('./utilities/scheduler').startScheduler().catch(error => {
+          console.error('Unable to start hydrometric scheduler:', error);
+        });
+      }
     }
-}).catch(err => {
-    console.error('Error connecting to MongoDB', err);
-});
+  });
+}
 
 app.use(express.json());
 const allowedOrigins = [
@@ -128,8 +132,9 @@ app.use('/inv', inviteRoutes)
 
 app.use('/admin', adminRoutes)
 
+// Always 200 so the website container can start (docker-compose waits on this); the database state is reported.
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok' });
+  res.status(200).json({ status: 'ok', database: mongoUri ? databaseState() : 'not configured' });
 });
 
 // Reports errors that reach Express without being handled by a route.

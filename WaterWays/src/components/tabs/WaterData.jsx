@@ -26,11 +26,9 @@ const WaterData = ({ waterData, waterDataLoading, waterDataError, onFetchWaterDa
     const plotData = useMemo(() => {
         if (!sortedWaterData.length) return null;
 
-        let dataToUse = sortedWaterData;
-        if (sortedWaterData.length > 500) {
-            const skipFactor = Math.ceil(sortedWaterData.length / 500);
-            dataToUse = sortedWaterData.filter((_, i) => i % skipFactor === 0);
-        }
+        // uPlot needs times in ascending order (the table below lists newest first). It draws every
+        // reading, so no short peak is skipped; a few thousand points are no work for it.
+        const dataToUse = [...sortedWaterData].reverse();
 
         const times = dataToUse.map(entry =>
             // The API serializes timestamps in UTC.

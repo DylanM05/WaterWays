@@ -1,15 +1,26 @@
 const UserVisit = require('../models/UserVisits'); 
 
+// The website gives each browser a random UUID; nothing else is a valid visitor ID.
+const VISITOR_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+// Local date, matching the day boundaries the stats below use.
+const localDay = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+
 exports.logUserVisit = async (req, res) => {
   const { userId } = req.body;
 
-  if (!userId) {
-    return res.status(400).json({ error: 'userId is required' });
+  if (typeof userId !== 'string' || !VISITOR_ID.test(userId)) {
+    return res.status(400).json({ error: 'A valid userId is required' });
   }
 
   try {
-    const visit = new UserVisit({ userId });
-    await visit.save();
+    // Stats count unique visitors, so one record per device per day is enough; repeat visits change nothing.
+    const now = new Date();
+    await UserVisit.findOneAndUpdate(
+      { userId, day: localDay(now) },
+      { $setOnInsert: { userId, day: localDay(now), timestamp: now } },
+      { upsert: true }
+    );
     res.status(200).json({ message: 'Visit logged' });
   } catch (error) {
     console.error('Error logging user visit:', error);

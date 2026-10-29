@@ -94,3 +94,28 @@ test('batch readings reject empty and oversized requests', async () => {
   const ids = Array.from({ length: 101 }, (_, index) => `S${index}`).join(',');
   assert.equal((await api.request(`/details/latest-water-data?ids=${ids}`)).status, 400);
 });
+
+test('visits are logged once per device per day, and only for real visitor IDs', async () => {
+  const UserVisit = require('../models/UserVisits');
+  const visits = fakeModel(UserVisit);
+  const app = express();
+  app.use(express.json());
+  app.use('/l', require('../routes/LoggingRoute'));
+  const logging = await serve(app);
+  try {
+    const id = '3b241101-e2bb-4255-8caf-4136c566a962';
+    for (let visit = 0; visit < 3; visit++) {
+      assert.equal((await logging.request('/l/u', { method: 'POST', body: { userId: id } })).status, 200);
+    }
+    assert.equal(visits.length, 1);
+    assert.equal(visits[0].userId, id);
+    assert.match(visits[0].day, /^\d{4}-\d{2}-\d{2}$/);
+
+    for (const userId of [undefined, '', 'not-a-uuid', { $gt: '' }, 'x'.repeat(5000)]) {
+      assert.equal((await logging.request('/l/u', { method: 'POST', body: { userId } })).status, 400, JSON.stringify(userId)?.slice(0, 20));
+    }
+    assert.equal(visits.length, 1);
+  } finally {
+    await logging.close();
+  }
+});
