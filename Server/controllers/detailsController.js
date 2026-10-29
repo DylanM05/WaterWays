@@ -453,14 +453,19 @@ exports.getWaterData = async (req, res) => {
     ]);
     let records = readingsWithHourly(readings, hours);
 
-    const missingHistory = !records.length || records[0].date_time - startDate > COVERAGE_TOLERANCE_MS;
+    const firstStored = records[0]?.date_time;
+    const missingHistory = !firstStored || firstStored - startDate > COVERAGE_TOLERANCE_MS;
     const lastAttempt = apiFallbackAttempts.get(stationId) || 0;
     if (missingHistory && Date.now() - lastAttempt > API_FALLBACK_COOLDOWN_MS) {
       apiFallbackAttempts.set(stationId, Date.now());
       try {
-        const fetched = await fetchRealtimeData(stationId, startDate, endDate);
-        if (fetched.length > records.length) {
-          records = fetched;
+        // Only the stretch before the earliest stored reading; what's stored (including hourly figures) is kept.
+        const gapEnd = firstStored || endDate;
+        const fetched = (await fetchRealtimeData(stationId, startDate, gapEnd))
+          .filter(reading => reading.date_time < gapEnd);
+        if (fetched.length) {
+          records = [...fetched, ...records];
+          // Stored like any reading; the nightly roll-up turns ones older than a week into hourly figures.
           upsertRealtimeData(fetched).catch(error => {
             console.error(`Failed to store fallback water data for ${stationId}:`, error);
           });

@@ -17,13 +17,18 @@ const { fakeModel } = require('./helpers');
 const HOUR = 60 * 60 * 1000;
 const feature = (properties) => ({ properties: { STATION_NUMBER: '08MF005', LEVEL: 3.5, DISCHARGE: 1200, ...properties } });
 
-// Answers API requests from a list of features, honouring limit/offset like the real API.
+// Answers API requests from a list of features, honouring the datetime range and limit/offset like the real API.
 let requests;
 function fakeApi(features) {
   requests = [];
   axios.get = async (url, { params }) => {
     requests.push(params);
-    return { data: { features: features.slice(params.offset, params.offset + params.limit) } };
+    const [from, to] = params.datetime.split('/').map(value => new Date(value).getTime());
+    const inRange = features.filter(({ properties: { DATETIME } }) => {
+      const time = new Date(DATETIME).getTime();
+      return Number.isNaN(time) || (time >= from && time <= to);
+    });
+    return { data: { features: inRange.slice(params.offset, params.offset + params.limit) } };
   };
 }
 
@@ -198,4 +203,32 @@ test('a 30-day chart uses five-minute readings for the last week and hourly figu
   assert.ok(!('water_level_min' in response.body.at(-1)), 'five-minute rows are unchanged');
   const hourlyCount = levels.filter(level => level === 1.5).length;
   assert.ok(hourlyCount >= 23 * 24 - 2 && hourlyCount <= 23 * 24 + 2, `about 23 days of hours, got ${hourlyCount}`);
+});
+
+test('history missing before the stored tiers is fetched for that stretch only, keeping hourly figures', async () => {
+  // Stored data starts 27 days ago (as far as the API reached when collection began): hourly to a week ago, then raw.
+  const now = Date.now();
+  const hourStart = time => Math.floor(time / HOUR) * HOUR;
+  const storedFrom = hourStart(now - 27 * 24 * HOUR);
+  for (let hour = storedFrom; hour < now - 7 * 24 * HOUR; hour += HOUR) {
+    archive.push({ station_id: 'GAP1', period: 'hourly', date_time: new Date(hour), water_level: 1.5, water_level_min: 1.4, water_level_max: 1.6 });
+  }
+  for (let minutes = 0; minutes <= 7 * 24 * 60; minutes += 5) {
+    stored.push({ station_id: 'GAP1', date_time: new Date(now - minutes * 60 * 1000), water_level: 2 });
+  }
+  // The API has five-minute readings across the whole 30 days.
+  fakeApi(Array.from({ length: 30 * 288 }, (_, index) => feature({
+    STATION_NUMBER: 'GAP1', LEVEL: 3, DATETIME: new Date(now - 30 * 24 * HOUR + index * 5 * 60 * 1000).toISOString()
+  })));
+
+  const response = await callWaterData('GAP1', 30);
+  assert.equal(requests.length, 1);
+  const [, to] = requests[0].datetime.split('/').map(value => new Date(value).getTime());
+  assert.ok(to <= storedFrom + HOUR, 'only the stretch before the stored data is requested');
+  const levels = response.body.map(reading => reading.water_level);
+  assert.ok(levels.includes(1.5), 'hourly figures are still used');
+  assert.ok(levels.includes(2), 'the last week is still five-minute readings');
+  assert.ok(levels.filter(level => level === 3).length < 4 * 288, 'the API fills only the missing days');
+  const times = response.body.map(reading => reading.date_time);
+  assert.deepEqual(times, [...times].sort());
 });
