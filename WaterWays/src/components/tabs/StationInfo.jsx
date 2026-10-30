@@ -1,30 +1,23 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Card, Alert, Row, Col, Spinner } from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import { Card, Row, Col } from 'react-bootstrap';
 import { useParams } from 'react-router-dom';
+import { displayTitle, PROVINCE_NAMES } from '../utility/names';
 
-const provinceMapping = {
-  'MB': 'Manitoba',
-  'ON': 'Ontario',
-  'QC': 'Quebec',
-  'BC': 'British Columbia',
-  'AB': 'Alberta',
-  'SK': 'Saskatchewan',
-  'NS': 'Nova Scotia',
-  'NB': 'New Brunswick',
-  'NL': 'Newfoundland and Labrador',
-  'PE': 'Prince Edward Island',
-  'NT': 'Northwest Territories',
-  'YT': 'Yukon',
-  'NU': 'Nunavut'
-};  
+// OpenStreetMap's embeddable map: no key or account, and it carries its own attribution. The links open
+// the station in the map apps people already use.
+const mapLinks = (lat, lng, name) => {
+  const latSpan = 0.02;
+  const lngSpan = 0.035;
+  const bbox = [lng - lngSpan, lat - latSpan, lng + lngSpan, lat + latSpan].map(value => value.toFixed(5)).join(',');
+  return {
+    embed: `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lng}`,
+    apple: `https://maps.apple.com/?ll=${lat},${lng}&q=${encodeURIComponent(name)}`,
+    google: `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`,
+    osm: `https://www.openstreetmap.org/?mlat=${lat}&mlon=${lng}#map=13/${lat}/${lng}`
+  };
+};
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-  
 const StationInfo = ({ stationInfo, stationId }) => {
-  const [mapUrl, setMapUrl] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const mapContainerRef = useRef(null);
   const params = useParams();
   const displayStationId = stationId || params.stationId;
   const [windowWidth, setWindowWidth] = useState(typeof window !== 'undefined' ? window.innerWidth : 768);
@@ -37,59 +30,12 @@ const StationInfo = ({ stationInfo, stationId }) => {
     }
   }, []);
 
-  useEffect(() => {
-    let isMounted = true;
-  
-    if (stationInfo?.latitude && stationInfo?.longitude) {
-      setIsLoading(true);
-      setError(null);
-  
-      try {
-        const lat = parseFloat(stationInfo.latitude);
-        const lng = parseFloat(stationInfo.longitude);
-  
-        if (isNaN(lat) || isNaN(lng)) {
-          throw new Error('Invalid coordinates');
-        }
-  
-        fetch(`${API_BASE_URL}/api/proxy-maps/${lat}/${lng}`)
-          .then(res => {
-            if (!res.ok) throw new Error(`Server responded with status: ${res.status}`);
-            return res.json();
-          })
-          .then(data => {
-            if (isMounted) {
-              if (data && data.mapUrl) {
-                setMapUrl(data.mapUrl);
-              } else {
-                throw new Error('Invalid response format from map proxy');
-              }
-            }
-          })
-          .catch(err => {
-            if (isMounted) {
-              console.error('Failed to fetch map:', err);
-              setError('Unable to load map. Please try again later.');
-            }
-          })
-          .finally(() => {
-            if (isMounted) setIsLoading(false);
-          });
-      } catch (err) {
-        if (isMounted) {
-          console.error('Error processing coordinates:', err);
-          setError('Invalid location data');
-          setIsLoading(false);
-        }
-      }
-    }
-  
-    return () => {
-      isMounted = false;
-    };
-  }, [stationInfo?.latitude, stationInfo?.longitude]);
-  
-  
+  const lat = parseFloat(stationInfo?.latitude);
+  const lng = parseFloat(stationInfo?.longitude);
+  const hasLocation = Number.isFinite(lat) && Number.isFinite(lng);
+  const links = hasLocation ? mapLinks(lat, lng, displayTitle(stationInfo?.stationName || displayStationId || 'Station')) : null;
+  const linkStyle = { color: 'var(--primary-colour)', textDecoration: 'none' };
+
   return (
     <Card 
       className="mb-4" 
@@ -127,12 +73,6 @@ const StationInfo = ({ stationInfo, stationId }) => {
           Station Information
         </h5>
         
-        {error && (
-          <Alert variant="danger" className="mb-3">
-            {error}
-          </Alert>
-        )}
-        
         <Row className="mb-4">
           <Col xs={12} md={5} className="mb-3 mb-md-0">
             <div className="station-details">
@@ -150,7 +90,7 @@ const StationInfo = ({ stationInfo, stationId }) => {
                   Province
                 </small>
                 <strong style={{ color: 'var(--text-colour)' }}>
-                  {provinceMapping[stationInfo?.province] || stationInfo?.province || 'N/A'}
+                  {PROVINCE_NAMES[stationInfo?.province] || stationInfo?.province || 'N/A'}
                 </strong>
               </div>
               
@@ -159,53 +99,46 @@ const StationInfo = ({ stationInfo, stationId }) => {
                   Location
                 </small>
                 <strong style={{ color: 'var(--text-colour)' }}>
-                  {stationInfo?.latitude && stationInfo?.longitude ? 
-                    `${parseFloat(stationInfo.latitude).toFixed(4)}°, ${parseFloat(stationInfo.longitude).toFixed(4)}°` : 
-                    'Coordinates unavailable'}
+                  {hasLocation ? `${lat.toFixed(4)}°, ${lng.toFixed(4)}°` : 'Coordinates unavailable'}
                 </strong>
               </div>
+
+              {links && (
+                <div className="mb-3">
+                  <small className="label mb-1 d-block">
+                    Open in
+                  </small>
+                  <a href={links.apple} target="_blank" rel="noreferrer" style={linkStyle}>Apple Maps</a>
+                  {' · '}
+                  <a href={links.google} target="_blank" rel="noreferrer" style={linkStyle}>Google Maps</a>
+                  {' · '}
+                  <a href={links.osm} target="_blank" rel="noreferrer" style={linkStyle}>OpenStreetMap</a>
+                </div>
+              )}
             </div>
           </Col>
           
           <Col xs={12} md={7}>
-            <div 
-              ref={mapContainerRef}
+            <div
               className="map-container"
               style={{
-                borderRadius: "8px", 
-                overflow: "hidden",
+                borderRadius: '8px',
+                overflow: 'hidden',
                 height: '400px',
-                borderWidth: '1px',
-                borderStyle: 'solid',
-                borderColor: 'var(--border-colour)'
+                border: '1px solid var(--border-colour)'
               }}
             >
-              {isLoading ? (
-                <div className="d-flex align-items-center justify-content-center bg-light h-100">
-                  <Spinner animation="border" role="status" variant="primary">
-                    <span className="visually-hidden">Loading map...</span>
-                  </Spinner>
-                </div>
-              ) : mapUrl ? (
+              {links ? (
                 <iframe
-                  src={mapUrl} 
-                  allowFullScreen
-                  referrerPolicy="no-referrer"
-                  title="Station Location Map"
-                  style={{ 
-                    width: '100%', 
-                    height: '100%', 
-                    borderWidth: '0',
-                    borderStyle: 'none',
-                    borderColor: 'transparent',
-                    borderRadius: '8px'
-                  }}
-                />           
+                  src={links.embed}
+                  title="Station location map"
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  style={{ width: '100%', height: '100%', border: 0 }}
+                />
               ) : (
-                <div className="d-flex align-items-center justify-content-center bg-light h-100"> 
-                  <p className="text-muted">
-                    {!stationInfo?.latitude ? "Location data unavailable" : "Unable to load map"}
-                  </p>
+                <div className="d-flex align-items-center justify-content-center h-100">
+                  <p style={{ color: 'var(--text-colour)', opacity: 0.7 }}>Location data unavailable</p>
                 </div>
               )}
             </div>

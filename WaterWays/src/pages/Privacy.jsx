@@ -67,14 +67,14 @@ const Privacy = () => (
     <Section title="Weather and maps">
       <p>
         Forecasts come from Open-Meteo. Our server asks for them using the station's coordinates, so your own location is never sent.
-        The website's station map is drawn by Google Maps, and the iOS app's by Apple Maps. Those maps load from Google or Apple,
-        which receive your IP address under their own privacy policies.
+        The website's station map is drawn by OpenStreetMap, and the iOS app's by Apple Maps. Those maps load from OpenStreetMap or
+        Apple, which receive your IP address under their own privacy policies.
       </p>
     </Section>
 
     <Section title="Who else handles your data">
       <p>
-        Only the services above process data for us: Clerk (accounts), Stripe and Apple (payments), PostHog (website analytics), Google
+        Only the services above process data for us: Clerk (accounts), Stripe and Apple (payments), PostHog (website analytics), OpenStreetMap
         and Apple (maps) and Sentry (error reports from our server, without personal details). We don't sell your data or share it for advertising.
       </p>
     </Section>

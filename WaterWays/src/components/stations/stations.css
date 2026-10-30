@@ -277,3 +277,118 @@
   padding: 3px 8px;
   border-radius: 999px;
 }
+
+.station-page__header--with-action {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.station-page__save {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-top: 6px;
+  padding: 6px 14px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-colour);
+  background: var(--card-bg-colour);
+  border: 1px solid var(--border-colour);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.station-page__save:hover {
+  border-color: var(--primary-colour);
+}
+
+.station-page__save--active {
+  color: var(--primary-colour);
+  border-color: var(--primary-colour);
+}
+
+.station-page__save:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* Saved rivers on the favourites page. */
+.saved-river + .saved-river {
+  margin-top: 32px;
+}
+
+.saved-river__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.saved-river__title {
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.saved-river__title a {
+  color: var(--text-colour);
+}
+
+.saved-river__title a:hover {
+  color: var(--primary-colour);
+}
+
+.saved-river__actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.saved-river__view {
+  color: var(--primary-colour);
+  font-size: 0.85rem;
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+.saved-river__view:hover {
+  background-color: rgba(100, 108, 255, 0.12);
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  margin-bottom: 20px;
+  background: var(--card-bg-colour);
+  border: 1px solid var(--border-colour);
+  border-radius: 10px;
+}
+
+.segmented__option {
+  padding: 5px 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-colour);
+  background: transparent;
+  border: none;
+  border-radius: 7px;
+  cursor: pointer;
+  opacity: 0.75;
+}
+
+.segmented__option--active {
+  background: var(--primary-colour);
+  color: var(--primary-text-colour);
+  opacity: 1;
+}
+
+.saved-river__title a,
+.saved-river__view {
+  text-decoration: none;
+}

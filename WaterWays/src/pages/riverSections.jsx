@@ -52,6 +52,8 @@ const RiverSections = ({ rivers }) => {
   const [summaries, setSummaries] = useState({});
   const [favorites, setFavorites] = useState({});
   const [favoriteLoading, setFavoriteLoading] = useState({});
+  const [savedRivers, setSavedRivers] = useState([]);
+  const [riverSaving, setRiverSaving] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [subscriptionStatus, setSubscriptionStatus] = useState({ subscribed: false });
@@ -79,13 +81,15 @@ const RiverSections = ({ rivers }) => {
       try {
         const token = await getToken();
         const headers = { Authorization: `Bearer ${token}` };
-        // One request for all of the user's saved stations, instead of one check per station.
-        const [saved, subscription] = await Promise.all([
-          axios.get(`${API_BASE_URL}/u/favorites`, { headers }).then(response => new Set(response.data.map(favorite => favorite.stationId))),
+        // One request for all of the user's saved stations and rivers, instead of one check per station.
+        const [records, subscription] = await Promise.all([
+          axios.get(`${API_BASE_URL}/u/favorites`, { headers, params: { includeRivers: true } }).then(response => response.data),
           axios.get(`${API_BASE_URL}/sub/status`, { headers }).then(response => response.data).catch(() => ({ subscribed: false }))
         ]);
         if (cancelled) return;
+        const saved = new Set(records.filter(record => record.favoriteType !== 'river').map(record => record.stationId));
         setFavorites(Object.fromEntries(stations.map(station => [station.station_id, saved.has(station.station_id)])));
+        setSavedRivers(records.filter(record => record.favoriteType === 'river'));
         setSubscriptionStatus(subscription);
       } catch (error) {
         console.error('Error loading saved stations:', error);
@@ -110,7 +114,7 @@ const RiverSections = ({ rivers }) => {
       } else {
         await axios.post(`${API_BASE_URL}/u/favorites`, {
           stationId,
-          stationName: station.section || `Station ${stationId}`,
+          stationName: station.stationName || station.section || `Station ${stationId}`,
           province: station.province || 'Unknown'
         }, { headers });
       }
@@ -124,6 +128,51 @@ const RiverSections = ({ rivers }) => {
 
   const title = displayTitle(riverName);
   const provinces = [...new Set((stations || []).map(station => station.province).filter(Boolean))];
+
+  // Rivers are saved per province, as in the iOS app; a river in two provinces is saved as two.
+  const riverRecords = savedRivers.filter(record =>
+    record.riverName?.toLowerCase() === riverName.toLowerCase() && provinces.includes(record.province));
+  const riverSaved = provinces.length > 0 && provinces.every(province => riverRecords.some(record => record.province === province));
+
+  const toggleRiver = async () => {
+    if (!subscriptionStatus.subscribed) {
+      setToastMessage('You need a premium subscription to save rivers. Please upgrade your plan.');
+      setShowToast(true);
+      return;
+    }
+    try {
+      setRiverSaving(true);
+      const token = await getToken();
+      const headers = { Authorization: `Bearer ${token}` };
+      if (riverSaved) {
+        await Promise.all(riverRecords.map(record =>
+          axios.delete(`${API_BASE_URL}/u/favorites/rivers/${encodeURIComponent(record.stationId)}`, { headers })));
+        const removed = new Set(riverRecords.map(record => record.stationId));
+        setSavedRivers(prev => prev.filter(record => !removed.has(record.stationId)));
+      } else {
+        const missing = provinces.filter(province => !riverRecords.some(record => record.province === province));
+        const added = await Promise.all(missing.map(province => axios.post(`${API_BASE_URL}/u/favorites/rivers`, {
+          riverName,
+          province,
+          stations: stations.filter(station => station.province === province).map(station => ({
+            stationId: station.station_id,
+            stationName: station.stationName,
+            province: station.province,
+            latitude: station.latitude ?? null,
+            longitude: station.longitude ?? null,
+            section: station.section ?? null
+          }))
+        }, { headers }).then(response => response.data.favorite)));
+        setSavedRivers(prev => [...prev, ...added]);
+      }
+    } catch (error) {
+      console.error('Error saving river:', error);
+      setToastMessage('Couldn’t update your saved rivers. Please try again.');
+      setShowToast(true);
+    } finally {
+      setRiverSaving(false);
+    }
+  };
   const loaded = stations?.length > 0 && Object.keys(summaries).length > 0;
   const reporting = (stations || []).filter(station => !loaded || summaries[station.station_id]?.reading);
   const quiet = loaded ? stations.filter(station => !summaries[station.station_id]?.reading) : [];
@@ -164,9 +213,23 @@ const RiverSections = ({ rivers }) => {
 
   return (
     <div className="station-page">
-      <header className="station-page__header">
-        <h1 className="station-page__title">{title}</h1>
-        {stations?.length !== 0 && <p className="station-page__subtitle">{subtitle}</p>}
+      <header className="station-page__header station-page__header--with-action">
+        <div>
+          <h1 className="station-page__title">{title}</h1>
+          {stations?.length !== 0 && <p className="station-page__subtitle">{subtitle}</p>}
+        </div>
+        {isSignedIn && stations?.length > 0 && (
+          <button
+            type="button"
+            className={`station-page__save${riverSaved ? ' station-page__save--active' : ''}`}
+            onClick={toggleRiver}
+            disabled={riverSaving}
+            aria-pressed={riverSaved}
+          >
+            {riverSaved ? <FaHeart size={14} /> : <FaRegHeart size={14} />}
+            {riverSaved ? 'Saved' : 'Save river'}
+          </button>
+        )}
       </header>
 
       {stations === null ? (

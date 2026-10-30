@@ -27,7 +27,6 @@ In production these come from the Forgejo secrets `SERVER_ENV_FILE` and `MONGO_U
 | `APPLE_APP_ID` | for App Store purchases | Numeric app ID; without it only sandbox purchases verify. |
 | `APPLE_BUNDLE_ID`, `APPLE_SUBSCRIPTION_PRODUCT_IDS`, `APPLE_ROOT_CA_PATH` | no | Override the defaults in `controllers/appleSubscriptionController.js`. |
 | `APPLE_ALLOW_UNSIGNED_TESTING` | never in production | Accepts unsigned Xcode StoreKit purchases on a local server (ignored when `NODE_ENV=production`). |
-| `GOOGLE_MAPS_API_KEY` | for the website map | Station map page (`/api/proxy/map`). Restrict it to the WaterWays sites in Google Cloud. |
 | `OPEN_METEO_API_KEY` | before charging | Switches weather to Open-Meteo's paid (commercial) API. The free API is non-commercial only. |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | no | Error reporting (`utilities/monitoring.js`). Nothing is sent without a DSN. |
 | `LOGGING_API_KEY` | for visitor stats | Protects `GET /l/daily`, `/weekly`, `/all` and `/stats`. |
