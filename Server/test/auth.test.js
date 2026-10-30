@@ -3,6 +3,8 @@ const crypto = require('crypto');
 const { bearer, clerkTestTokens, fakeModel, serve } = require('./helpers');
 
 const sessionToken = clerkTestTokens();
+// The subscription controller needs a Stripe key to load; these tests never reach Stripe.
+process.env.STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY || 'sk_test_unused';
 
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
@@ -74,4 +76,22 @@ test('users can save their own settings but not anyone else\'s', async () => {
 test('settings values are validated', async () => {
   const body = { settings: { temperatureUnit: 'kelvin' } };
   assert.equal((await api.request('/s/user_a', { method: 'POST', headers: bearer(sessionToken()), body })).status, 400);
+});
+
+test('subscription routes need sign-in, except Apple\'s server notifications', async () => {
+  const subscriptionApp = express();
+  subscriptionApp.use(express.json());
+  subscriptionApp.use('/sub', require('../routes/subscriptionRoutes'));
+  const sub = await serve(subscriptionApp);
+  try {
+    for (const [method, path] of [['POST', '/sub/cmcs'], ['POST', '/sub/cacs'], ['GET', '/sub/status'], ['GET', '/sub/success'],
+      ['POST', '/sub/cancel'], ['POST', '/sub/reactivate'], ['GET', '/sub/billing-portal'],
+      ['GET', '/sub/apple/account-token'], ['POST', '/sub/apple/verify-transaction']]) {
+      assert.equal((await sub.request(path, { method })).status, 401, `${method} ${path}`);
+    }
+    // Apple's notifications are verified by their own signature instead (rejected here as unsigned).
+    assert.equal((await sub.request('/sub/apple/notifications', { method: 'POST', body: {} })).status, 400);
+  } finally {
+    await sub.close();
+  }
 });

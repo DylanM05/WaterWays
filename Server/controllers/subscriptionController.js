@@ -2,29 +2,43 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const CustomerMap = require('../models/CustomerMap');
 const LifetimePremium = require('../models/LifetimePremium');
 const AppleSubscription = require('../models/AppleSubscription');
+const { hasActiveStripeMembership } = require('../middleware/premiumMiddleware');
 const cron = require('node-cron');
+const { clerkClient } = require('@clerk/express');
 
 
-exports.createMonthlyCheckoutSession = async (req, res) => {
+// The signed-in user's primary email from Clerk, so Stripe sends receipts to them. Clerk's session token
+// doesn't carry the email; if the lookup fails, Stripe Checkout asks the customer for it instead.
+async function primaryEmail(userId) {
+  try {
+    const user = await clerkClient.users.getUser(userId);
+    return user.primaryEmailAddress?.emailAddress || null;
+  } catch (error) {
+    console.error('Could not look up the user\'s email in Clerk:', error.message);
+    return null;
+  }
+}
+
+// One handler per plan; priceSetting names the env variable holding the Stripe price ID.
+const checkoutSession = (priceSetting) => async (req, res) => {
   try {
     const userId = req.userId;
-    const userEmail = req.sessionClaims?.email || req.user?.email || null;
-    
+
     // Find or create a Stripe customer for this user
     let customerMap = await CustomerMap.findOne({ userId });
     let stripeCustomerId;
-    
+
     if (!customerMap || !customerMap.stripeCustomerId) {
-      // Create a new Stripe customer
+      const email = await primaryEmail(userId);
       const customer = await stripe.customers.create({
-        email: userEmail,
+        ...(email && { email }),
         metadata: {
           userId: userId,
         },
       });
-      
+
       stripeCustomerId = customer.id;
-      
+
       // Save customer mapping
       if (customerMap) {
         customerMap.stripeCustomerId = stripeCustomerId;
@@ -39,13 +53,13 @@ exports.createMonthlyCheckoutSession = async (req, res) => {
     } else {
       stripeCustomerId = customerMap.stripeCustomerId;
     }
-    
+
     // Create checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'subscription',
       customer: stripeCustomerId, // Use the customer ID explicitly
-      line_items: [{ price: process.env.STRIPE_PRICE_ID, quantity: 1 }],
+      line_items: [{ price: process.env[priceSetting], quantity: 1 }],
       allow_promotion_codes: true,
       success_url: `${process.env.FRONTEND_URL}/settings?subscription=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${process.env.FRONTEND_URL}/pricing`,
@@ -62,62 +76,8 @@ exports.createMonthlyCheckoutSession = async (req, res) => {
   }
 };
 
-exports.createAnnualCheckoutSession = async (req, res) => {
-   try {
-    const userId = req.userId;
-    const userEmail = req.user?.email || "dylan.mcmullen@live.com";
-    
-    // Find or create a Stripe customer for this user
-    let customerMap = await CustomerMap.findOne({ userId });
-    let stripeCustomerId;
-    
-    if (!customerMap || !customerMap.stripeCustomerId) {
-      // Create a new Stripe customer
-      const customer = await stripe.customers.create({
-        email: userEmail,
-        metadata: {
-          userId: userId,
-        },
-      });
-      
-      stripeCustomerId = customer.id;
-      
-      // Save customer mapping
-      if (customerMap) {
-        customerMap.stripeCustomerId = stripeCustomerId;
-        await customerMap.save();
-      } else {
-        customerMap = new CustomerMap({
-          userId,
-          stripeCustomerId,
-        });
-        await customerMap.save();
-      }
-    } else {
-      stripeCustomerId = customerMap.stripeCustomerId;
-    }
-    
-    // Create checkout session
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      mode: 'subscription',
-      customer: stripeCustomerId, // Use the customer ID explicitly
-      line_items: [{ price: process.env.STRIPE_ANUAL_PRICE_ID, quantity: 1 }],
-      allow_promotion_codes: true,
-      success_url: `${process.env.FRONTEND_URL}/settings?subscription=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}/pricing`,
-      client_reference_id: userId,
-      metadata: {
-        userId: userId
-      }
-    });
-
-    res.json({ url: session.url });
-  } catch (error) {
-    console.error('Error creating checkout session:', error);
-    res.status(500).json({ error: 'Failed to create checkout session' });
-  }
-};
+exports.createMonthlyCheckoutSession = checkoutSession('STRIPE_PRICE_ID');
+exports.createAnnualCheckoutSession = checkoutSession('STRIPE_ANUAL_PRICE_ID');
 
 exports.checkSubscriptionStatus = async (req, res) => {
   try {
@@ -161,58 +121,29 @@ exports.checkSubscriptionStatus = async (req, res) => {
       });
     }
     
-    // At this point, we know customerMap and customerMap.stripeCustomerId exist
-    await exports.syncStripeDataToDB(customerMap.stripeCustomerId);
-    
+    // Refresh from Stripe, but answer from the stored membership with the same rule premium checks use,
+    // so the app agrees with what the server grants. If Stripe is unreachable, the stored state stands.
+    let membership = customerMap;
     try {
-      const subscriptions = await stripe.subscriptions.list({
-        customer: customerMap.stripeCustomerId,
-        status: 'active',
-        limit: 1
-      });
-      
-      if (subscriptions.data.length > 0) {
-        const subscription = subscriptions.data[0];
-
-        let expiresAt;
-        try {
-          // First look in subscription.items.data[0].current_period_end
-          let periodEnd;
-          if (subscription.items?.data?.[0]?.current_period_end) {
-            periodEnd = subscription.items.data[0].current_period_end;
-          } 
-          // Fallback to subscription.current_period_end
-          else if (subscription.current_period_end) {
-            periodEnd = subscription.current_period_end;
-          }
-          
-          if (periodEnd && typeof periodEnd === 'number') {
-            expiresAt = new Date(periodEnd * 1000).toISOString();
-          } else {
-            expiresAt = null;
-          }
-        } catch (dateError) {
-          console.error('Error converting date:', dateError);
-          expiresAt = null;
-        }
-        
-        return res.json({
-          subscribed: true,
-          plan: customerMap.plan || 'paid',
-          source: 'stripe',
-          expiresAt: expiresAt,
-          cancelAtPeriodEnd: subscription.cancel_at_period_end || false
-        });
-      }
+      membership = (await exports.syncStripeDataToDB(customerMap.stripeCustomerId)) || customerMap;
     } catch (stripeError) {
-      console.error('Stripe API error:', stripeError);
+      console.error('Stripe sync failed; answering from the stored membership:', stripeError.message);
     }
-    
-    // If we get here, either there was no active subscription or there was an API error
+
+    if (hasActiveStripeMembership(membership)) {
+      return res.json({
+        subscribed: true,
+        plan: membership.plan || 'paid',
+        source: 'stripe',
+        expiresAt: membership.currentPeriodEnd ? new Date(membership.currentPeriodEnd).toISOString() : null,
+        cancelAtPeriodEnd: Boolean(membership.cancelAtPeriodEnd)
+      });
+    }
+
     return res.json({
       subscribed: false,
-        plan: 'free',
-        source: 'none'
+      plan: 'free',
+      source: 'none'
     });
   } catch (error) {
     console.error('Error checking subscription:', error);
@@ -415,14 +346,9 @@ exports.syncStripeDataToDB = async (customerId) => {
         expand: ["data.default_payment_method"],
       });
     } catch (stripeError) {
+      // Leave the stored membership as it is: a Stripe outage must not downgrade paying members.
       console.error('Error fetching subscriptions from Stripe:', stripeError);
-      // Instead of failing, just mark as no subscription
-      customerMap.subscriptionStatus = "none";
-      customerMap.subscriptionId = null;
-      customerMap.currentPeriodEnd = null;
-      customerMap.plan = "free";
-      await customerMap.save();
-      return customerMap;
+      throw stripeError;
     }
 
     if (!subscriptions || subscriptions.data.length === 0) {
@@ -818,19 +744,17 @@ exports.syncAllSubscriptions = async () => {
   }
 };
 
-cron.schedule('0 */6 * * *', async () => { 
-  try {
-    await exports.syncAllSubscriptions();
-  } catch (error) {
-    console.error('Error running scheduled subscription sync:', error);
-  }
-});
-(async () => {
+/** Syncs every Stripe customer now and then every 6 hours. server.js starts it once the database is connected. */
+exports.startSubscriptionSync = () => {
+  cron.schedule('0 */6 * * *', async () => {
+    try {
+      await exports.syncAllSubscriptions();
+    } catch (error) {
+      console.error('Error running scheduled subscription sync:', error);
+    }
+  });
   console.log('🔄 Running immediate subscription sync on server start...');
-  try {
-    const result = await exports.syncAllSubscriptions();
-    console.log('✅ Initial sync completed:', result);
-  } catch (error) {
-    console.error('❌ Error running initial subscription sync:', error);
-  }
-})();
+  exports.syncAllSubscriptions()
+    .then(result => console.log('✅ Initial sync completed:', result))
+    .catch(error => console.error('❌ Error running initial subscription sync:', error));
+};

@@ -125,7 +125,7 @@ const Canada = ({ setRivers, rivers }) => {
     : [];
 
   return (
-    <div className="flex min-h-screen bg-background-colour relative">
+    <div>
       <Sidebar 
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}

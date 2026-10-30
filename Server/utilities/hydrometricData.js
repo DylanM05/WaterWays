@@ -4,6 +4,9 @@ const { plausibleDischarge, plausibleLevel } = require('./waterQuality');
 
 const API_URL = 'https://api.weather.gc.ca/collections/hydrometric-realtime/items';
 const PAGE_SIZE = 1000;
+const NETWORK_PAGE_SIZE = 10000;
+// Only the fields that are stored; without geometry and the rest, responses are about a third the size.
+const FIELDS = { properties: 'STATION_NUMBER,DATETIME,LEVEL,DISCHARGE', skipGeometry: true };
 
 function finiteNumber(value) {
     return typeof value === 'number' && Number.isFinite(value) ? value : null;
@@ -35,7 +38,8 @@ async function fetchRealtimeData(stationId, startDate, endDate) {
                 sortby: 'DATETIME',
                 limit: PAGE_SIZE,
                 offset,
-                f: 'json'
+                f: 'json',
+                ...FIELDS
             },
             timeout: 30000
         });
@@ -43,6 +47,35 @@ async function fetchRealtimeData(stationId, startDate, endDate) {
         records.push(...features.map(normalizeRealtimeFeature).filter(Boolean));
 
         if (features.length < PAGE_SIZE) break;
+        offset += features.length;
+    }
+
+    return records;
+}
+
+/**
+ * Every station's readings in the window, in a few large pages (about 13 for six hours) instead of one
+ * request per station (about 2,200).
+ */
+async function fetchRealtimeNetwork(startDate, endDate) {
+    const records = [];
+    let offset = 0;
+
+    while (true) {
+        const response = await axios.get(API_URL, {
+            params: {
+                datetime: `${startDate.toISOString()}/${endDate.toISOString()}`,
+                limit: NETWORK_PAGE_SIZE,
+                offset,
+                f: 'json',
+                ...FIELDS
+            },
+            timeout: 120000
+        });
+        const features = response.data?.features || [];
+        records.push(...features.map(normalizeRealtimeFeature).filter(Boolean));
+
+        if (features.length < NETWORK_PAGE_SIZE) break;
         offset += features.length;
     }
 
@@ -117,6 +150,7 @@ async function fillRecentGaps(stationId, lookbackHours = 30 * 24, endDate = new 
 
 module.exports = {
     fetchRealtimeData,
+    fetchRealtimeNetwork,
     fillRecentGaps,
     normalizeRealtimeFeature,
     syncStationRealtime,

@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useSettings } from '../components/utility/contexts/SettingsContext';
 import { useAuth } from '@clerk/clerk-react';
 import { FaHeart, FaRegHeart } from 'react-icons/fa';
+import { Spinner } from 'react-bootstrap';
 
 import StationInfo from '../components/tabs/StationInfo';
 import HourlyForecast from '../components/tabs/HourlyForecast';
@@ -338,16 +339,16 @@ const StationDetails = () => {
 
   if (initialLoading) {
     return (
-      <div className="flex justify-center items-center min-h-[300px]">
-        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+      <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '300px' }}>
+        <Spinner animation="border" role="status" style={{ color: 'var(--primary-colour)' }} />
       </div>
     );
   }
 
   if (stationInfoError) {
     return (
-      <div className="container mx-auto px-4 mt-6">
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+      <div className="container mx-auto px-4">
+        <div className="border px-4 py-3 rounded">
           <p>{stationInfoError}</p>
         </div>
       </div>
@@ -357,8 +358,8 @@ const StationDetails = () => {
   const localWeatherTime = weatherData?.time ? convertToLocalTime(weatherData.time) : '';
 
   return (
-    <div className="container mx-auto px-4 py-6">
-      <div className="flex justify-between items-center mb-6" style={{
+    <div className="container mx-auto px-4">
+      <div style={{
         padding: windowWidth < 768 ? '0 8px' : '0'
       }}>
         <div style={{ 
@@ -367,7 +368,7 @@ const StationDetails = () => {
         }}>
           <ActionButton label="Back" onClick={() => navigate(-1)} icon="←" />
         </div>
-        <h2 className="text-2xl font-bold" style={{ color: 'var(--text-colour)' }}>
+        <h2 style={{ color: 'var(--text-colour)' }}>
           {stationInfo?.stationName}
         </h2>
         
@@ -375,7 +376,7 @@ const StationDetails = () => {
           <button
             onClick={toggleFavorite}
             disabled={favoriteLoading}
-            className="favorite-btn mr-2"
+            className="favorite-btn"
             style={{
               background: 'transparent',
               border: 'none',
@@ -404,7 +405,7 @@ const StationDetails = () => {
             {isFavorite ? <FaHeart size={22} /> : <FaRegHeart size={22} />}
           </button>
         )}
-        {!isSignedIn && <div className="w-10"></div>}
+        {!isSignedIn && <div></div>}
       </div>
 
       {/* Add Toast notification */}
@@ -418,7 +419,7 @@ const StationDetails = () => {
 
       {/* Tab Navigation */}
       <div style={{ borderBottom: '1px solid var(--border-colour)', marginBottom: '1.5rem' }}>
-        <div className="flex overflow-x-auto hide-scrollbar">
+        <div className="overflow-x-auto hide-scrollbar">
           <TabButton 
             label="Water Data" 
             isActive={activeKey === 'water'} 
@@ -453,7 +454,7 @@ const StationDetails = () => {
       </div>
 
       {/* Tab Content */}
-      <div className="mt-6 min-h-screen">
+      <div>
         {activeKey === 'map' && <StationInfo stationInfo={stationInfo} />}
         {activeKey === 'water' && (
           <WaterData 

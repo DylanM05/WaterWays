@@ -6,6 +6,7 @@ import 'uplot/dist/uPlot.min.css';
 import './styling/PressureData.css';
 import { ThemeContext } from '../utility/contexts/Theme';
 import Spinner from '../spinners/Spinner';
+import { HOUR_MS, pressureNow, pressureTendency } from '../utility/pressure';
 
 const ToggleButton = ({ label, isActive, onClick }) => (
   <button
@@ -41,13 +42,6 @@ const ToggleButton = ({ label, isActive, onClick }) => (
   </button>
 );
 
-const HOUR_MS = 60 * 60 * 1000;
-
-// Steady under 0.5 hPa in three hours; 3 hPa or more is a rapid change.
-const tendency = (change) => {
-  if (Math.abs(change) < 0.5) return 'Steady';
-  return `${Math.abs(change) >= 3 ? 'Rapidly ' : ''}${change > 0 ? 'rising' : 'falling'}`.replace(/^./, letter => letter.toUpperCase());
-};
 
 const PressureData = ({ pressureData, error, loading }) => {
   const { darkMode } = useContext(ThemeContext);
@@ -66,24 +60,7 @@ const PressureData = ({ pressureData, error, loading }) => {
     .filter(hour => Number.isFinite(hour.time)), [pressureData]);
 
   // The hour nearest now, the last 24 hours, and the change over the last 3 hours (sea-level pressure).
-  const conditions = useMemo(() => {
-    const now = Date.now();
-    const nearest = (time) => hours.reduce((best, hour) =>
-      (!best || Math.abs(hour.time - time) < Math.abs(best.time - time) ? hour : best), null);
-    const current = nearest(now);
-    if (!current || Math.abs(current.time - now) > HOUR_MS || current.msl === null) return null;
-    const earlier = nearest(current.time - 3 * HOUR_MS);
-    const change3h = earlier && earlier.msl !== null && Math.abs(earlier.time - (current.time - 3 * HOUR_MS)) <= HOUR_MS
-      ? current.msl - earlier.msl
-      : null;
-    const lastDay = hours.filter(hour => hour.time >= now - 24 * HOUR_MS && hour.time <= now && hour.msl !== null).map(hour => hour.msl);
-    return {
-      current,
-      change3h,
-      dayMax: lastDay.length ? Math.max(...lastDay) : null,
-      dayMin: lastDay.length ? Math.min(...lastDay) : null
-    };
-  }, [hours]);
+  const conditions = useMemo(() => pressureNow(hours), [hours]);
 
   // Prepare data for the uPlot chart: 48 hours either side of now.
   const plotData = useMemo(() => {
@@ -264,11 +241,11 @@ const PressureData = ({ pressureData, error, loading }) => {
           <Row>
             <Col xs={12} md={6} className="mb-3 mb-md-0">
               <h5 className="text-center" style={{ color: 'var(--text-colour)' }}>About Barometric Pressure</h5>
-              <p className="text-left" style={{ color: 'var(--text-colour)' }}>
+              <p style={{ color: 'var(--text-colour)' }}>
                 Barometric pressure (atmospheric pressure) is the force exerted by the atmosphere at a given point. 
                 It's measured in hectopascals (hPa).
               </p>
-              <ul className="no-bullets mt-3 text-left" style={{ color: 'var(--text-colour)', paddingLeft: 0 }}>
+              <ul className="no-bullets mt-3" style={{ color: 'var(--text-colour)', paddingLeft: 0 }}>
                 <li><strong>Mean Sea Level Pressure (MSL)</strong> - Pressure adjusted to sea level for comparison purposes</li>
                 <li><strong>Surface Pressure</strong> - Actual pressure measured at the station's elevation</li>
               </ul>
@@ -292,7 +269,7 @@ const PressureData = ({ pressureData, error, loading }) => {
                   </div>
                   <div className="d-flex justify-content-between mb-2" style={{ color: 'var(--text-colour)' }}>
                     <span>Last 3 hours:</span>
-                    <strong>{conditions?.change3h != null ? `${tendency(conditions.change3h)} · ${conditions.change3h > 0 ? '+' : ''}${conditions.change3h.toFixed(1)} hPa` : '—'}</strong>
+                    <strong>{conditions?.change3h != null ? `${pressureTendency(conditions.change3h)} · ${conditions.change3h > 0 ? '+' : ''}${conditions.change3h.toFixed(1)} hPa` : '—'}</strong>
                   </div>
                   <hr style={{ borderColor: 'var(--border-colour)' }} />
                   <div className="d-flex justify-content-between mb-2" style={{ color: 'var(--text-colour)' }}>

@@ -63,7 +63,17 @@ function query(getDocs, { single = false } = {}) {
  * $setOnInsert, upserts, and deleteMany.
  */
 function fakeModel(Model, documents = []) {
-  const docs = documents.map(doc => ({ ...doc }));
+  // Stored documents get a save() like Mongoose documents; changes are already in place, so it just resolves.
+  const track = (doc) => {
+    Object.defineProperty(doc, 'save', { value: async () => doc, enumerable: false, configurable: true });
+    return doc;
+  };
+  const docs = documents.map(doc => track({ ...doc }));
+  // `new Model(...).save()` stores the document instead of writing to MongoDB.
+  Model.prototype.save = async function save() {
+    docs.push(track(this.toObject ? this.toObject() : { ...this }));
+    return this;
+  };
   // Operator updates apply $set; a plain object replaces fields directly.
   const apply = (doc, update) => {
     if (update.$set || update.$setOnInsert) Object.assign(doc, update.$set || {});

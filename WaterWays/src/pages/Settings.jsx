@@ -1,4 +1,4 @@
-import React, { useContext, useState, useEffect } from 'react';
+import React, { useContext, useState, useEffect, useRef } from 'react';
 import { Container, Row, Col, Card, Form, Button, Alert, Badge } from 'react-bootstrap';
 import { ThemeContext } from '../components/utility/contexts/Theme';
 import { useUser, useClerk, useAuth } from '@clerk/clerk-react';
@@ -9,6 +9,7 @@ import { FaCheck, FaCrown, FaCalendarAlt, FaClock, FaInfoCircle, FaCreditCard, F
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import ProfileModal from '../components/modals/profileModal'; 
 import CancelSubscriptionModal from '../components/modals/CancelSubscriptionModal';
+import { SUPPORT_EMAIL } from '../components/utility/contact';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -300,7 +301,12 @@ const Settings = () => {
     }, 3000);
   };
 
+  // Save the theme when it changes. Not on the first render: that would send this browser's stored
+  // preferences over the account's before fetchUserSettings has loaded them.
+  const savedTheme = useRef(darkMode);
   useEffect(() => {
+    if (savedTheme.current === darkMode) return;
+    savedTheme.current = darkMode;
     if (user) {
       const settingsToSave = {
         temperatureUnit: preferences.temperatureUnit ? 'fahrenheit' : 'celsius',
@@ -419,7 +425,7 @@ const Settings = () => {
 
   return (
     <Container className="py-4">
-      <h1 className="mb-4 text-2xl font-bold">Settings</h1>
+      <h1 className="mb-4">Settings</h1>
 
       {notification.show && (
         <Alert variant={notification.type} onClose={() => setNotification({ ...notification, show: false })} dismissible>
@@ -431,19 +437,19 @@ const Settings = () => {
         <Col>
           <Card className="settings-card">
             <Card.Header className="settings-card-header">
-              <h2 className="text-xl font-medium">Profile Information</h2>
+              <h2>Profile Information</h2>
             </Card.Header>
             <Card.Body>
               {user ? (
                 <div className="user-info">
-                  <div className="mb-3 d-flex align-items-center ">
+                  <div className="mb-3 d-flex align-items-center">
                     <img 
                       src={user.imageUrl} 
                       alt={user.fullName || "User"} 
                       className="user-avatar"
                     />
                     <div className="ms-3">
-                      <h3 className="font-medium">{user.fullName}</h3>
+                      <h3>{user.fullName}</h3>
                       <p>{user.primaryEmailAddress?.emailAddress}</p>
                     </div>
                   </div>
@@ -490,7 +496,7 @@ const Settings = () => {
   <Col>
     <Card className="settings-card subscription-card">
     <Card.Header className="settings-card-header">
-              <h2 className="text-xl font-medium">Subscription</h2>
+              <h2>Subscription</h2>
             </Card.Header>
       <Card.Body className="p-0">
         {user && (
@@ -633,7 +639,7 @@ const Settings = () => {
         <Col>
           <Card className="settings-card">
             <Card.Header className="settings-card-header">
-              <h2 className="text-xl font-medium">Display Settings</h2>
+              <h2>Display Settings</h2>
             </Card.Header>
             <Card.Body>
               <Form>
@@ -681,7 +687,7 @@ const Settings = () => {
         <Col>
           <Card className="settings-card">
             <Card.Header className="settings-card-header">
-              <h2 className="text-xl font-medium">Unit Preferences</h2>
+              <h2>Unit Preferences</h2>
             </Card.Header>
             <Card.Body>
               <Form>
@@ -715,7 +721,7 @@ const Settings = () => {
         <Col>
           <Card className="settings-card">
             <Card.Header className="settings-card-header">
-              <h2 className="text-xl font-medium">About WaterWays</h2>
+              <h2>About WaterWays</h2>
             </Card.Header>
             <Card.Body>
               <div className="about-section">
@@ -733,7 +739,7 @@ const Settings = () => {
                   <Button 
                     variant="outline-secondary"
                     className="bottom-button"
-                    onClick={() => window.open('mailto:support@waterways.example.com', '_blank')}
+                    onClick={() => window.open(`mailto:${SUPPORT_EMAIL}`, '_blank')}
                   >
                     Contact Support
                   </Button>

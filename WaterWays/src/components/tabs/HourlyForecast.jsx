@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, Alert, Container } from 'react-bootstrap';
+import { BsDropletFill, BsMoisture, BsSpeedometer2 } from 'react-icons/bs';
 import { parseLongDateTime } from '../utility/dates';
 import './styling/HourlyForecast.css';
 import { useSettings } from '../utility/contexts/SettingsContext';
@@ -127,13 +128,13 @@ const HourlyForecast = ({ forecastData, pressureData, error }) => {
                 fontSize: window.innerWidth < 400 ? '0.75rem' : '0.8rem'
               }}
             >
-              <i 
-                className="bi bi-droplet-fill" 
+              <BsDropletFill
+                aria-hidden="true"
                 style={{ 
                   color: 'var(--primary-colour)',
                   fontSize: window.innerWidth < 400 ? '0.8rem' : '0.9rem'
                 }}
-              ></i>
+              />
               <strong>
                 <span style={{ color: 'var(--text-colour)' }}>Precipitation:</span>
               </strong>
@@ -152,13 +153,13 @@ const HourlyForecast = ({ forecastData, pressureData, error }) => {
                   fontSize: window.innerWidth < 400 ? '0.75rem' : '0.8rem'
                 }}
               >
-                <i 
-                  className="bi bi-moisture" 
+                <BsMoisture
+                  aria-hidden="true"
                   style={{ 
                     color: 'var(--primary-colour)',
                     fontSize: window.innerWidth < 400 ? '0.8rem' : '0.9rem'
                   }}
-                ></i>
+                />
                 <strong>
                   <span style={{ color: 'var(--text-colour)' }}>Humidity:</span>
                 </strong>
@@ -178,13 +179,13 @@ const HourlyForecast = ({ forecastData, pressureData, error }) => {
                   fontSize: window.innerWidth < 400 ? '0.75rem' : '0.8rem'
                 }}
               >
-                <i 
-                  className="bi bi-speedometer2" 
+                <BsSpeedometer2
+                  aria-hidden="true"
                   style={{ 
                     color: 'var(--primary-colour)',
                     fontSize: window.innerWidth < 400 ? '0.8rem' : '0.9rem'
                   }}
-                ></i>
+                />
                 <strong>
                   <span style={{ color: 'var(--text-colour)' }}>Pressure:</span>
                 </strong>

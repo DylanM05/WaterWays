@@ -35,16 +35,14 @@ const WaterData = ({ waterData, waterDataLoading, waterDataError, onFetchWaterDa
             // The API serializes timestamps in UTC.
             parseUtcTimestamp(entry.date_time).getTime() / 1000
         );
-        const waterLevels = dataToUse.map(entry => entry.water_level ?? null);
-        const discharges = dataToUse.map(entry => entry.discharge ?? null);
+        const key = selectedSeries === 'water' ? 'water_level' : 'discharge';
+        const values = dataToUse.map(entry => entry[key] ?? null);
+        // Readings older than a week are hourly averages that carry the hour's own low and high; they're
+        // drawn as a band so short peaks stay visible. Five-minute readings have no band (high = low = value).
+        const highs = dataToUse.map((entry, index) => (values[index] === null ? null : entry[`${key}_max`] ?? values[index]));
+        const lows = dataToUse.map((entry, index) => (values[index] === null ? null : entry[`${key}_min`] ?? values[index]));
 
-        if (times.length !== waterLevels.length || times.length !== discharges.length) {
-            return null;
-        }
-
-        return selectedSeries === 'water'
-            ? [times, waterLevels]
-            : [times, discharges];
+        return [times, values, highs, lows];
     }, [sortedWaterData, selectedSeries]);
 
     useEffect(() => {
@@ -115,7 +113,13 @@ const WaterData = ({ waterData, waterDataLoading, waterDataError, onFetchWaterDa
                         width: 2,
                         fill: COLORS.dischargeFill,
                         points: { show: false },
-                    }
+                    },
+                // Each reading's high and low (an hourly figure's range); only the band between them is drawn.
+                { label: 'High', stroke: 'transparent', width: 0, points: { show: false } },
+                { label: 'Low', stroke: 'transparent', width: 0, points: { show: false } }
+            ],
+            bands: [
+                { series: [2, 3], fill: selectedSeries === 'water' ? 'rgba(100, 108, 255, 0.35)' : 'rgba(235, 94, 110, 0.35)' }
             ],
             cursor: {
                 y: false,

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 // The attribution both data sources ask for: Environment Canada's Open Government Licence and
 // Open-Meteo's CC BY 4.0 licence.
@@ -11,7 +12,8 @@ const DataCredits = () => (
       Open Government Licence – Canada
     </a>.{' '}
     <a href="https://open-meteo.com/" target="_blank" rel="noreferrer" style={linkStyle}>Weather data by Open-Meteo.com</a>{' '}
-    (CC BY 4.0).
+    (CC BY 4.0).{' '}
+    <Link to="/privacy" style={linkStyle}>Privacy</Link>
   </footer>
 );
 

@@ -426,10 +426,69 @@ async function lastReportedDate(stationId) {
   return date;
 }
 
+// The last day of a station's readings for the trend lines on river and favourites cards: hourly means over
+// the 24 hours up to its newest reading, oldest first, and the change across them (null when the readings
+// span less than 20 hours).
+const TREND_CACHE_TTL_SECONDS = 5 * 60;
+const TREND_WINDOW_MS = 24 * HOUR_MS;
+const TREND_MIN_SPAN_MS = 20 * HOUR_MS;
+const roundTo3 = (value) => Math.round(value * 1000) / 1000;
+
+async function findTrend(stationId) {
+  const cacheKey = `trend-${stationId}`;
+  const cached = waterDataCache.get(cacheKey);
+  if (cached !== undefined) return cached;
+
+  // A day of five-minute readings is 288.
+  const recent = await StationData.find({ station_id: stationId })
+    .sort({ date_time: -1 })
+    .limit(320)
+    .select('date_time water_level discharge')
+    .lean();
+  const readings = cleanReadings(recent.reverse());
+  let trend = null;
+  if (readings.length) {
+    const start = readings[readings.length - 1].date_time.getTime() - TREND_WINDOW_MS;
+    const day = readings.filter(reading => reading.date_time.getTime() >= start);
+
+    const hours = new Map();
+    for (const reading of day) {
+      const hour = Math.floor(reading.date_time.getTime() / HOUR_MS) * HOUR_MS;
+      const sums = hours.get(hour) || { water_level: [0, 0], discharge: [0, 0] };
+      for (const field of ['water_level', 'discharge']) {
+        if (reading[field] !== null && reading[field] !== undefined) {
+          sums[field][0] += reading[field];
+          sums[field][1] += 1;
+        }
+      }
+      hours.set(hour, sums);
+    }
+    const mean = ([total, count]) => (count ? roundTo3(total / count) : null);
+    const hourly = [...hours.entries()].sort(([a], [b]) => a - b).map(([hour, sums]) => ({
+      date_time: new Date(hour).toISOString().slice(0, 19).replace('T', ' '),
+      water_level: mean(sums.water_level),
+      discharge: mean(sums.discharge)
+    }));
+
+    const change = (field) => {
+      const values = day.filter(reading => reading[field] !== null && reading[field] !== undefined);
+      if (values.length < 2) return null;
+      const first = values[0];
+      const last = values[values.length - 1];
+      if (last.date_time - first.date_time < TREND_MIN_SPAN_MS) return null;
+      return roundTo3(last[field] - first[field]);
+    };
+    trend = { change: { water_level: change('water_level'), discharge: change('discharge') }, hourly };
+  }
+  waterDataCache.set(cacheKey, trend, TREND_CACHE_TTL_SECONDS);
+  return trend;
+}
+
 // GET /details/latest-water-data?ids=A,B,C returns { stationId: reading }; stations without data are left out.
-// With includeLastReported=true it returns { readings, lastReported }, where lastReported gives the date
-// ("2026-09-30"), or just the month ("2024-08") when only monthly means remain, of the newest stored figure
-// for each station without a recent reading.
+// With includeLastReported=true or includeTrend=true it returns { readings, lastReported, trends? }:
+// - lastReported (with includeLastReported) gives the date ("2026-09-30"), or just the month ("2024-08") when
+//   only monthly means remain, of the newest stored figure for each station without a recent reading.
+// - trends (with includeTrend) gives each station with readings its last day, as findTrend describes.
 exports.getLatestWaterDataBatch = async (req, res) => {
   const ids = [...new Set(String(req.query.ids || '').split(',').map(id => id.trim()).filter(Boolean))];
   if (!ids.length) {
@@ -445,15 +504,27 @@ exports.getLatestWaterDataBatch = async (req, res) => {
     ids.forEach((id, index) => {
       if (readings[index]) body[id] = readings[index];
     });
-    if (req.query.includeLastReported !== 'true') return res.json(body);
+    const includeLastReported = req.query.includeLastReported === 'true';
+    const includeTrend = req.query.includeTrend === 'true';
+    if (!includeLastReported && !includeTrend) return res.json(body);
 
-    const silent = ids.filter(id => !body[id]);
-    const dates = await Promise.all(silent.map(lastReportedDate));
-    const lastReported = {};
-    silent.forEach((id, index) => {
-      if (dates[index]) lastReported[id] = dates[index];
-    });
-    return res.json({ readings: body, lastReported });
+    const response = { readings: body, lastReported: {} };
+    if (includeLastReported) {
+      const silent = ids.filter(id => !body[id]);
+      const dates = await Promise.all(silent.map(lastReportedDate));
+      silent.forEach((id, index) => {
+        if (dates[index]) response.lastReported[id] = dates[index];
+      });
+    }
+    if (includeTrend) {
+      const reporting = ids.filter(id => body[id]);
+      const trends = await Promise.all(reporting.map(findTrend));
+      response.trends = {};
+      reporting.forEach((id, index) => {
+        if (trends[index]) response.trends[id] = trends[index];
+      });
+    }
+    return res.json(response);
   } catch (error) {
     console.error('Error fetching latest water data batch:', error);
     return res.status(500).json({ error: 'Error fetching latest water data' });

@@ -3,21 +3,24 @@ require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') }
 const axios = require('axios');
 const mongoose = require('mongoose');
 const Favorite = require('../models/Favorite');
+const StationArchive = require('../models/StationArchive');
 const StationCoordinates = require('../models/StationCoordinates');
+const StationData = require('../models/StationData');
 
 // Compares StationCoordinates with Environment Canada's official station catalogue. Prints the differences;
 // with --apply, corrects station names and coordinates and records each station's real-time flag and status
 // (the apps say "No live readings" for stations without a feed). Stations are never added or removed, since
 // that changes river lists and saved favourites; those are listed for a manual decision, and two options act
-// on them: --remove-discontinued deletes discontinued stations, and --add-reporting adds active real-time
-// stations that aren't listed but sent readings in the last few hours.
+// on them: --remove-discontinued deletes discontinued stations, --add-reporting adds active real-time
+// stations that aren't listed but sent readings in the last few hours, and --remove-dead deletes stations
+// that aren't in the catalogue, aren't reporting and have never had any data stored.
 const CATALOGUE_URL = 'https://api.weather.gc.ca/collections/hydrometric-stations/items';
 const REALTIME_URL = 'https://api.weather.gc.ca/collections/hydrometric-realtime/items';
 const COORDINATE_TOLERANCE_KM = 1;
 const REPORTING_WINDOW_HOURS = 3;
 // The catalogue also has stations located in US states; the apps list Canadian provinces and territories.
 const PROVINCES = new Set(['AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT']);
-const OPTIONS = ['--apply', '--remove-discontinued', '--add-reporting'];
+const OPTIONS = ['--apply', '--remove-discontinued', '--add-reporting', '--remove-dead'];
 const USAGE = `Usage: node scripts/syncStationCatalogue.js [${OPTIONS.join('] [')}]`;
 
 function distanceKm(latitude1, longitude1, latitude2, longitude2) {
@@ -134,6 +137,26 @@ async function addStations(stations) {
     return stations.length;
 }
 
+/** Uncatalogued stations that aren't reporting and have no stored readings or figures at all. */
+async function findDeadStations(findings, reporting) {
+    const dead = [];
+    for (const station of findings.notInCatalogue) {
+        if (reporting.has(station.station_id)) continue;
+        const [reading, figure] = await Promise.all([
+            StationData.exists({ station_id: station.station_id }),
+            StationArchive.exists({ station_id: station.station_id })
+        ]);
+        if (!reading && !figure) dead.push(station);
+    }
+    return dead;
+}
+
+async function removeStations(stations) {
+    if (!stations.length) return 0;
+    const result = await StationCoordinates.deleteMany({ _id: { $in: stations.map(station => station._id) } });
+    return result.deletedCount || 0;
+}
+
 async function removeDiscontinued(findings) {
     const ids = findings.discontinued.map(({ station }) => station._id);
     if (!ids.length) return 0;
@@ -161,8 +184,10 @@ async function main() {
         console.log(`  ${describe(station)}: ${station.latitude}, ${station.longitude} -> ${latitude}, ${longitude} (${Math.round(distance)} km)`));
     console.log(`\nRenamed in the catalogue: ${findings.renamed.length}`);
     findings.renamed.forEach(({ station, name }) => console.log(`  ${describe(station)} -> ${name}`));
-    console.log(`\nNot in the catalogue (keep unless they never report): ${findings.notInCatalogue.length}`);
-    findings.notInCatalogue.forEach(station => console.log(`  ${describe(station)}`));
+    const dead = await findDeadStations(findings, reporting);
+    const deadIds = new Set(dead.map(station => station.station_id));
+    console.log(`\nNot in the catalogue: ${findings.notInCatalogue.length}; ${dead.length} of them aren't reporting and have never had data (removed by --remove-dead):`);
+    findings.notInCatalogue.forEach(station => console.log(`  ${describe(station)}${deadIds.has(station.station_id) ? ' (no data ever)' : ''}`));
     console.log(`\nDiscontinued (candidates to remove): ${findings.discontinued.length}`);
     findings.discontinued.forEach(({ station, status }) => console.log(`  ${describe(station)}: ${status}`));
     console.log(`\nActive but without a real-time feed, so they never show readings: ${findings.noRealtimeFeed.length}`);
@@ -178,6 +203,9 @@ async function main() {
         if (saved) console.log(`\nNote: ${saved} saved favourite(s) include a discontinued station; they keep their snapshot.`);
         console.log(`Removed ${await removeDiscontinued(findings)} discontinued station(s).`);
     }
+    if (args.includes('--remove-dead')) {
+        console.log(`\nRemoved ${await removeStations(dead)} station(s) that never had data.`);
+    }
     if (args.includes('--add-reporting')) {
         console.log(`\nAdded ${await addStations(additions)} station(s); the next sync starts collecting their readings.`);
     }
@@ -188,7 +216,7 @@ async function main() {
     if (args.length) {
         console.log('\nRestart the server (or deploy) to refresh cached river lists.');
     } else {
-        console.log('\nDry run. --apply corrects names and coordinates and records the real-time flags; --remove-discontinued and --add-reporting act on the lists above.');
+        console.log('\nDry run. --apply corrects names and coordinates and records the real-time flags; --remove-discontinued, --add-reporting and --remove-dead act on the lists above.');
     }
 }
 
@@ -201,4 +229,4 @@ if (require.main === module) {
         .finally(() => mongoose.disconnect());
 }
 
-module.exports = { addStations, applyCorrections, compareWithCatalogue, distanceKm, fetchReportingStations, removeDiscontinued, stationsToAdd };
+module.exports = { addStations, applyCorrections, compareWithCatalogue, distanceKm, fetchReportingStations, findDeadStations, removeDiscontinued, removeStations, stationsToAdd };

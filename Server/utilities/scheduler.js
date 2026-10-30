@@ -2,7 +2,7 @@ const cron = require('node-cron');
 const StationCoordinates = require('../models/StationCoordinates');
 const StationData = require('../models/StationData');
 const StationArchive = require('../models/StationArchive');
-const { syncStationRealtime } = require('./hydrometricData');
+const { fetchRealtimeNetwork, upsertRealtimeData } = require('./hydrometricData');
 const { dailyFromHourly, hourlyFromReadings } = require('./rollups');
 const { cleanReadings } = require('./waterQuality');
 const logger = require('./logger');
@@ -15,6 +15,7 @@ const RAW_RETENTION_DAYS = 7;
 const HOURLY_RETENTION_DAYS = 30;
 const DAILY_RETENTION_MONTHS = 12;
 const ROLLUP_CONCURRENCY = 4;
+const UPSERT_CHUNK = 5000;
 const BULK_SIZE = 1000;
 let realtimeRunActive = false;
 let archiveRunActive = false;
@@ -42,27 +43,24 @@ async function runRealtimeSync() {
         const stations = await StationCoordinates.find({ station_id: { $exists: true, $ne: '' } })
             .select('station_id')
             .lean();
-        const stationIds = [...new Set(stations.map(station => station.station_id))];
-        let completed = 0;
-        let fetched = 0;
+        const listed = new Set(stations.map(station => station.station_id));
+        const endDate = new Date();
+        const startDate = new Date(endDate.getTime() - REALTIME_LOOKBACK_HOURS * 60 * 60 * 1000);
+
+        // One paged query for the whole network. The window overlaps the previous runs', so a failed run is
+        // covered by the next one.
+        const records = (await fetchRealtimeNetwork(startDate, endDate)).filter(record => listed.has(record.station_id));
         let inserted = 0;
         let modified = 0;
+        for (let start = 0; start < records.length; start += UPSERT_CHUNK) {
+            const result = await upsertRealtimeData(records.slice(start, start + UPSERT_CHUNK));
+            inserted += result.inserted;
+            modified += result.modified;
+        }
 
-        await processInBatches(stationIds, 8, async stationId => {
-            try {
-                const result = await syncStationRealtime(stationId, REALTIME_LOOKBACK_HOURS);
-                fetched += result.records.length;
-                inserted += result.inserted;
-                modified += result.modified;
-            } catch (error) {
-                logger.error(`Realtime sync failed for station ${stationId}: ${error.message}`);
-            } finally {
-                completed += 1;
-                if (completed % 100 === 0) logger.info(`Realtime sync processed ${completed}/${stationIds.length} stations.`);
-            }
-        });
-
-        logger.info(`Realtime sync completed for ${stationIds.length} stations: ${fetched} fetched, ${inserted} inserted, ${modified} changed; ${Math.round((Date.now() - startedAt) / 1000)} seconds.`);
+        const reporting = new Set(records.map(record => record.station_id)).size;
+        logger.info(`Realtime sync completed: ${records.length} readings from ${reporting} of ${listed.size} stations, ${inserted} inserted, ${modified} changed; ${Math.round((Date.now() - startedAt) / 1000)} seconds.`);
+        return { readings: records.length, stations: reporting, inserted, modified };
     } catch (error) {
         logger.error(`Realtime sync failed: ${error.message}`);
     } finally {

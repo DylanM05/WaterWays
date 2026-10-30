@@ -50,14 +50,12 @@ app.post('/subscription/webhook', async (req, res) => {
       signature,
       process.env.STRIPE_WEBHOOK_SECRET
     );
-    if (event.type === 'checkout.session.completed') {
-      const subscriptionController = require('./controllers/subscriptionController');
-      const success = await subscriptionController.processWebhookEvent(event);
-      
-      if (success) {
-      } else {
-        console.error('❌ Failed to process webhook');
-      }
+    // Every event goes through processWebhookEvent, which ignores types it doesn't track, so cancellations,
+    // renewals and failed payments update memberships right away instead of at the next 6-hourly sync.
+    const subscriptionController = require('./controllers/subscriptionController');
+    const success = await subscriptionController.processWebhookEvent(event);
+    if (!success) {
+      console.error(`❌ Failed to process webhook ${event.type}`);
     }
     
     return res.json({ received: true });
@@ -80,10 +78,12 @@ if (!mongoUri) {
 } else {
   connectWithRetry(mongoUri, {
     onConnected: () => {
+      // Background jobs: the water sync and roll-ups, and the Stripe membership sync.
       if (process.env.ENABLE_SCHEDULER !== 'false') {
         require('./utilities/scheduler').startScheduler().catch(error => {
           console.error('Unable to start hydrometric scheduler:', error);
         });
+        require('./controllers/subscriptionController').startSubscriptionSync();
       }
     }
   });

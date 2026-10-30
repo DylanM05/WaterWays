@@ -1,44 +1,152 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Alert, Row, Col, Card, Badge, Spinner } from 'react-bootstrap';
-import { Link, Navigate } from 'react-router-dom';
+import { Alert, Spinner } from 'react-bootstrap';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
-import { FaTrash, FaExclamationCircle, FaThermometerHalf, FaTint, FaCompass } from 'react-icons/fa';
-import { WiBarometer } from 'react-icons/wi';
+import { FaTrash, FaExclamationCircle } from 'react-icons/fa';
 import axios from 'axios';
-
-const provinceMapping = {
-  'MB': 'Manitoba',
-  'ON': 'Ontario',
-  'QC': 'Quebec',
-  'BC': 'British Columbia',
-  'AB': 'Alberta',
-  'SK': 'Saskatchewan',
-  'NS': 'Nova Scotia',
-  'NB': 'New Brunswick',
-  'NL': 'Newfoundland and Labrador',
-  'PE': 'Prince Edward Island',
-  'NT': 'Northwest Territories',
-  'YT': 'Yukon',
-  'NU': 'Nunavut'
-};
-
+import StationCard from '../components/stations/StationCard';
+import { fetchStationSummaries } from '../components/utility/stationSummaries';
+import { displayTitle } from '../components/utility/names';
+import { parseLongDateTime } from '../components/utility/dates';
+import { pressureNow, pressureTendency } from '../components/utility/pressure';
+import { alertColours, alertTitle } from '../components/utility/alertColours';
+import { useSettings } from '../components/utility/contexts/SettingsContext';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
+// Station name, current weather, pressure series and active alerts; each is null if its request failed.
+async function fetchStationWeather(stationId) {
+  const get = (path) => axios.get(`${API_BASE_URL}${path}`).then(response => response.data).catch(() => null);
+  const [info, weather, pressure, alerts] = await Promise.all([
+    get(`/details/coordinates/${stationId}`),
+    get(`/details/weather/${stationId}`),
+    get(`/details/pressure/${stationId}`),
+    get(`/details/alerts/${stationId}`)
+  ]);
+  // The pressure series is in GMT; pressureNow wants each hour as an instant.
+  const hours = (pressure?.time || []).map((time, index) => ({
+    time: parseLongDateTime(time, { utc: true })?.getTime() ?? NaN,
+    msl: pressure.pressureMsl?.[index] ?? null
+  })).filter(hour => Number.isFinite(hour.time));
+  return { info, weather, pressure: pressureNow(hours), alerts: alerts?.alerts || [] };
+}
+
+const WeatherStrip = ({ details }) => {
+  const { formatTemperature } = useSettings();
+  if (!details) {
+    return <div className="station-weather"><Spinner animation="border" size="sm" style={{ color: 'var(--text-colour)' }} /></div>;
+  }
+  const { weather, pressure } = details;
+  if (!weather && !pressure) return null;
+  const change = pressure?.change3h;
+  return (
+    <div className="station-weather">
+      <div>
+        <div className="station-metric__label">Weather</div>
+        <div className="station-weather__value">{weather ? formatTemperature(weather.temperature) : '—'}</div>
+        {weather && <div className="station-weather__detail">{weather.weather}</div>}
+      </div>
+      <div>
+        <div className="station-metric__label">Wind</div>
+        <div className="station-weather__value">{weather ? `${Math.round(weather.wind)} km/h` : '—'}</div>
+        {weather && (
+          <div className="station-weather__detail">
+            {[weather.windDirection, weather.windGusts != null && `gusts ${Math.round(weather.windGusts)}`].filter(Boolean).join(' · ')}
+          </div>
+        )}
+      </div>
+      <div>
+        <div className="station-metric__label">Pressure</div>
+        <div className="station-weather__value">{pressure ? `${Math.round(pressure.current.msl)} hPa` : '—'}</div>
+        {change != null && (
+          <div className="station-weather__detail" title={`${change > 0 ? '+' : ''}${change.toFixed(1)} hPa in 3 hours`}>
+            {Math.abs(change) >= 0.5 && <span aria-hidden="true">{change > 0 ? '▲ ' : '▼ '}</span>}
+            {pressureTendency(change)}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/** The saved stations' cards: readings for all of them in one request, and weather per station. */
+export const FavouriteStations = ({ favorites, onRemove }) => {
+  const [summaries, setSummaries] = useState({});
+  const [stationDetails, setStationDetails] = useState({});
+
+  // Each card fills in as its weather arrives.
+  useEffect(() => {
+    if (!favorites.length) return undefined;
+    let cancelled = false;
+    const stationIds = favorites.map(favorite => favorite.stationId);
+    fetchStationSummaries(stationIds)
+      .then(result => { if (!cancelled) setSummaries(result); })
+      .catch(err => {
+        console.error('Error loading latest readings:', err);
+        if (!cancelled) setSummaries(Object.fromEntries(stationIds.map(id => [id, { failed: true }])));
+      });
+    stationIds.forEach(stationId => {
+      fetchStationWeather(stationId).then(details => {
+        if (!cancelled) setStationDetails(prev => ({ ...prev, [stationId]: details }));
+      });
+    });
+    return () => { cancelled = true; };
+  }, [favorites]);
+
+  return (
+    <div className="station-grid">
+      {favorites.map(favorite => {
+        const stationId = favorite.stationId;
+        const details = stationDetails[stationId];
+        const stationName = displayTitle(details?.info?.stationName || favorite.stationName);
+        return (
+          <StationCard
+            key={stationId}
+            stationId={stationId}
+            title={stationName}
+            meta={`${favorite.province} · ${stationId}`}
+            summary={summaries[stationId]}
+            realtime={details?.info?.realtime}
+            action={(
+              <button
+                type="button"
+                className="station-card__icon-button station-card__icon-button--danger"
+                onClick={() => onRemove(stationId, stationName)}
+                aria-label={`Remove ${stationName} from favourites`}
+              >
+                <FaTrash size={14} />
+              </button>
+            )}
+          >
+            {details?.alerts?.length > 0 && (
+              <div className="station-alerts">
+                {details.alerts.map(alert => {
+                  const { background, text } = alertColours(alert);
+                  return (
+                    <span key={`${alert.name}|${alert.issued}`} className="station-alert" style={{ backgroundColor: background, color: text }}>
+                      ⚠ {alertTitle(alert.name)}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            <WeatherStrip details={details} />
+          </StationCard>
+        );
+      })}
+    </div>
+  );
+};
 
 const Favorites = () => {
   const { isLoaded, isSignedIn, getToken } = useAuth();
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [stationDetails, setStationDetails] = useState({});
-  const [loadingDetails, setLoadingDetails] = useState({});
-  const [hoverDeleteId, setHoverDeleteId] = useState(null);
-  
+
   useEffect(() => {
     const fetchFavorites = async () => {
       if (!isLoaded || !isSignedIn) return;
-      
       try {
         setLoading(true);
         const token = await getToken();
@@ -47,78 +155,36 @@ const Favorites = () => {
         });
         setFavorites(response.data);
       } catch (err) {
-        setError('Failed to load favorites');
+        setError('Failed to load favourites');
         console.error('Error fetching favorites:', err);
       } finally {
         setLoading(false);
       }
     };
-
     fetchFavorites();
   }, [isLoaded, isSignedIn, getToken]);
 
-  useEffect(() => {
-    const fetchStationDetails = async () => {
-      if (favorites.length === 0) return;
-      
-      const detailsData = {};
-      
-      for (const favorite of favorites) {
-        const stationId = favorite.stationId;
-        try {
-          setLoadingDetails(prev => ({ ...prev, [stationId]: true }));
-          
-          const coordinatesRes = await axios.get(`${API_BASE_URL}/details/coordinates/${stationId}`);
-        
-          const [weatherRes, waterDataRes, pressureRes] = await Promise.all([
-            axios.get(`${API_BASE_URL}/details/weather/${stationId}`),
-            axios.get(`${API_BASE_URL}/details/latest-water-data/${stationId}`).catch(() => ({ data: null })),
-            axios.get(`${API_BASE_URL}/details/pressure/${stationId}`).catch(() => ({ data: null }))
-          ]);
-
-          detailsData[stationId] = {
-            stationInfo: coordinatesRes.data,
-            weather: weatherRes.data,
-            waterData: waterDataRes.data,
-            pressure: pressureRes.data
-          };
-        } catch (err) {
-          console.error(`Error fetching details for station ${stationId}:`, err);
-          detailsData[stationId] = { error: true };
-        } finally {
-          setLoadingDetails(prev => ({ ...prev, [stationId]: false }));
-        }
-      }
-      
-      setStationDetails(detailsData);
-    };
-
-    fetchStationDetails();
-  }, [favorites]);
-
   const removeFavorite = async (stationId, stationName) => {
-    if (window.confirm(`Remove "${stationName}" from favorites?`)) {
-      try {
-        const token = await getToken();
-        await axios.delete(`${API_BASE_URL}/u/favorites/${stationId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-
-        setFavorites(prev => prev.filter(fav => fav.stationId !== stationId));
-      } catch (err) {
-        setError('Failed to remove favorite');
-        console.error('Error removing favorite:', err);
-      }
+    if (!window.confirm(`Remove "${stationName}" from favourites?`)) return;
+    try {
+      const token = await getToken();
+      await axios.delete(`${API_BASE_URL}/u/favorites/${stationId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setFavorites(prev => prev.filter(favorite => favorite.stationId !== stationId));
+    } catch (err) {
+      setError('Failed to remove favourite');
+      console.error('Error removing favorite:', err);
     }
   };
 
   if (!isLoaded) {
     return (
-      <Container className="mt-5 text-center">
-        <Spinner animation="border" role="status">
+      <div className="text-center mt-5">
+        <Spinner animation="border" role="status" style={{ color: 'var(--primary-colour)' }}>
           <span className="visually-hidden">Loading...</span>
         </Spinner>
-      </Container>
+      </div>
     );
   }
 
@@ -127,207 +193,34 @@ const Favorites = () => {
   }
 
   return (
-    <Container className="mt-4 mb-5">
-      <h1 className="mb-4 text-center" style={{ color: 'var(--text-colour)' }}>Favorite Stations</h1>
-      
+    <div className="station-page">
+      <header className="station-page__header">
+        <h1 className="station-page__title">Favourites</h1>
+        {!loading && favorites.length > 0 && (
+          <p className="station-page__subtitle">{favorites.length} saved station{favorites.length === 1 ? '' : 's'}</p>
+        )}
+      </header>
+
       {error && (
-        <Alert variant="danger" onClose={() => setError(null)} dismissible style={{ color: 'var(--text-colour)' }}>
+        <Alert variant="danger" onClose={() => setError(null)} dismissible>
           <FaExclamationCircle /> {error}
         </Alert>
       )}
-      
+
       {loading ? (
-        <div className="text-center mt-5">
-          <Spinner animation="border" role="status" style={{ color: 'var(--text-colour)' }}>
+        <div className="text-center py-4">
+          <Spinner animation="border" role="status" style={{ color: 'var(--primary-colour)' }}>
             <span className="visually-hidden">Loading...</span>
           </Spinner>
         </div>
       ) : favorites.length === 0 ? (
-        <Alert variant="info" className="text-center" style={{ color: 'var(--text-colour)', backgroundColor: 'var(--card-bg-colour)', borderColor: 'var(--border-colour)' }}>
-          You haven't added any favorite stations yet.
-        </Alert>
+        <div className="station-page__empty">
+          You haven’t saved any stations yet. Tap the heart on a station to save it here.
+        </div>
       ) : (
-        <Row xs={1} md={2} lg={3} className="g-4">
-          {favorites.map((favorite) => {
-            const details = stationDetails[favorite.stationId];
-            const isLoading = loadingDetails[favorite.stationId];
-            
-            // Get the station name from details.stationInfo (if available) or fall back to favorite.stationName
-            const stationName = details?.stationInfo?.stationName || favorite.stationName;
-            
-            return (
-              <Col key={favorite.stationId}>
-                <Card 
-                  className="h-100 position-relative" 
-                  style={{ 
-                    backgroundColor: 'var(--card-bg-colour)', 
-                    borderColor: 'var(--border-colour)',
-                    transition: 'transform 0.2s ease',
-                    cursor: 'pointer'
-                  }}
-                  onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-                  onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}
-                >
-                  <Card.Header className="d-flex justify-content-between align-items-center">
-                    <Badge bg="info" style={{ backgroundColor: 'var(--primary-colour)', color: 'var(--primary-text-colour)' }}>
-                      {provinceMapping[favorite.province] || favorite.province}
-                    </Badge>
-                    <button 
-                      onClick={(e) => {
-                        e.preventDefault(); 
-                        e.stopPropagation();
-                        removeFavorite(favorite.stationId, stationName);
-                      }}
-                      className="btn btn-sm delete-button"
-                      style={{
-                        background: hoverDeleteId === favorite.stationId ? 'rgba(220, 53, 69, 0.1)' : 'transparent',
-                        border: hoverDeleteId === favorite.stationId ? '1px solid #dc3545' : 'none',
-                        color: hoverDeleteId === favorite.stationId ? '#dc3545' : 'var(--text-colour)',
-                        opacity: hoverDeleteId === favorite.stationId ? 1 : 0.7,
-                        zIndex: 2,
-                        borderRadius: '4px',
-                        padding: '4px 8px',
-                        transition: 'all 0.2s ease',
-                        marginLeft: 'auto' // This helps ensure it stays on the right
-                      }}
-                      onMouseEnter={() => setHoverDeleteId(favorite.stationId)}
-                      onMouseLeave={() => setHoverDeleteId(null)}
-                      aria-label={`Remove ${stationName} from favorites`}
-                    >
-                      <FaTrash />
-                      {hoverDeleteId === favorite.stationId && <span className="ms-1">Remove</span>}
-                    </button>
-                  </Card.Header>
-                  
-                  <Card.Body className="text-center d-flex flex-column">
-                    <Card.Title 
-                      className="mb-3" 
-                      style={{ 
-                        color: 'var(--text-colour)', 
-                        fontSize: '1.2rem',
-                        borderBottom: '1px solid var(--border-colour)',
-                        paddingBottom: '0.5rem'
-                      }}
-                    >
-                      {stationName}
-                    </Card.Title>
-                    
-                    <div className="text-center mb-3">
-                      <span style={{ color: 'var(--text-colour)', fontSize: '0.9rem' }}>
-                        Station ID: <strong>{favorite.stationId}</strong>
-                      </span>
-                    </div>
-                    
-                    {isLoading ? (
-                      <div className="text-center my-3 flex-grow-1 d-flex align-items-center justify-content-center">
-                        <Spinner animation="border" size="sm" style={{ color: 'var(--text-colour)' }} />
-                      </div>
-                    ) : details?.error ? (
-                      <Alert variant="warning" className="py-2 small text-center" style={{ color: 'var(--text-colour)', backgroundColor: 'rgba(var(--primary-colour-rgb), 0.1)', borderColor: 'var(--border-colour)' }}>
-                        Unable to fetch station details
-                      </Alert>
-                    ) : details ? ( // Fix: Use details instead of stationDetails
-                      <div className="station-details flex-grow-1">
-                        <Row className="g-3 justify-content-center">
-                          {details.weather && (
-                            <>
-                              <Col xs={12} className="mb-2">
-                                <div className="p-2 rounded" style={{ backgroundColor: 'rgba(var(--primary-colour-rgb), 0.1)' }}>
-                                  <FaThermometerHalf 
-                                    size={22} 
-                                    style={{ color: 'var(--text-colour)' }} 
-                                    className="mb-1"
-                                  />
-                                  <div className="mt-1">
-                                    <div className="small" style={{ color: 'var(--text-colour)', opacity: 0.8 }}>Temperature</div>
-                                    <div className="fw-bold" style={{ fontSize: '1.1rem', color: 'var(--text-colour)' }}>
-                                      {details.weather.temperature}°C
-                                    </div>
-                                    {details.weather.apparentTemperature && (
-                                      <div className="small" style={{ color: 'var(--text-colour)', opacity: 0.8 }}>
-                                        Feels like {details.weather.apparentTemperature}°C
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </Col>
-                              
-                              <Col xs={6}>
-                                <div className="p-2 h-100 rounded" style={{ backgroundColor: 'rgba(var(--primary-colour-rgb), 0.05)' }}>
-                                  <FaCompass 
-                                    size={20} 
-                                    style={{ color: 'var(--text-colour)' }} 
-                                    className="mb-1"
-                                  />
-                                  <div className="mt-1">
-                                    <div className="small" style={{ color: 'var(--text-colour)', opacity: 0.8 }}>Condition</div>
-                                    <div className="fw-semibold" style={{ color: 'var(--text-colour)' }}>
-                                      {details.weather.weather}
-                                    </div>
-                                  </div>
-                                </div>
-                              </Col>
-                              
-                              {details.pressure && (
-                                <Col xs={6}>
-                                  <div className="p-2 h-100 rounded" style={{ backgroundColor: 'rgba(var(--primary-colour-rgb), 0.05)' }}>
-                                    <WiBarometer 
-                                      size={20} 
-                                      style={{ color: 'var(--text-colour)' }} 
-                                      className="mb-1"
-                                    />
-                                    <div className="mt-1">
-                                      <div className="small" style={{ color: 'var(--text-colour)', opacity: 0.8 }}>Pressure</div>
-                                      <div className="fw-semibold" style={{ color: 'var(--text-colour)' }}>
-                                        {details.pressure.pressureMsl?.[0] || 'N/A'} hPa
-                                      </div>
-                                    </div>
-                                  </div>
-                                </Col>
-                              )}
-                            </>
-                          )}
-                          
-                          {details.waterData && (
-                            <Col xs={12} className="mt-2">
-                              <div className="p-2 rounded" style={{ backgroundColor: 'rgba(var(--primary-colour-rgb), 0.05)' }}>
-                                <FaTint 
-                                  size={20} 
-                                  style={{ color: 'var(--text-colour)' }} 
-                                  className="mb-1"
-                                />
-                                <div className="mt-1">
-                                  <div className="small" style={{ color: 'var(--text-colour)', opacity: 0.8 }}>Water Level</div>
-                                  <div className="fw-semibold" style={{ color: 'var(--text-colour)' }}>
-                                    {details.waterData.water_level || 'N/A'} m
-                                  </div>
-                                </div>
-                              </div>
-                            </Col>
-                          )}
-                        </Row>
-                      </div>
-                    ) : null}
-                  </Card.Body>
-                  
-                  <Card.Footer className="text-center small" style={{ color: 'var(--text-colour)', opacity: 0.7 }}>
-                    <span>
-                      Last updated: {details?.weather?.time?.split(', ')[1] || 'Unknown'}
-                    </span>
-                  </Card.Footer>
-                  
-                  <Link 
-                    to={`/station-details/${favorite.stationId}`}
-                    className="stretched-link"
-                    aria-label={`View details for station ${stationName}`}
-                  />
-                </Card>
-              </Col>
-            );
-          })}
-        </Row>
+        <FavouriteStations favorites={favorites} onRemove={removeFavorite} />
       )}
-    </Container>
+    </div>
   );
 };
 

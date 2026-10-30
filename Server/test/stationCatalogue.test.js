@@ -3,7 +3,9 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const StationCoordinates = require('../models/StationCoordinates');
 const axios = require('axios');
-const { addStations, applyCorrections, compareWithCatalogue, distanceKm, fetchReportingStations, removeDiscontinued, stationsToAdd } = require('../scripts/syncStationCatalogue');
+const StationArchive = require('../models/StationArchive');
+const StationData = require('../models/StationData');
+const { addStations, applyCorrections, compareWithCatalogue, distanceKm, fetchReportingStations, findDeadStations, removeDiscontinued, removeStations, stationsToAdd } = require('../scripts/syncStationCatalogue');
 const { fakeModel } = require('./helpers');
 
 const feature = (stationId, name, latitude, longitude, { status = 'Active', realtime = 1, province = 'AB' } = {}) => ({
@@ -109,4 +111,22 @@ test('collects reporting stations across pages of the real-time API', async () =
   const reporting = await fetchReportingStations(3, new Date('2026-10-28T12:00:00Z'));
   assert.deepEqual(offsets, [0, 10000]);
   assert.equal(reporting.size, 2501);
+});
+
+test('finds uncatalogued stations that never had data, and removes only those', async () => {
+  const listed = [
+    ...stations,
+    station('10LC022', 'MACKENZIE RIVER (EAST CHANNEL) AT THE OUTLET', 69.4, -134.2),
+    station('10MD003', 'CARIBOU CREEK ABOVE BABBAGE RIVER', 68.9, -138.9),
+    station('05AB047', 'WILLOW CREEK BELOW PINE COULEE HEADPOND', 50.1, -113.8)
+  ];
+  const stored = fakeModel(StationCoordinates, listed);
+  fakeModel(StationData, [{ station_id: '07FA008' }]); // uncatalogued but has readings
+  fakeModel(StationArchive, [{ station_id: '05AB047', period: 'monthly' }]); // uncatalogued, silent, but has history
+  const reporting = new Set(['10MD003']); // uncatalogued but reporting now
+  const dead = await findDeadStations(compareWithCatalogue(stored, catalogue), reporting);
+  assert.deepEqual(dead.map(({ station_id }) => station_id), ['10LC022']);
+  assert.equal(await removeStations(dead), 1);
+  assert.equal(stored.some(({ station_id }) => station_id === '10LC022'), false);
+  assert.equal(stored.length, listed.length - 1);
 });

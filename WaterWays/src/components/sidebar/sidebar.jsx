@@ -91,17 +91,17 @@ const Sidebar = ({
 
         {/* Search box */}
         <div className="sidebar-search">
-          <div className="relative" ref={searchRef}>
+          <div ref={searchRef}>
             <input
               type="text"
               value={searchQuery}
               onChange={handleSearchChange}
               placeholder="Search..."
-              className="w-full px-3 py-2 pr-8 rounded border border-border-colour bg-background-colour text-text-colour search-text-box"
+              className="px-3 py-2 rounded border search-text-box"
             />
             {searchQuery && (
               <button 
-                className="absolute right-2 top-1/2 -translate-y-1/2 bg-transparent border-none cursor-pointer text-text-colour clear-search-btn"
+                className="bg-transparent clear-search-btn"
                 onClick={() => setSearchQuery('')}
                 aria-label="Clear search"
               >
@@ -125,7 +125,7 @@ const Sidebar = ({
                   </div>
                 ))
               ) : (
-                <div className="p-4 text-center text-text-colour">No results found</div>
+                <div className="p-4 text-center">No results found</div>
               )}
             </div>
           ) : selectedProvince ? (
@@ -138,9 +138,9 @@ const Sidebar = ({
               </div>
               
               {loading ? (
-                <div className="p-4 text-center text-text-colour">Loading...</div>
+                <div className="p-4 text-center">Loading...</div>
               ) : error ? (
-                <div className="p-4 text-red-500">{error}</div>
+                <div className="p-4">{error}</div>
               ) : (
                 filteredRivers.map((riverName, index) => (
                   <div 

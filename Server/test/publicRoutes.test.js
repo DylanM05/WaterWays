@@ -19,12 +19,21 @@ before(async () => {
   ]);
   const now = Date.now();
   // Stored out of order, rising 1 cm every 5 minutes; the latest reading is 3.61 m.
-  fakeModel(StationData, Array.from({ length: 12 }, (_, index) => ({
+  // 08TREND: a reading every 30 minutes for 26 hours up to the hour, rising 1 cm and 1 m³/s an hour.
+  const hour = 60 * 60 * 1000;
+  const newestOnTheHour = Math.floor(now / hour) * hour;
+  const trendReadings = Array.from({ length: 53 }, (_, index) => ({
+    station_id: '08TREND',
+    date_time: new Date(newestOnTheHour - (52 - index) * hour / 2),
+    water_level: Math.round((2 + index * 0.005) * 1000) / 1000,
+    discharge: 100 + index / 2
+  }));
+  fakeModel(StationData, [...Array.from({ length: 12 }, (_, index) => ({
     station_id: '08MF005',
     date_time: new Date(now - (11 - index) * 5 * 60 * 1000),
     water_level: Math.round((3.5 + index * 0.01) * 100) / 100,
     discharge: 1200
-  })).reverse());
+  })).reverse(), ...trendReadings]);
 
   const app = express();
   app.get('/ok', cacheFor(60), (req, res) => res.json({ ok: true }));
@@ -158,4 +167,28 @@ test('batch readings can include when silent stations last reported', async () =
   assert.equal(response.status, 200);
   assert.deepEqual(Object.keys(response.body.readings), ['08MF005']);
   assert.deepEqual(response.body.lastReported, { '05SEASON': '2026-09-30', '05PAUSED': '2026-10-18', '05OLDONE': '2024-08' });
+});
+
+test('batch readings can include each station\'s last day for trend lines', async () => {
+  const response = await api.request('/details/latest-water-data?ids=08TREND,08MF005,05NEVER&includeTrend=true');
+  assert.equal(response.status, 200);
+  assert.deepEqual(Object.keys(response.body.readings).sort(), ['08MF005', '08TREND']);
+  assert.deepEqual(response.body.lastReported, {}, 'only filled in with includeLastReported');
+  assert.deepEqual(Object.keys(response.body.trends).sort(), ['08MF005', '08TREND'], 'no trend without readings');
+
+  const trend = response.body.trends['08TREND'];
+  assert.deepEqual(trend.change, { water_level: 0.24, discharge: 24 }, 'newest minus 24 hours earlier');
+  // Hourly means (to 3 decimals) of the readings at :00 and :30, for the 24 hours up to and including the newest one.
+  assert.equal(trend.hourly.length, 25);
+  assert.deepEqual(trend.hourly[0], {
+    date_time: new Date(Math.floor(Date.now() / 3600000) * 3600000 - 24 * 3600000).toISOString().slice(0, 19).replace('T', ' '),
+    water_level: 2.023,
+    discharge: 102.25
+  });
+  assert.equal(trend.hourly.at(-1).water_level, 2.26);
+  assert.ok(trend.hourly.every((point, index) => index === 0 || point.date_time > trend.hourly[index - 1].date_time), 'oldest first');
+
+  const short = response.body.trends['08MF005'];
+  assert.deepEqual(short.change, { water_level: null, discharge: null }, 'under 20 hours of readings');
+  assert.equal(short.hourly.at(-1).discharge, 1200);
 });

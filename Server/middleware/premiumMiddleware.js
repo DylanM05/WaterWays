@@ -2,6 +2,15 @@ const LifetimePremium = require('../models/LifetimePremium');
 const AppleSubscription = require('../models/AppleSubscription');
 const CustomerMap = require('../models/CustomerMap');
 
+/** A stored website (Stripe) membership that currently grants premium. /sub/status uses the same rule. */
+function hasActiveStripeMembership(customerMap) {
+  return Boolean(
+    customerMap &&
+    customerMap.subscriptionStatus === 'active' &&
+    (!customerMap.currentPeriodEnd || customerMap.currentPeriodEnd > new Date())
+  );
+}
+
 // Reads stored entitlements only. Stripe state in CustomerMap is kept current by webhooks and
 // /sub/status, so this avoids a Stripe API call on every premium request.
 async function hasPremiumAccess(userId) {
@@ -9,12 +18,7 @@ async function hasPremiumAccess(userId) {
 
   if (await AppleSubscription.exists(AppleSubscription.activeFilter(userId))) return true;
 
-  const customerMap = await CustomerMap.findOne({ userId }).lean();
-  return Boolean(
-    customerMap &&
-    customerMap.subscriptionStatus === 'active' &&
-    (!customerMap.currentPeriodEnd || customerMap.currentPeriodEnd > new Date())
-  );
+  return hasActiveStripeMembership(await CustomerMap.findOne({ userId }).lean());
 }
 
 // Use after requireAuth.
@@ -31,4 +35,4 @@ const requirePremium = async (req, res, next) => {
   }
 };
 
-module.exports = { hasPremiumAccess, requirePremium };
+module.exports = { hasActiveStripeMembership, hasPremiumAccess, requirePremium };

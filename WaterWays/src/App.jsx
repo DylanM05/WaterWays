@@ -16,6 +16,7 @@ const Favorites = lazy(() => import('./pages/Favorites'));
 const Pricing = lazy(() => import('./pages/Pricing'));
 const AdminInvites = lazy(() => import('./components/admin/InviteManager'));
 const RedeemInvite = lazy(() => import('./pages/RedeemInvite'));
+const Privacy = lazy(() => import('./pages/Privacy'));
 
 // Suspends only the page area, so the map and sidebar stay on screen while a page loads.
 const page = (element) => <Suspense fallback={<Spinner />}>{element}</Suspense>;
@@ -36,6 +37,7 @@ function App() {
               <Route path="/station-details/:stationId" element={page(<StationDetails />)} />
               <Route path="/profile" element={<div>Profile</div>} />
               <Route path="/pricing" element={page(<Pricing />)} />
+              <Route path="/privacy" element={page(<Privacy />)} />
               <Route path="/settings" element={page(
                 <ProtectedRoute>
                   <Settings />
