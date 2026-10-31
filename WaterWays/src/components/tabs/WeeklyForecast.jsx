@@ -151,7 +151,7 @@ function WeeklyForecast({ weeklyData, error }) {
                         {/* Temperature */}
                         <Col xs={6} md={2} className="mb-2 mb-md-0">
                           <div className="d-flex flex-column align-items-start">
-                            <small className="label mb-1">Temperature</small>
+                            <small className="label mb-1">High / low</small>
                             <span>
                               <span style={{ 
                                 color: 'var(--text-colour)', 
@@ -160,8 +160,9 @@ function WeeklyForecast({ weeklyData, error }) {
                               }}>
                                 {formatTemperature(weeklyData.temperature.max[index])}
                               </span>
+                              {/* The low used to be labelled "feels"; feels-like is apparentTemperature. */}
                               <small className="ms-1 label">
-                                (feels {formatTemperature(weeklyData.temperature.min[index])})
+                                / {formatTemperature(weeklyData.temperature.min[index])}
                               </small>
                             </span>
                           </div>

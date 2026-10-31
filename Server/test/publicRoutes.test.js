@@ -192,3 +192,30 @@ test('batch readings can include each station\'s last day for trend lines', asyn
   assert.deepEqual(short.change, { water_level: null, discharge: null }, 'under 20 hours of readings');
   assert.equal(short.hourly.at(-1).discharge, 1200);
 });
+
+test('a trend that fails leaves out only that trend, not the readings', async () => {
+  // A station nothing has asked for yet, so neither its reading nor its trend comes from the cache.
+  const now = Date.now();
+  fakeModel(StationData, Array.from({ length: 6 }, (_, index) => ({
+    station_id: '08FRESH', date_time: new Date(now - index * 5 * 60 * 1000), water_level: 1.5, discharge: 40
+  })));
+  // The trend lookup is the only query with limit(320); make just that one fail.
+  const originalFind = StationData.find;
+  StationData.find = (...args) => {
+    const query = originalFind(...args);
+    const limit = query.limit.bind(query);
+    query.limit = (count) => {
+      if (count === 320) throw new Error('trend query failed');
+      return limit(count);
+    };
+    return query;
+  };
+  try {
+    const response = await api.request('/details/latest-water-data?ids=08FRESH&includeTrend=true');
+    assert.equal(response.status, 200);
+    assert.equal(response.body.readings['08FRESH'].water_level, 1.5, 'readings still returned');
+    assert.deepEqual(response.body.trends, {}, 'no trend for the station that failed');
+  } finally {
+    StationData.find = originalFind;
+  }
+});

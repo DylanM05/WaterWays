@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { Container, Row, Col, Card, Button } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
-import { useUser } from '@clerk/clerk-react';
+import { useUser, useClerk } from '@clerk/clerk-react';
 import MonthlyModal from '../components/modals/MonthlyBilling';
 import AnnualModal from '../components/modals/AnnualBilling';
 
 const Pricing = () => {
   const navigate = useNavigate();
   const { isSignedIn } = useUser();
+  const { openSignIn } = useClerk();
   const [showMonthlyModal, setShowMonthlyModal] = useState(false);
   const [showAnnualModal, setShowAnnualModal] = useState(false);
   const [referringPage, setReferringPage] = useState('');
@@ -23,7 +24,7 @@ const Pricing = () => {
 
   const handleMonthlySubscribe = () => {
     if (!isSignedIn) {
-      navigate('/sign-in');
+      openSignIn();
       return;
     }
     
@@ -31,7 +32,7 @@ const Pricing = () => {
   };
   const handleAnnualSubscribe = () => {
     if (!isSignedIn) {
-      navigate('/sign-in');
+      openSignIn();
       return;
     }
     
@@ -91,10 +92,10 @@ const Pricing = () => {
             <Card.Body className="text-center d-flex flex-column" style={cardBodyStyle}>
               <Card.Title style={{ color: 'var(--text-colour)' }}>$0/month</Card.Title>
               <ul className="list-unstyled mt-4 mb-4" style={listStyle}>
-                <li className="mb-2">✅ Access to all water data</li>
-                <li className="mb-2">✅ Current weather information</li>
-                <li className="mb-2">❌ Early access to our latest features</li>
-                <li className="mb-2">❌ Favorites feature</li>
+                <li className="mb-2">✅ Live water levels and flows</li>
+                <li className="mb-2">✅ Weather, forecasts and alerts</li>
+                <li className="mb-2">❌ Saved stations and rivers</li>
+                <li className="mb-2">❌ Years of history and official records</li>
               </ul>
               <div className="mt-auto">
                 <Button 
@@ -129,10 +130,10 @@ const Pricing = () => {
             <Card.Body className="text-center d-flex flex-column" style={cardBodyStyle}>
               <Card.Title style={{ color: 'var(--text-colour)' }}>$4/month</Card.Title>
               <ul className="list-unstyled mt-4 mb-4" style={listStyle}>
-                <li className="mb-2">✅ Access to all water data</li>
-                <li className="mb-2">✅ Current weather information</li>
-                <li className="mb-2">✅ Favorites feature</li>
-                <li className="mb-2">✅ Early access to our latest features</li>
+                <li className="mb-2">✅ Everything in Free</li>
+                <li className="mb-2">✅ Saved stations and rivers, on the web and iPhone</li>
+                <li className="mb-2">✅ Years of history and a typical year</li>
+                <li className="mb-2">✅ Official record highs and lows</li>
               </ul>
               <div className="mt-auto">
                 <Button 
@@ -167,10 +168,10 @@ const Pricing = () => {
             <Card.Body className="text-center d-flex flex-column" style={cardBodyStyle}>
               <Card.Title style={{ color: 'var(--text-colour)' }}> $2.50/month billed annually<br />$30 per year</Card.Title>
               <ul className="list-unstyled mt-4 mb-4" style={listStyle}>
-                <li className="mb-2">✅ Access to all water data</li>
-                <li className="mb-2">✅ Current weather information</li>
-                <li className="mb-2">✅ Favorites feature</li>
-                <li className="mb-2">✅ Early access to our latest features</li>
+                <li className="mb-2">✅ Everything in Free</li>
+                <li className="mb-2">✅ Saved stations and rivers, on the web and iPhone</li>
+                <li className="mb-2">✅ Years of history and a typical year</li>
+                <li className="mb-2">✅ Official record highs and lows</li>
               </ul>
               <div className="mt-auto">
                 <Button 

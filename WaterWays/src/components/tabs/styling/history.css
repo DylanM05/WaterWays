@@ -1,0 +1,175 @@
+/* The History tab. Colours come from the theme variables in index.css. */
+
+.history-card {
+  background-color: var(--card-bg-colour);
+  border-color: var(--border-colour);
+  color: var(--text-colour);
+  text-align: left;
+}
+
+.history-heading {
+  margin-bottom: 16px;
+  color: var(--text-colour);
+}
+
+.history-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  margin-bottom: 14px;
+}
+
+.history-segmented {
+  margin-bottom: 0;
+}
+
+.history-select {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.75rem;
+  color: var(--text-colour);
+}
+
+.history-select span {
+  opacity: 0.7;
+}
+
+.history-select select,
+.history-select input {
+  min-width: 140px;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+  color: var(--text-colour);
+  background: var(--background-colour);
+  border: 1px solid var(--border-colour);
+  border-radius: 8px;
+}
+
+.history-chart {
+  min-height: 300px;
+  margin: 8px 0 16px;
+  transition: opacity 0.15s ease;
+}
+
+.history-chart--loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* A new range or interval is loading; the old chart stays until it arrives. */
+.history-chart--updating {
+  opacity: 0.5;
+}
+
+.history-message {
+  padding: 40px 0;
+  text-align: center;
+  opacity: 0.75;
+}
+
+.history-tiles {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.history-tile {
+  padding: 10px 12px;
+  border: 1px solid var(--border-colour);
+  border-radius: 8px;
+  background: var(--background-colour);
+}
+
+.history-tile--wide {
+  grid-column: 1 / -1;
+}
+
+.history-tile__title,
+.history-tile__detail {
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+.history-tile__value {
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+
+.history-footnote {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  margin: 0 0 12px;
+}
+
+.history-records {
+  margin-top: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--border-colour);
+  border-radius: 8px;
+  background: var(--background-colour);
+}
+
+.history-records__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.history-records__header h6 {
+  margin: 0;
+  font-weight: 600;
+}
+
+.history-records__header span {
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+
+.history-records dl {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 16px;
+  margin: 0 0 10px;
+  font-size: 0.9rem;
+}
+
+.history-records dt {
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+.history-records dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+.history-prompt {
+  padding: 32px 24px;
+  text-align: center;
+}
+
+.history-prompt p {
+  max-width: 520px;
+  margin: 8px auto 16px;
+  opacity: 0.85;
+}
+
+.history-prompt__button {
+  padding: 8px 20px;
+  font-weight: 600;
+  color: var(--primary-text-colour);
+  background: var(--primary-colour);
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.history-prompt__note {
+  font-size: 0.8rem;
+  opacity: 0.65 !important;
+}

@@ -518,7 +518,11 @@ exports.getLatestWaterDataBatch = async (req, res) => {
     }
     if (includeTrend) {
       const reporting = ids.filter(id => body[id]);
-      const trends = await Promise.all(reporting.map(findTrend));
+      // Trends are extra: a station whose trend can't be worked out just goes without one.
+      const trends = await Promise.all(reporting.map(id => findTrend(id).catch(error => {
+        console.error(`Error building the trend for ${id}:`, error);
+        return null;
+      })));
       response.trends = {};
       reporting.forEach((id, index) => {
         if (trends[index]) response.trends[id] = trends[index];

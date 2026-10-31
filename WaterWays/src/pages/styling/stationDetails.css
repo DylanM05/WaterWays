@@ -1,0 +1,43 @@
+/* The station page's tabs: one row of pills that scrolls sideways on narrow screens, as in the iOS app. */
+.station-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  padding: 4px 2px 12px;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border-colour);
+  scroll-padding: 0 16px;
+}
+
+.station-tab {
+  flex-shrink: 0;
+  padding: 7px 16px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  color: var(--text-colour);
+  background: var(--card-bg-colour);
+  border: 1px solid var(--border-colour);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.station-tab:hover {
+  border-color: var(--primary-colour);
+}
+
+.station-tab--active,
+.station-tab--active:hover {
+  color: var(--primary-text-colour);
+  background: var(--primary-colour);
+  border-color: var(--primary-colour);
+}
+
+/* Wide screens fit every tab, so centre them. */
+@media (min-width: 900px) {
+  .station-tabs {
+    justify-content: center;
+  }
+}

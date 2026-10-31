@@ -313,3 +313,13 @@
     gap: 8px;
     align-items: center;
 }
+/* The open province's name, under "All provinces" in the sidebar. */
+.sidebar-province-name {
+    padding: 10px 15px 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    opacity: 0.6;
+    color: var(--sidebar-text);
+}

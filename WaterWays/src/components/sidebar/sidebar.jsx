@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import ThemeToggle from '../buttons/ThemeToggle';
 import { SignedIn, SignedOut, SignInButton } from '@clerk/clerk-react';
 import { FaHeart, FaCog } from 'react-icons/fa';
+import { displayTitle } from '../utility/names';
 import '../../pages/styling/canada.css';
 
 const Sidebar = ({
@@ -121,7 +122,7 @@ const Sidebar = ({
                     onClick={() => handleSearchResultClick(result)}
                     className="sidebar-item"
                   >
-                    {result.stationName} ({result.province})
+                    {displayTitle(result.stationName)} ({result.province})
                   </div>
                 ))
               ) : (
@@ -134,8 +135,9 @@ const Sidebar = ({
                 className="sidebar-item"
                 onClick={handleBackClick}
               >
-                <span>← Back</span>
+                <span>← All provinces</span>
               </div>
+              <div className="sidebar-province-name">{selectedProvince.name}</div>
               
               {loading ? (
                 <div className="p-4 text-center">Loading...</div>
@@ -148,7 +150,7 @@ const Sidebar = ({
                     onClick={() => handleLakeClick(riverName)}
                     className="sidebar-item"
                   >
-                    {riverName}
+                    {displayTitle(riverName)}
                   </div>
                 ))
               )}

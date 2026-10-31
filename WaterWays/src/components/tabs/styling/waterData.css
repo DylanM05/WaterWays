@@ -147,9 +147,9 @@ form .form-select:focus {
   margin-right: 50px
 }
 
-/* Responsive Styling */
+/* Phone layout for the station page's tabs (scoped to the page, so it doesn't restyle other pages). */
 @media (max-width: 768px) {
-  .container-fluid {
+  .station-details-page .container-fluid {
     padding-left: 0 !important;
     padding-right: 0 !important;
     width: 100% !important;
@@ -157,7 +157,8 @@ form .form-select:focus {
     margin: 0 !important;
   }
 
-  .card {
+  /* Full-width panels on phones; the hourly forecast's cards are left out so they stay a row to swipe through. */
+  .station-details-page .card:not(.forecast-card) {
     width: 100% !important;
     margin-left: 0 !important;
     margin-right: 0 !important;
@@ -167,33 +168,33 @@ form .form-select:focus {
     min-width: 325px !important;
   }
 
-  .card-body {
+  .station-details-page .card-body {
     padding: 0.5rem !important;
   }
 
-  .d-flex.justify-content-between {
+  .station-details-page .d-flex.justify-content-between {
     flex-wrap: wrap !important;
   }
 
-  .d-flex.gap-1 button {
+  .station-details-page .d-flex.gap-1 button {
     padding: 4px 6px !important;
     font-size: 0.7rem !important;
   }
 
-  [class*="ToggleButton"] {
+  .station-details-page [class*="ToggleButton"] {
     padding: 4px 8px !important;
     font-size: 0.75rem !important;
   }
 
-  .chart-container {
+  .station-details-page .chart-container {
     padding: 4px !important;
   }
 
-  .table {
+  .station-details-page .table {
     margin-bottom: 0;
   }
 
-  .table td, .table th {
+  .station-details-page .table td, .station-details-page .table th {
     padding: 0.25rem 0.5rem;
   }
 }

@@ -240,22 +240,6 @@ const PressureData = ({ pressureData, error, loading }) => {
         <Card.Body>
           <Row>
             <Col xs={12} md={6} className="mb-3 mb-md-0">
-              <h5 className="text-center" style={{ color: 'var(--text-colour)' }}>About Barometric Pressure</h5>
-              <p style={{ color: 'var(--text-colour)' }}>
-                Barometric pressure (atmospheric pressure) is the force exerted by the atmosphere at a given point. 
-                It's measured in hectopascals (hPa).
-              </p>
-              <ul className="no-bullets mt-3" style={{ color: 'var(--text-colour)', paddingLeft: 0 }}>
-                <li><strong>Mean Sea Level Pressure (MSL)</strong> - Pressure adjusted to sea level for comparison purposes</li>
-                <li><strong>Surface Pressure</strong> - Actual pressure measured at the station's elevation</li>
-              </ul>
-              <p className="mt-3 text-center" style={{ color: 'var(--text-colour)' }}>
-                <strong>Typical range:</strong> 980-1040 hPa<br />
-                <strong>Standard pressure:</strong> 1013.25 hPa
-              </p>
-            </Col>
-
-            <Col xs={12} md={6}>
               <h5 style={{ color: 'var(--text-colour)' }}>Pressure Statistics</h5>
               {pressureData?.pressureMsl ? (
                 <>
@@ -288,6 +272,22 @@ const PressureData = ({ pressureData, error, loading }) => {
               ) : (
                 <p style={{ color: 'var(--text-colour)', opacity: 0.7 }}>No pressure data available</p>
               )}
+            </Col>
+
+            <Col xs={12} md={6}>
+              <h5 className="text-center" style={{ color: 'var(--text-colour)' }}>About Barometric Pressure</h5>
+              <p style={{ color: 'var(--text-colour)' }}>
+                Barometric pressure (atmospheric pressure) is the force exerted by the atmosphere at a given point. 
+                It's measured in hectopascals (hPa).
+              </p>
+              <ul className="no-bullets mt-3" style={{ color: 'var(--text-colour)', paddingLeft: 0 }}>
+                <li><strong>Mean Sea Level Pressure (MSL)</strong> - Pressure adjusted to sea level for comparison purposes</li>
+                <li><strong>Surface Pressure</strong> - Actual pressure measured at the station's elevation</li>
+              </ul>
+              <p className="mt-3 text-center" style={{ color: 'var(--text-colour)' }}>
+                <strong>Typical range:</strong> 980-1040 hPa<br />
+                <strong>Standard pressure:</strong> 1013.25 hPa
+              </p>
             </Col>
           </Row>
         </Card.Body>

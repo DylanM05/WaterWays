@@ -54,6 +54,7 @@ const RiverSections = ({ rivers }) => {
   const [favoriteLoading, setFavoriteLoading] = useState({});
   const [savedRivers, setSavedRivers] = useState([]);
   const [riverSaving, setRiverSaving] = useState(false);
+  const [riverSaveError, setRiverSaveError] = useState(null);
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
   const [subscriptionStatus, setSubscriptionStatus] = useState({ subscribed: false });
@@ -142,6 +143,7 @@ const RiverSections = ({ rivers }) => {
     }
     try {
       setRiverSaving(true);
+      setRiverSaveError(null);
       const token = await getToken();
       const headers = { Authorization: `Bearer ${token}` };
       if (riverSaved) {
@@ -167,8 +169,8 @@ const RiverSections = ({ rivers }) => {
       }
     } catch (error) {
       console.error('Error saving river:', error);
-      setToastMessage('Couldn’t update your saved rivers. Please try again.');
-      setShowToast(true);
+      // Not the subscription toast: this is a failed request, not a missing membership.
+      setRiverSaveError('Couldn’t update your saved rivers. Please try again.');
     } finally {
       setRiverSaving(false);
     }
@@ -231,6 +233,7 @@ const RiverSections = ({ rivers }) => {
           </button>
         )}
       </header>
+      {riverSaveError && <p className="station-page__error" role="alert">{riverSaveError}</p>}
 
       {stations === null ? (
         <div className="text-center py-4">

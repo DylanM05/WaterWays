@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useUser, useAuth } from '@clerk/clerk-react';
+import { useUser, useAuth, RedirectToSignIn } from '@clerk/clerk-react';
 import { Alert, Toast, ToastContainer, Spinner } from 'react-bootstrap';
 import axios from 'axios';
 
@@ -83,15 +83,6 @@ const ProtectedRoute = ({ children, requireSubscription = false, requireAdmin = 
     }
   }, [isLoaded, isSignedIn, requireSubscription, requireAdmin, getToken]);
 
-  useEffect(() => {
-    if (!isSignedIn && isLoaded) {
-      // Save the current location to localStorage for redirect after login
-      localStorage.setItem('redirectAfterLogin', location.pathname);
-      // Redirect to external URL
-      window.location.href = "https://accounts.waterways.dylansserver.top/sign-in?redirect_url=https%3A%2F%2Fwaterways.dylansserver.top%2F";
-    }
-  }, [isSignedIn, isLoaded, location.pathname]);
-
   if (!isLoaded || 
       (requireSubscription && checkingSubscription) || 
       (requireAdmin && (!adminCheckComplete || checkingAdmin))) {
@@ -114,7 +105,8 @@ const ProtectedRoute = ({ children, requireSubscription = false, requireAdmin = 
             </Alert>
           </div>
         )}
-        {/* Render a loading state while the redirect happens */}
+        {/* Clerk's sign-in for this site, which returns to this page afterwards. */}
+        <RedirectToSignIn />
         <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '200px' }}>
           <Spinner animation="border" role="status" variant="primary">
             <span className="visually-hidden">Redirecting to login...</span>

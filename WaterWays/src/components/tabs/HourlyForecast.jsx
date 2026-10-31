@@ -35,8 +35,9 @@ const HourlyForecast = ({ forecastData, pressureData, error }) => {
         style={{ 
           backgroundColor: 'var(--card-bg-colour)', 
           borderColor: 'var(--border-colour)',
-          width: window.innerWidth < 576 ? '100%' : (window.innerWidth < 400 ? '150px' : '180px'),
-          margin: window.innerWidth < 576 ? '0 0 12px 0' : '0 8px 12px 0',
+          // A row to swipe through on every screen size, as in the iOS app; narrower cards on phones.
+          width: window.innerWidth < 576 ? '150px' : '180px',
+          margin: '0 8px 12px 0',
           borderRadius: '6px',
           boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
           flexShrink: 0

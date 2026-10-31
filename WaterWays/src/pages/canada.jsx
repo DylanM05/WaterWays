@@ -25,7 +25,8 @@ const Canada = ({ setRivers, rivers }) => {
   const [selectedProvince, setSelectedProvince] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Closed at first, so the page you came to isn't covered; the home page has search and the provinces.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const navigate = useNavigate();
@@ -119,9 +120,18 @@ const Canada = ({ setRivers, rivers }) => {
     }
   };
 
+  // The home page's province buttons open that province's rivers in the sidebar.
+  const openProvince = (province) => {
+    setSelectedProvince(province);
+    setSearchQuery('');
+    setSidebarOpen(true);
+  };
+
+  // Alphabetical, as the server returns them in database order.
   const filteredRivers = selectedProvince && Object.keys(rivers).length > 0
-    ? Object.keys(rivers).filter(riverName =>
-        riverName.toLowerCase().includes(searchQuery.toLowerCase()))
+    ? Object.keys(rivers)
+        .filter(riverName => riverName.toLowerCase().includes(searchQuery.toLowerCase()))
+        .sort((a, b) => a.localeCompare(b, 'en-CA'))
     : [];
 
   return (
@@ -147,7 +157,7 @@ const Canada = ({ setRivers, rivers }) => {
 
       {/* Main content container */}
       <div className={`content ${!sidebarOpen ? 'full-width' : ''}`}>
-        <Outlet />
+        <Outlet context={{ provinces: provincesAndTerritories, openProvince }} />
         <DataCredits />
       </div>
     </div>

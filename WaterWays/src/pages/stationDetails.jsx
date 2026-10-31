@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { useSettings } from '../components/utility/contexts/SettingsContext';
 import { useAuth } from '@clerk/clerk-react';
@@ -15,6 +15,9 @@ import WeeklyForecast from '../components/tabs/WeeklyForecast';
 import { convertToLocalTime, convertTimeArrayToLocal } from '../components/utility/utility';
 import FavouritesSubscribeToast from '../components/toasts/subscriptionRequiredToast';
 import WeatherAlerts from '../components/tabs/WeatherAlerts';
+import HistoryTab from '../components/tabs/HistoryTab';
+import './styling/stationDetails.css';
+import { displayTitle } from '../components/utility/names';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -28,37 +31,35 @@ const ENDPOINTS = {
 // Add this object to track water data cache
 const WATER_DATA_CACHE = {};
 
-const TabButton = ({ label, isActive, onClick }) => (
-  <button
-    onClick={onClick}
-    style={{
-      padding: '8px 16px',
-      fontSize: '0.875rem',
-      fontWeight: '500',
-      borderBottom: isActive 
-        ? '2px solid var(--primary-colour)' 
-        : '2px solid transparent',
-      color: isActive 
-        ? 'var(--primary-colour)' 
-        : 'var(--text-colour)',
-      background: 'transparent',
-      whiteSpace: 'nowrap',
-      transition: 'all 0.2s',
-      borderTop: 'none',
-      borderLeft: 'none',
-      borderRight: 'none',
-      cursor: 'pointer'
-    }}
-    onMouseOver={(e) => {
-      if (!isActive) e.currentTarget.style.color = 'var(--hover-colour)';
-    }}
-    onMouseOut={(e) => {
-      if (!isActive) e.currentTarget.style.color = 'var(--text-colour)';
-    }}
-  >
-    {label}
-  </button>
-);
+// One row of tabs you swipe through on phones, as in the iOS app; the chosen tab scrolls into view.
+const STATION_TABS = [
+  ['water', 'Water'],
+  ['history', 'History'],
+  ['pressure', 'Pressure'],
+  ['weather', 'Current weather'],
+  ['hourlyforecast', 'Hourly forecast'],
+  ['weeklyforecast', 'Weekly forecast'],
+  ['map', 'Map']
+];
+
+const TabButton = ({ label, isActive, onClick }) => {
+  const ref = useRef(null);
+  useEffect(() => {
+    if (isActive) ref.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [isActive]);
+  return (
+    <button
+      ref={ref}
+      type="button"
+      role="tab"
+      aria-selected={isActive}
+      onClick={onClick}
+      className={`station-tab${isActive ? ' station-tab--active' : ''}`}
+    >
+      {label}
+    </button>
+  );
+};
 
 const ActionButton = ({ label, onClick, icon }) => (
   <button 
@@ -88,6 +89,7 @@ const ActionButton = ({ label, onClick, icon }) => (
 const StationDetails = () => {
   const { stationId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { settings } = useSettings();
   const [activeKey, setActiveKey] = useState(settings.defaultTab);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -358,7 +360,7 @@ const StationDetails = () => {
   const localWeatherTime = weatherData?.time ? convertToLocalTime(weatherData.time) : '';
 
   return (
-    <div className="container mx-auto px-4">
+    <div className="container mx-auto px-4 station-details-page">
       <div style={{
         padding: windowWidth < 768 ? '0 8px' : '0'
       }}>
@@ -366,10 +368,11 @@ const StationDetails = () => {
           marginLeft: windowWidth < 480 ? '16px' : (windowWidth < 768 ? '8px' : '0'),
           transition: 'margin 0.3s ease'
         }}>
-          <ActionButton label="Back" onClick={() => navigate(-1)} icon="←" />
+          {/* Opened from a link or a refresh there's no earlier page here, so Back goes home instead of off the site. */}
+          <ActionButton label="Back" onClick={() => (location.key === 'default' ? navigate('/') : navigate(-1))} icon="←" />
         </div>
         <h2 style={{ color: 'var(--text-colour)' }}>
-          {stationInfo?.stationName}
+          {displayTitle(stationInfo?.stationName)}
         </h2>
         
         {isSignedIn && (
@@ -418,44 +421,16 @@ const StationDetails = () => {
       <WeatherAlerts alerts={alerts} />
 
       {/* Tab Navigation */}
-      <div style={{ borderBottom: '1px solid var(--border-colour)', marginBottom: '1.5rem' }}>
-        <div className="overflow-x-auto hide-scrollbar">
-          <TabButton 
-            label="Water Data" 
-            isActive={activeKey === 'water'} 
-            onClick={() => setActiveKey('water')} 
-          />
-          <TabButton 
-            label="Pressure Data" 
-            isActive={activeKey === 'pressure'} 
-            onClick={() => setActiveKey('pressure')} 
-          />
-          <TabButton 
-            label="Current Weather" 
-            isActive={activeKey === 'weather'} 
-            onClick={() => setActiveKey('weather')} 
-          />
-          <TabButton 
-            label="Hourly Forecast" 
-            isActive={activeKey === 'hourlyforecast'} 
-            onClick={() => setActiveKey('hourlyforecast')} 
-          />
-          <TabButton 
-            label="Weekly Forecast" 
-            isActive={activeKey === 'weeklyforecast'} 
-            onClick={() => setActiveKey('weeklyforecast')} 
-          />
-          <TabButton 
-            label="Map" 
-            isActive={activeKey === 'map'} 
-            onClick={() => setActiveKey('map')} 
-          />
-        </div>
+      <div className="station-tabs hide-scrollbar" role="tablist" aria-label="Station data">
+        {STATION_TABS.map(([key, label]) => (
+          <TabButton key={key} label={label} isActive={activeKey === key} onClick={() => setActiveKey(key)} />
+        ))}
       </div>
 
       {/* Tab Content */}
       <div>
         {activeKey === 'map' && <StationInfo stationInfo={stationInfo} />}
+        {activeKey === 'history' && <HistoryTab stationId={stationId} />}
         {activeKey === 'water' && (
           <WaterData 
             stationId={stationId} 

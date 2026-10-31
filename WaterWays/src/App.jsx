@@ -35,7 +35,6 @@ function App() {
               <Route index element={<Home />} />
               <Route path="/river/:riverName" element={page(<RiverSections rivers={rivers} />)} />
               <Route path="/station-details/:stationId" element={page(<StationDetails />)} />
-              <Route path="/profile" element={<div>Profile</div>} />
               <Route path="/pricing" element={page(<Pricing />)} />
               <Route path="/privacy" element={page(<Privacy />)} />
               <Route path="/settings" element={page(

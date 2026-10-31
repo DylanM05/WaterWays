@@ -34,35 +34,6 @@
   box-shadow: 0 3px 6px rgba(0,0,0,0.15);
 }
 
-@media (max-width: 576px) {
-  .forecast-container {
-    flex-direction: column;
-    overflow-x: hidden;
-    overflow-y: auto;
-    max-height: 500px;
-    padding-right: 6px;
-  }
-  
-  .forecast-container::-webkit-scrollbar {
-    width: 6px;
-    height: auto;
-  }
-  
-  .forecast-card {
-    width: 100% !important;
-    margin-right: 0 !important;
-    margin-bottom: 12px !important;
-  }
-  
-  .scroll-indicator {
-    margin-top: 0.75rem;
-  }
-  
-  .scroll-indicator i {
-    transform: rotate(90deg);
-  }
-}
-
 @media (max-width: 400px) {
   .forecast-card-body {
     padding: 0.75rem !important;
@@ -70,10 +41,5 @@
 
   .metric {
     font-size: 0.7rem !important;
-  }
-  
- 
-  .forecast-container {
-    max-height: 400px;
   }
 }

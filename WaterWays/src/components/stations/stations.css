@@ -392,3 +392,9 @@
 .saved-river__view {
   text-decoration: none;
 }
+
+.station-page__error {
+  margin: -12px 0 20px;
+  font-size: 0.9rem;
+  color: #dc3545;
+}

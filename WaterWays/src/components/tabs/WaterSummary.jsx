@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 import { summarizeReadings } from '../utility/waterSummary';
-import { formatLongDateTime } from '../utility/dates';
 
 const UNITS = { water: 'm', discharge: 'm³/s' };
 
@@ -17,13 +16,15 @@ const timeAgo = (date) => {
   return format.format(-Math.round(minutes / (24 * 60)), 'day');
 };
 
+// "Oct 30, 6:10 p.m.": short enough for a tile two to a row on a phone.
+const shortDateTime = (date) => date.toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
 // Colours are set explicitly from the theme variables: inherited text colour comes out dark in dark mode.
 const TEXT = { color: 'var(--text-colour)' };
 const MUTED = { color: 'var(--text-colour)', opacity: 0.75 };
 
 const Tile = ({ title, value, detail }) => (
   <div style={{
-    flex: '1 1 160px',
     padding: '10px 12px',
     border: '1px solid var(--border-colour)',
     borderRadius: '6px',
@@ -58,13 +59,13 @@ const WaterSummary = ({ readings, series }) => {
         <h6 className="mb-0" style={TEXT}>Conditions</h6>
         <small style={MUTED}>Updated {timeAgo(summary.latestTime)}</small>
       </div>
-      <div className="d-flex flex-wrap gap-2">
-        <Tile title="Now" value={formatValue(summary.latest, unit)} detail={formatLongDateTime(summary.latestTime, { seconds: false })} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '8px' }}>
+        <Tile title="Now" value={formatValue(summary.latest, unit)} detail={shortDateTime(summary.latestTime)} />
         {change('Last 24 hours', summary.change24h)}
         {change('Last 7 days', summary.change7d)}
         <Tile title={`${summary.spanDays}-day average`} value={formatValue(summary.average, unit)} detail={comparedToAverage} />
-        <Tile title={`${summary.spanDays}-day low`} value={formatValue(summary.low, unit)} detail={formatLongDateTime(summary.lowTime, { seconds: false })} />
-        <Tile title={`${summary.spanDays}-day high`} value={formatValue(summary.high, unit)} detail={formatLongDateTime(summary.highTime, { seconds: false })} />
+        <Tile title={`${summary.spanDays}-day low`} value={formatValue(summary.low, unit)} detail={shortDateTime(summary.lowTime)} />
+        <Tile title={`${summary.spanDays}-day high`} value={formatValue(summary.high, unit)} detail={shortDateTime(summary.highTime)} />
       </div>
     </div>
   );
