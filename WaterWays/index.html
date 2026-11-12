@@ -17,29 +17,31 @@
     
     <!-- Android/Chrome PWA Support -->
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#FFFFFF">
-    
+    <meta name="theme-color" content="#F2F6F6" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#06171C" media="(prefers-color-scheme: dark)">
+
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>WaterWays</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Sans:wght@400..700&display=swap">
     <script>
       if (window.location.protocol === 'capacitor:') {
         document.documentElement.classList.add('capacitor-app');
       }
 
-      window.addEventListener('DOMContentLoaded', () => {
-        const savedMode = localStorage.getItem('darkMode');
-        const isDark = savedMode !== null 
-          ? JSON.parse(savedMode)
-          : window.matchMedia('(prefers-color-scheme: dark)').matches;
-    
-        if (isDark) {
-          document.documentElement.classList.add('dark');
-          document.body.classList.add('dark-theme');
-        } else {
-          document.documentElement.classList.add('light-theme');
+      // Set the theme before the first paint, so a dark-mode visit doesn't flash light.
+      (function () {
+        let isDark;
+        try {
+          const savedMode = localStorage.getItem('darkMode');
+          isDark = savedMode !== null ? JSON.parse(savedMode) : window.matchMedia('(prefers-color-scheme: dark)').matches;
+        } catch (e) {
+          isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         }
-      });
-    </script>    
+        document.documentElement.classList.add(isDark ? 'dark' : 'light-theme');
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

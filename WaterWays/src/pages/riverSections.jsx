@@ -11,7 +11,7 @@ import { displayTitle, PROVINCE_NAMES } from '../components/utility/names';
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 /**
- * The river's stations. The sidebar passes the selected province's rivers; a river opened directly (a link
+ * The river's stations. The province page passes its rivers; a river opened directly (a link
  * or a refresh) is looked up instead, in every province that has a river by this name.
  */
 function useRiverStations(rivers, riverName) {

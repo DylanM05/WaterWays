@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useNavigate, useOutletContext } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { SignedIn } from '@clerk/clerk-react';
 import { FaHeart, FaSearch } from 'react-icons/fa';
 import axios from 'axios';
-import { displayTitle } from '../components/utility/names';
+import { displayTitle, PROVINCES } from '../components/utility/names';
 import './styling/home.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -38,7 +38,6 @@ function useRiverSearch(query) {
 }
 
 const Home = () => {
-  const { provinces, openProvince } = useOutletContext();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const { results, searching } = useRiverSearch(query);
@@ -88,11 +87,11 @@ const Home = () => {
       <section className="home__section">
         <h2 className="home__heading">Browse by province or territory</h2>
         <div className="home__provinces">
-          {provinces.map(province => (
-            <button key={province.abbreviation} type="button" className="home__province" onClick={() => openProvince(province)}>
-              <span className="home__province-code">{province.abbreviation}</span>
+          {PROVINCES.map(province => (
+            <Link key={province.code} to={`/province/${province.code.toLowerCase()}`} className="home__province">
+              <span className="home__province-code">{province.code}</span>
               {province.name}
-            </button>
+            </Link>
           ))}
         </div>
       </section>
