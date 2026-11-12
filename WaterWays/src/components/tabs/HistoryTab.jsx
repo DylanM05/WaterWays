@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef, useContext } from 'react';
-import { Card } from 'react-bootstrap';
-import { useAuth, useClerk } from '@clerk/clerk-react';
-import { useNavigate } from 'react-router-dom';
+import { SignedOut, SignInButton, useAuth } from '@clerk/clerk-react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import uPlot from 'uplot';
 import 'uplot/dist/uPlot.min.css';
 import { ThemeContext } from '../utility/contexts/Theme';
-import '../stations/stations.css';
+import { LockIcon } from '../icons/Icons';
 import './styling/history.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -35,8 +34,8 @@ const INTERVALS = [
 ];
 
 const METRICS = {
-  water_level: { label: 'Water level', unit: 'm', decimals: () => 2 },
-  discharge: { label: 'Discharge', unit: 'm³/s', decimals: (value) => (Math.abs(value) >= 100 ? 0 : Math.abs(value) >= 10 ? 1 : 2) }
+  water_level: { label: 'Level', unit: 'm', decimals: () => 2 },
+  discharge: { label: 'Flow', unit: 'm³/s', decimals: (value) => (Math.abs(value) >= 100 ? 0 : Math.abs(value) >= 10 ? 1 : 2) }
 };
 
 /** "3.51 m", "1,240 m³/s"; a dash for a missing value. */
@@ -72,22 +71,21 @@ const saveSetting = (key, value) => {
 };
 
 const Tile = ({ title, value, detail, wide }) => (
-  <div className={`history-tile${wide ? ' history-tile--wide' : ''}`}>
+  <div className={`ww-card history-tile${wide ? ' history-tile--wide' : ''}`}>
     <div className="history-tile__title">{title}</div>
-    <div className="history-tile__value">{value}</div>
+    <div className="num history-tile__value">{value}</div>
     {detail && <div className="history-tile__detail">{detail}</div>}
   </div>
 );
 
 const Segmented = ({ label, options, value, onChange }) => (
-  <div className="segmented history-segmented" role="tablist" aria-label={label}>
+  <div className="seg" role="group" aria-label={label}>
     {options.map(([key, text]) => (
       <button
         key={key}
         type="button"
-        role="tab"
-        aria-selected={value === key}
-        className={`segmented__option${value === key ? ' segmented__option--active' : ''}`}
+        aria-pressed={value === key}
+        className={value === key ? 'is-on' : undefined}
         onClick={() => onChange(key)}
       >
         {text}
@@ -95,6 +93,21 @@ const Segmented = ({ label, options, value, onChange }) => (
     ))}
   </div>
 );
+
+// The theme's colours, read when the chart is drawn so it follows light and dark mode.
+const themeColours = () => {
+  const css = getComputedStyle(document.documentElement);
+  const token = (name) => css.getPropertyValue(name).trim();
+  return {
+    text: token('--w-ink3'),
+    ink2: token('--w-ink2'),
+    grid: token('--w-line'),
+    accent: token('--w-accent'),
+    accentSoft: token('--w-accent-soft'),
+    flow: token('--w-flow'),
+    flowSoft: token('--w-flow-soft')
+  };
+};
 
 /** Draws a uPlot chart into a div, rebuilding it when its options or data change and resizing with the page. */
 const UPlotChart = ({ options, data }) => {
@@ -118,8 +131,6 @@ const UPlotChart = ({ options, data }) => {
  */
 const HistoryTab = ({ stationId }) => {
   const { isLoaded, isSignedIn, getToken } = useAuth();
-  const { openSignIn } = useClerk();
-  const navigate = useNavigate();
   const { darkMode } = useContext(ThemeContext);
 
   const [metric, setMetric] = useState('water_level');
@@ -194,22 +205,19 @@ const HistoryTab = ({ stationId }) => {
   // Only draw a response that matches the view shown (a slow reply for the other view is ignored).
   const showsHistory = history && (history.interval === 'season') === (mode === 'seasonal') && history.metric === metric;
 
-  const colours = useMemo(() => ({
-    text: darkMode ? '#ffffff' : '#213547',
-    grid: darkMode ? '#333333' : '#e0e0e0',
-    accent: '#646cff',
-    band: 'rgba(100, 108, 255, 0.18)',
-    recent: darkMode ? '#d95926' : '#eb6834'
-  }), [darkMode]);
+  // darkMode is a dependency so the colours are read again after the theme changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const colours = useMemo(() => themeColours(), [darkMode]);
 
   const chart = useMemo(() => {
     if (!showsHistory || !history.points.length) return null;
     const formatValue = formatterFor(history.metric);
     const value = (u, v) => formatValue(v);
-    const legendColour = [(u) => { const legend = u.root.querySelector('.u-legend'); if (legend) legend.style.color = colours.text; }];
+    const legendColour = [(u) => { const legend = u.root.querySelector('.u-legend'); if (legend) legend.style.color = colours.ink2; }];
+    const font = '11px "Instrument Sans", -apple-system, sans-serif';
     const axes = (xValues) => [
-      { stroke: colours.text, grid: { stroke: colours.grid }, ...(xValues && { values: xValues }) },
-      { stroke: colours.text, grid: { stroke: colours.grid }, size: 70, values: (u, ticks) => ticks.map(tick => tick.toLocaleString('en-CA')) }
+      { stroke: colours.text, font, grid: { stroke: colours.grid, width: 1 }, ticks: { show: false }, ...(xValues && { values: xValues }) },
+      { stroke: colours.text, font, grid: { stroke: colours.grid, width: 1 }, ticks: { show: false }, size: 60, values: (u, ticks) => ticks.map(tick => tick.toLocaleString('en-CA')) }
     ];
 
     if (history.interval === 'season') {
@@ -229,12 +237,12 @@ const HistoryTab = ({ stationId }) => {
           axes: axes((u, ticks) => ticks.map(tick => (Number.isInteger(tick) && tick >= 1 && tick <= 12 ? MONTHS[tick - 1].slice(0, 3) : ''))),
           series: [
             { label: 'Month', value: (u, v) => (v ? MONTHS[v - 1] : '—') },
-            { label: 'Typical', stroke: colours.accent, width: 2, value },
+            { label: 'Typical', stroke: colours.ink2, width: 1.6, dash: [5, 4], value },
             { label: 'Highest year', stroke: 'transparent', width: 0, points: { show: false }, value },
             { label: 'Lowest year', stroke: 'transparent', width: 0, points: { show: false }, value },
-            { label: 'Last 12 months', stroke: colours.recent, width: 2, points: { show: true, size: 6, fill: colours.recent }, value }
+            { label: 'Last 12 months', stroke: colours.flow, width: 2.6, points: { show: true, size: 6, fill: colours.flow }, value }
           ],
-          bands: [{ series: [2, 3], fill: colours.band }],
+          bands: [{ series: [2, 3], fill: colours.flowSoft }],
           cursor: { y: false },
           legend: { show: true, live: true },
           hooks: { draw: legendColour }
@@ -264,7 +272,7 @@ const HistoryTab = ({ stationId }) => {
           { label: 'High', stroke: 'transparent', width: 0, points: { show: false }, value },
           { label: 'Low', stroke: 'transparent', width: 0, points: { show: false }, value }
         ],
-        bands: [{ series: [2, 3], fill: colours.band }],
+        bands: [{ series: [2, 3], fill: colours.accentSoft }],
         cursor: { y: false },
         legend: { show: true, live: true },
         hooks: { draw: legendColour }
@@ -276,18 +284,16 @@ const HistoryTab = ({ stationId }) => {
 
   if (!isSignedIn || result.status === 'locked') {
     return (
-      <Card className="mb-4 history-card">
-        <Card.Body className="history-prompt">
-          <h5>Historical data</h5>
-          <p>See years of archived water levels and flows, averaged by day, week, month or year, compare this year with a typical one, and see the station's official record highs and lows.</p>
-          {isSignedIn ? (
-            <button type="button" className="history-prompt__button" onClick={() => navigate('/pricing')}>Unlock with Premium</button>
-          ) : (
-            <button type="button" className="history-prompt__button" onClick={() => openSignIn()}>Sign in</button>
-          )}
-          <p className="history-prompt__note">Historical data is included with Premium.</p>
-        </Card.Body>
-      </Card>
+      <section className="ww-card history-locked">
+        <span className="history-locked__icon"><LockIcon /></span>
+        <p>Every year on record for this station, compared with a typical year, with record highs and lows.</p>
+        <div className="history-locked__acts">
+          <Link to={`/pricing?station=${encodeURIComponent(stationId)}`} className="ww-btn ww-btn--pri">See Premium</Link>
+          <SignedOut>
+            <SignInButton mode="modal"><button type="button" className="ww-btn">Sign in</button></SignInButton>
+          </SignedOut>
+        </div>
+      </section>
     );
   }
 
@@ -337,18 +343,16 @@ const HistoryTab = ({ stationId }) => {
   const recordMetric = records?.[metric];
 
   return (
-    <Card className="mb-4 history-card">
-      <Card.Body>
-        <h5 className="history-heading">Water history</h5>
+    <div className="history">
+      <div className="history-controls">
+        <Segmented label="Measurement" value={metric} onChange={setMetric}
+          options={[['water_level', 'Level'], ['discharge', 'Flow']]} />
+        <Segmented label="View" value={mode} onChange={(value) => { setMode(value); saveSetting('historyMode', value); }}
+          options={[['timeline', 'Timeline'], ['seasonal', 'Typical year']]} />
+      </div>
 
-        <div className="history-controls">
-          <Segmented label="Measurement" value={metric} onChange={setMetric}
-            options={[['water_level', 'Water level'], ['discharge', 'Discharge']]} />
-          <Segmented label="View" value={mode} onChange={(value) => { setMode(value); saveSetting('historyMode', value); }}
-            options={[['timeline', 'Over time'], ['seasonal', 'Typical year']]} />
-        </div>
-
-        <div className="history-controls">
+      <section className="ww-card history-card">
+        <div className="history-controls history-controls--fields">
           <label className="history-select">
             <span>Range</span>
             <select value={effectiveRange.key} onChange={(event) => { setRangeKey(event.target.value); saveSetting('historyRange', event.target.value); }}>
@@ -388,8 +392,8 @@ const HistoryTab = ({ stationId }) => {
         ) : result.status === 'error' ? (
           <p className="history-message">Couldn’t load the history. Please try again later.</p>
         ) : !showsHistory ? (
-          <div className="history-chart history-chart--loading">
-            <span className="spinner-border" role="status" aria-label="Loading history" style={{ color: 'var(--primary-colour)' }} />
+          <div className="history-chart history-chart--loading" role="status" aria-label="Loading history">
+            <span className="history-spinner" />
           </div>
         ) : !history.points.length ? (
           <p className="history-message">There are no records for this range. Try a longer one.</p>
@@ -399,30 +403,41 @@ const HistoryTab = ({ stationId }) => {
           </div>
         )}
 
-        {summary}
         {footnote && <p className="history-footnote">{footnote}</p>}
+      </section>
 
-        {recordMetric && (
-          <div className="history-records">
-            <div className="history-records__header">
-              <h6>Records</h6>
-              {recordMetric.firstYear && (
-                <span>{recordMetric.firstYear === recordMetric.lastYear ? recordMetric.firstYear : `${recordMetric.firstYear}–${recordMetric.lastYear}`}</span>
-              )}
-            </div>
-            <dl>
-              {recordMetric.recordHigh && (<><dt>Highest</dt><dd>{format(recordMetric.recordHigh.value)} · {formatDay(recordMetric.recordHigh.date, { month: 'short', day: 'numeric', year: 'numeric' })}</dd></>)}
-              {recordMetric.recordLow && (<><dt>Lowest</dt><dd>{format(recordMetric.recordLow.value)} · {formatDay(recordMetric.recordLow.date, { month: 'short', day: 'numeric', year: 'numeric' })}</dd></>)}
-              {recordMetric.typicalHigh != null && (<><dt>Typical yearly high</dt><dd>{format(recordMetric.typicalHigh)}</dd></>)}
-              {recordMetric.typicalLow != null && (<><dt>Typical yearly low</dt><dd>{format(recordMetric.typicalLow)}</dd></>)}
-            </dl>
-            <p className="history-footnote">
-              Each year&apos;s highest and lowest instantaneous readings from Environment Canada&apos;s archive ({recordMetric.years} years). The latest year or two may not be included yet.
-            </p>
+      {summary}
+
+      {recordMetric && (
+        <section className="ww-card history-records">
+          <div className="history-records__header">
+            <h2 className="disp">Records</h2>
+            {recordMetric.firstYear && (
+              <span className="faint">{recordMetric.firstYear === recordMetric.lastYear ? recordMetric.firstYear : `${recordMetric.firstYear}–${recordMetric.lastYear}`}</span>
+            )}
           </div>
-        )}
-      </Card.Body>
-    </Card>
+          <dl>
+            {recordMetric.recordHigh && (
+              <div>
+                <dt>Highest</dt>
+                <dd><b className="num">{format(recordMetric.recordHigh.value)}</b><span>{formatDay(recordMetric.recordHigh.date, { month: 'short', day: 'numeric', year: 'numeric' })}</span></dd>
+              </div>
+            )}
+            {recordMetric.recordLow && (
+              <div>
+                <dt>Lowest</dt>
+                <dd><b className="num">{format(recordMetric.recordLow.value)}</b><span>{formatDay(recordMetric.recordLow.date, { month: 'short', day: 'numeric', year: 'numeric' })}</span></dd>
+              </div>
+            )}
+            {recordMetric.typicalHigh != null && (<div><dt>Typical yearly high</dt><dd><b className="num">{format(recordMetric.typicalHigh)}</b></dd></div>)}
+            {recordMetric.typicalLow != null && (<div><dt>Typical yearly low</dt><dd><b className="num">{format(recordMetric.typicalLow)}</b></dd></div>)}
+          </dl>
+          <p className="history-footnote">
+            Each year&apos;s highest and lowest readings in Environment Canada&apos;s archive ({recordMetric.years} years). The latest year or two may not be in it yet.
+          </p>
+        </section>
+      )}
+    </div>
   );
 };
 

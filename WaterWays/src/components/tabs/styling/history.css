@@ -1,175 +1,175 @@
-/* The History tab. Colours come from the theme variables in index.css. */
-
-.history-card {
-  background-color: var(--card-bg-colour);
-  border-color: var(--border-colour);
-  color: var(--text-colour);
-  text-align: left;
-}
-
-.history-heading {
-  margin-bottom: 16px;
-  color: var(--text-colour);
+/* The station page's History tab. */
+.history {
+  display: grid;
+  gap: 16px;
 }
 
 .history-controls {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-end;
   gap: 10px 16px;
-  margin-bottom: 14px;
 }
 
-.history-segmented {
-  margin-bottom: 0;
+.history-card {
+  padding: 20px 22px 16px;
+  display: grid;
+  gap: 16px;
+  min-width: 0;
 }
 
 .history-select {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  font-size: 0.75rem;
-  color: var(--text-colour);
-}
-
-.history-select span {
-  opacity: 0.7;
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--w-ink2);
 }
 
 .history-select select,
 .history-select input {
-  min-width: 140px;
-  padding: 6px 10px;
-  font-size: 0.9rem;
-  color: var(--text-colour);
-  background: var(--background-colour);
-  border: 1px solid var(--border-colour);
-  border-radius: 8px;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--w-line);
+  border-radius: 10px;
+  background: var(--w-surface);
+  color: var(--w-ink);
+  font: 500 14px var(--f-body);
+  color-scheme: inherit;
+}
+
+.history-select select:focus,
+.history-select input:focus {
+  outline: 2px solid var(--w-accent);
+  outline-offset: 1px;
 }
 
 .history-chart {
   min-height: 300px;
-  margin: 8px 0 16px;
-  transition: opacity 0.15s ease;
+  transition: opacity .2s;
 }
+
+.history-chart--updating { opacity: .5; }
 
 .history-chart--loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
 }
 
-/* A new range or interval is loading; the old chart stays until it arrives. */
-.history-chart--updating {
-  opacity: 0.5;
+.history-spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid var(--w-accent);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
 }
+
+.history-chart .u-legend {
+  margin-top: 6px;
+  font: 500 12.5px var(--f-body);
+  text-align: left;
+}
+
+.history-chart .u-legend .u-marker { border-radius: 3px; }
+.history-chart .u-legend th { font-weight: 600; }
 
 .history-message {
+  margin: 0;
   padding: 40px 0;
   text-align: center;
-  opacity: 0.75;
-}
-
-.history-tiles {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-bottom: 12px;
-}
-
-.history-tile {
-  padding: 10px 12px;
-  border: 1px solid var(--border-colour);
-  border-radius: 8px;
-  background: var(--background-colour);
-}
-
-.history-tile--wide {
-  grid-column: 1 / -1;
-}
-
-.history-tile__title,
-.history-tile__detail {
-  font-size: 0.75rem;
-  opacity: 0.75;
-}
-
-.history-tile__value {
-  font-size: 1.15rem;
-  font-weight: 600;
+  color: var(--w-ink2);
 }
 
 .history-footnote {
-  font-size: 0.8rem;
-  opacity: 0.7;
-  margin: 0 0 12px;
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--w-ink3);
+  max-width: 80ch;
 }
 
+/* Summary tiles */
+.history-tiles {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap: 16px;
+}
+
+.history-tile {
+  padding: 16px 18px;
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.history-tile__title { font-size: 13px; font-weight: 600; color: var(--w-ink2); }
+.history-tile__value { font-size: 26px; }
+.history-tile__detail { font-size: 13px; color: var(--w-ink2); }
+
+/* Records */
 .history-records {
-  margin-top: 8px;
-  padding: 14px 16px;
-  border: 1px solid var(--border-colour);
-  border-radius: 8px;
-  background: var(--background-colour);
+  padding: 18px 22px;
+  display: grid;
+  gap: 12px;
 }
 
 .history-records__header {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  margin-bottom: 8px;
+  gap: 12px;
 }
 
-.history-records__header h6 {
-  margin: 0;
-  font-weight: 600;
-}
-
-.history-records__header span {
-  font-size: 0.8rem;
-  opacity: 0.7;
-}
+.history-records__header h2 { font-size: 18px; }
+.history-records__header span { font-size: 13px; }
 
 .history-records dl {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 6px 16px;
-  margin: 0 0 10px;
-  font-size: 0.9rem;
-}
-
-.history-records dt {
-  font-weight: 400;
-  opacity: 0.75;
-}
-
-.history-records dd {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
   margin: 0;
-  font-weight: 600;
-  text-align: right;
 }
 
-.history-prompt {
-  padding: 32px 24px;
-  text-align: center;
+.history-records dl div {
+  display: grid;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--w-sunk);
 }
 
-.history-prompt p {
-  max-width: 520px;
-  margin: 8px auto 16px;
-  opacity: 0.85;
+.history-records dt { font-size: 12.5px; font-weight: 500; color: var(--w-ink3); }
+.history-records dd { margin: 0; display: grid; gap: 2px; }
+.history-records dd b { font-size: 19px; }
+.history-records dd span { font-size: 12.5px; color: var(--w-ink2); }
+
+/* Locked for visitors and members without Premium */
+.history-locked {
+  padding: 28px;
+  display: grid;
+  justify-items: start;
+  gap: 14px;
 }
 
-.history-prompt__button {
-  padding: 8px 20px;
-  font-weight: 600;
-  color: var(--primary-text-colour);
-  background: var(--primary-colour);
-  border: none;
-  border-radius: 999px;
-  cursor: pointer;
+.history-locked__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: var(--w-accent-soft);
+  color: var(--w-accent);
 }
 
-.history-prompt__note {
-  font-size: 0.8rem;
-  opacity: 0.65 !important;
+.history-locked__icon .ic { width: 22px; height: 22px; stroke-width: 2; }
+.history-locked p { margin: 0; max-width: 52ch; font-size: 16px; }
+.history-locked__acts { display: flex; gap: 10px; flex-wrap: wrap; }
+
+@media (max-width: 767px) {
+  .history { gap: 12px; }
+  .history-card { padding: 16px; }
+  .history-tiles { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .history-tile--wide { grid-column: 1 / -1; }
+  .history-locked { padding: 20px; }
 }
