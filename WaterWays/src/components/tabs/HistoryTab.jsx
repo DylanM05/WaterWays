@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef, useContext } from 'react';
-import { SignedOut, SignInButton, useAuth } from '@clerk/clerk-react';
+import { SignedOut, SignInButton, useAuth, useClerk } from '@clerk/clerk-react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import uPlot from 'uplot';
@@ -131,6 +131,7 @@ const UPlotChart = ({ options, data }) => {
  */
 const HistoryTab = ({ stationId }) => {
   const { isLoaded, isSignedIn, getToken } = useAuth();
+  const { status: authStatus } = useClerk();
   const { darkMode } = useContext(ThemeContext);
 
   const [metric, setMetric] = useState('water_level');
@@ -280,7 +281,24 @@ const HistoryTab = ({ stationId }) => {
     };
   }, [showsHistory, history, colours, interval.gapDays]);
 
-  if (!isLoaded) return null;
+  // History needs to know who's signed in. Clerk fails to load when it's blocked, offline, or given a production
+  // key off water-ways.ca (as in local development).
+  if (authStatus === 'error') {
+    return (
+      <section className="ww-card history-card">
+        <p className="history-message">Couldn’t reach the sign-in service, so History can’t check your membership. Refresh to try again.</p>
+      </section>
+    );
+  }
+  if (!isLoaded) {
+    return (
+      <section className="ww-card history-card">
+        <div className="history-chart history-chart--loading" role="status" aria-label="Loading history">
+          <span className="history-spinner" />
+        </div>
+      </section>
+    );
+  }
 
   if (!isSignedIn || result.status === 'locked') {
     return (
