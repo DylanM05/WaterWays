@@ -292,6 +292,44 @@ exports.getRiversByProvince = async (req, res) => {
   }
 };
 
+/** Rivers and stations per province, for the province list: { BC: { rivers, stations }, ... }. */
+exports.getProvinceCounts = async (req, res) => {
+  const cacheKey = 'province-counts';
+
+  const cachedBody = waterDataCache.get(cacheKey);
+  if (cachedBody) {
+    res.type('application/json');
+    return res.send(cachedBody);
+  }
+
+  try {
+    const data = await StationCoordinates.find({}).select('stationName province').lean();
+
+    const rivers = {};
+    const counts = {};
+    for (const item of data) {
+      if (!item.province) continue;
+      const province = item.province.toUpperCase();
+      if (!counts[province]) {
+        counts[province] = { rivers: 0, stations: 0 };
+        rivers[province] = new Set();
+      }
+      // Rivers are grouped the same way as /rivers/:province.
+      rivers[province].add(splitStationName(item.stationName).riverName);
+      counts[province].stations++;
+    }
+    for (const province of Object.keys(counts)) counts[province].rivers = rivers[province].size;
+
+    const body = JSON.stringify(counts);
+    waterDataCache.set(cacheKey, body, RIVERS_CACHE_TTL_SECONDS);
+    res.type('application/json');
+    res.send(body);
+  } catch (error) {
+    console.error('Error counting stations by province:', error);
+    res.status(500).json({ error: 'Error counting stations by province' });
+  }
+};
+
 exports.getWeeklyWeather = async (req, res) => {
   const stationId = req.params.id;
 

@@ -89,6 +89,16 @@ test('river lists use the same river names as search', async () => {
   assert.deepEqual(response.body['FRASER RIVER'].map(station => station.section).sort(), ['AT HOPE', 'NEAR MARGUERITE']);
 });
 
+test('province counts use the same river names as the river lists', async () => {
+  const response = await api.request('/details/province-counts');
+  assert.deepEqual(response.body, {
+    BC: { rivers: 1, stations: 2 },
+    MB: { rivers: 1, stations: 1 },
+    ON: { rivers: 1, stations: 1 }
+  });
+  assert.equal(response.headers['cache-control'], 'public, max-age=3600');
+});
+
 test('batch readings return one entry per station that has data', async () => {
   const response = await api.request('/details/latest-water-data?ids=08MF005,08MC018,08MF005');
   assert.equal(response.status, 200);

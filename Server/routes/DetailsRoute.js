@@ -18,6 +18,7 @@ router.get('/weather/:id', WEATHER, DetailsController.getWeather);
 router.get('/pressure/:id', WEATHER, DetailsController.getPressure);
 router.get('/weather/hourly/:id', WEATHER, DetailsController.getHourlyWeather);
 router.get('/rivers/:province', RIVER_LIST, DetailsController.getRiversByProvince);
+router.get('/province-counts', RIVER_LIST, DetailsController.getProvinceCounts);
 router.get('/weather/weekly/:id', WEATHER, DetailsController.getWeeklyWeather);
 router.get('/alerts/:id', cacheFor(5 * 60), DetailsController.getWeatherAlerts);
 router.get('/latest-water-data', READINGS, DetailsController.getLatestWaterDataBatch);

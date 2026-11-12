@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import RiverSearch from '../components/riverSearch/RiverSearch';
 import SavedStations from '../components/home/SavedStations';
 import useMediaQuery from '../components/home/useMediaQuery';
+import useProvinceCounts from '../components/home/useProvinceCounts';
 import { ChevronRightIcon } from '../components/icons/Icons';
 import { PROVINCES } from '../components/utility/names';
 import './styling/home.css';
@@ -10,32 +11,46 @@ import './styling/home.css';
 const provinces = PROVINCES.filter(province => !province.territory);
 const territories = PROVINCES.filter(province => province.territory);
 
+const stationCount = (counts, code) => {
+  const stations = counts?.[code]?.stations;
+  if (!stations) return null;
+  return `${stations.toLocaleString('en-CA')} ${stations === 1 ? 'station' : 'stations'}`;
+};
+
 // Tiles on wider screens; on phones, rows in one card as in the iPhone app.
-const Places = ({ title, places, rows }) => (
+const Places = ({ title, places, rows, counts }) => (
   <>
     <h2 className="disp home__heading">{title}</h2>
     {rows ? (
       <ul className="ww-card home__rows">
-        {places.map(place => (
-          <li key={place.code}>
-            <Link to={`/province/${place.code.toLowerCase()}`}>
-              <span className="home__badge">{place.code}</span>
-              <span className="home__row-name">{place.name}</span>
-              <ChevronRightIcon className="home__chev" />
-            </Link>
-          </li>
-        ))}
+        {places.map(place => {
+          const count = stationCount(counts, place.code);
+          return (
+            <li key={place.code}>
+              <Link to={`/province/${place.code.toLowerCase()}`}>
+                <span className="home__badge">{place.code}</span>
+                <span className="home__row-name">{place.name}</span>
+                {count && <span className="home__count">{count}</span>}
+                <ChevronRightIcon className="home__chev" />
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     ) : (
       <ul className="home__tiles">
-        {places.map(place => (
-          <li key={place.code}>
-            <Link to={`/province/${place.code.toLowerCase()}`} className="home__tile">
-              <b>{place.code}</b>
-              <span>{place.name}</span>
-            </Link>
-          </li>
-        ))}
+        {places.map(place => {
+          const count = stationCount(counts, place.code);
+          return (
+            <li key={place.code}>
+              <Link to={`/province/${place.code.toLowerCase()}`} className="home__tile">
+                <b>{place.code}</b>
+                <span>{place.name}</span>
+                {count && <i className="home__count">{count}</i>}
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     )}
   </>
@@ -44,6 +59,7 @@ const Places = ({ title, places, rows }) => (
 const Home = () => {
   // One search at a time, since each animates its own river.
   const phone = useMediaQuery('(max-width: 767px)');
+  const counts = useProvinceCounts();
 
   return (
     <div className="home">
@@ -57,8 +73,8 @@ const Home = () => {
       <div className="page home__body">
         <SavedStations compact={phone} />
         <section className="home__section home__places" aria-label="Provinces and territories">
-          <Places title="Provinces" places={provinces} rows={phone} />
-          <Places title="Territories" places={territories} rows={phone} />
+          <Places title="Provinces" places={provinces} rows={phone} counts={counts} />
+          <Places title="Territories" places={territories} rows={phone} counts={counts} />
         </section>
       </div>
     </div>
