@@ -6,8 +6,9 @@ import { displayTitle } from '../utility/names';
 import { describeChange, formatLastReported, metricsOf, timeAgo } from '../utility/readings';
 import { parseUtcTimestamp } from '../utility/dates';
 import { useSettings } from '../utility/contexts/SettingsContext';
-import { TrendIcon } from '../icons/Icons';
+import { TrendIcon, WarnIcon } from '../icons/Icons';
 import { formatDegrees, weatherSummary } from '../utility/weatherSummary';
+import { alertSeverity, alertTitle, severityClass, severityRank } from '../utility/alertColours';
 import './savedCard.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -25,26 +26,108 @@ function useCurrentWeather(stationId) {
   return weather;
 }
 
+// A Saved page can hold dozens of cards, so alert lookups go a few at a time. The server caches them for 5 min.
+const ALERT_LOOKUPS_AT_ONCE = 4;
+let alertLookups = 0;
+const alertQueue = [];
+
+function nextAlertLookup() {
+  while (alertLookups < ALERT_LOOKUPS_AT_ONCE && alertQueue.length) {
+    const { stationId, resolve } = alertQueue.shift();
+    alertLookups += 1;
+    axios.get(`${API_BASE_URL}/details/alerts/${encodeURIComponent(stationId)}`)
+      .then(({ data }) => resolve(data?.alerts || []))
+      .catch(() => resolve([]))
+      .finally(() => {
+        alertLookups -= 1;
+        nextAlertLookup();
+      });
+  }
+}
+
+const lookUpAlerts = (stationId) => new Promise(resolve => {
+  alertQueue.push({ stationId, resolve });
+  nextAlertLookup();
+});
+
+/** Weather alerts covering a station, most severe first; [] until they arrive or if the lookup fails. */
+function useStationAlerts(stationId) {
+  const [alerts, setAlerts] = useState([]);
+  useEffect(() => {
+    let cancelled = false;
+    setAlerts([]);
+    lookUpAlerts(stationId).then(found => {
+      if (!cancelled) setAlerts([...found].sort((a, b) => severityRank(alertSeverity(a)) - severityRank(alertSeverity(b))));
+    });
+    return () => { cancelled = true; };
+  }, [stationId]);
+  return alerts;
+}
+
+/** The most severe alert as a chip, with a count of any others. */
+const AlertChip = ({ alerts }) => {
+  if (!alerts.length) return null;
+  const [first, ...rest] = alerts;
+  const titles = alerts.map(alert => alertTitle(alert.name || 'Weather alert'));
+  return (
+    <span className={`saved-card__alert${severityClass(alertSeverity(first))}`} title={titles.join(', ')}>
+      <WarnIcon />
+      <span className="saved-card__alert-name">{titles[0]}</span>
+      {rest.length > 0 && <span className="saved-card__alert-more" aria-label={`and ${rest.length} more`}>+{rest.length}</span>}
+    </span>
+  );
+};
+
 const Weather = ({ stationId }) => {
   const { settings } = useSettings();
   const weather = useCurrentWeather(stationId);
   const summary = weatherSummary(weather);
   const degrees = formatDegrees(weather?.temperature, settings?.temperatureUnit);
   if (!degrees) return <span />;
+  const wind = typeof weather.wind === 'number'
+    ? `${weather.windDirection ? `${weather.windDirection} ` : ''}${Math.round(weather.wind)} km/h`
+    : null;
+  const gusts = typeof weather.windGusts === 'number' ? `, gusts ${Math.round(weather.windGusts)} km/h` : '';
   return (
     <span className="saved-card__wx">
-      {summary && <summary.Icon />}
-      {degrees} {summary?.label}
+      <span className="saved-card__sky">
+        {summary && <summary.Icon />}
+        {degrees} {summary?.label}
+      </span>
+      {wind && <span className="saved-card__wind" title={`Wind ${wind}${gusts}`}>{wind}</span>}
     </span>
   );
 };
 
-/** One saved station: its latest reading, change and last day, linking to the station page. */
+/** The second measurement, when the station has both level and flow, as one small line. */
+const Second = ({ summary, metric, reading }) => {
+  const value = reading[metric.field];
+  const change = describeChange(summary.trend?.change?.[metric.field], value, metric);
+  const flow = metric.field === 'discharge';
+  return (
+    <div className="saved-card__second">
+      <span>{metric.label}</span>
+      <span className="num">{metric.format(value)}<small>{metric.unit}</small></span>
+      {change && (
+        <span className={`chg${change.direction === 'up' ? ' chg--up' : ''}${flow ? ' chg--flow' : ''}`}>
+          <TrendIcon direction={change.direction} />
+          {change.amount ?? 'Steady'}
+        </span>
+      )}
+    </div>
+  );
+};
+
+/**
+ * One saved station: its latest reading, change and last day, the other measurement when it has both, and any
+ * weather alert, linking to the station page.
+ */
 const SavedCard = ({ station, summary, compact }) => {
   const stationId = station.stationId;
   const name = station.stationName ? displayTitle(station.stationName) : stationId;
+  const alerts = useStationAlerts(stationId);
   const reading = summary?.reading;
-  const metric = metricsOf(reading)[0];
+  const [metric, second] = metricsOf(reading);
   const value = metric ? reading[metric.field] : null;
   const change = metric ? describeChange(summary.trend?.change?.[metric.field], value, metric) : null;
   const readingTime = reading?.date_time ? parseUtcTimestamp(reading.date_time) : null;
@@ -83,6 +166,7 @@ const SavedCard = ({ station, summary, compact }) => {
             </span>
           ))}
         </div>
+        {second && <Second summary={summary} metric={second} reading={reading} />}
         {points.length > 1 && (
           <div className={`saved-card__spark${change?.direction === 'flat' ? ' saved-card__spark--steady' : ''}`}>
             <Sparkline
@@ -106,6 +190,7 @@ const SavedCard = ({ station, summary, compact }) => {
         ) : (
           <div className="saved-card__meta"><span className="mono">{stationId}</span>{station.province && <span>{station.province}</span>}</div>
         )}
+        <AlertChip alerts={alerts} />
       </div>
       {body}
       {!compact && (

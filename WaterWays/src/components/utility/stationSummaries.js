@@ -27,3 +27,12 @@ export async function fetchStationSummaries(stationIds) {
   }
   return summaries;
 }
+
+/**
+ * Saved stations with their names filled in: older favourites were stored without one, so those are looked up
+ * in the station catalogue. A failed lookup leaves the station as it was.
+ */
+export const withStationNames = (stations) => Promise.all(stations.map(station => (station.stationName ? station
+  : axios.get(`${API_BASE_URL}/details/coordinates/${encodeURIComponent(station.stationId)}`)
+    .then(({ data }) => ({ ...station, stationName: data?.stationName || null }))
+    .catch(() => station))));

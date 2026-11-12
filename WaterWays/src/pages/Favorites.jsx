@@ -4,9 +4,10 @@ import { useAuth } from '@clerk/clerk-react';
 import axios from 'axios';
 import Spinner from '../components/spinners/Spinner';
 import SavedCard from '../components/stations/SavedCard';
-import { fetchStationSummaries } from '../components/utility/stationSummaries';
+import { fetchStationSummaries, withStationNames } from '../components/utility/stationSummaries';
 import { displayTitle, PROVINCE_NAMES } from '../components/utility/names';
-import { ChevronRightIcon, XIcon } from '../components/icons/Icons';
+import { describeRow, sectionName } from '../components/river/riverRows';
+import { ChevronDownIcon, TrendIcon, XIcon } from '../components/icons/Icons';
 import './styling/favorites.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -31,6 +32,56 @@ function useSummaries(stationIds) {
   return summaries;
 }
 
+/** One station of a saved river: its name and when it last reported, and its level (or flow) with the change. */
+const RiverStationRow = ({ station, riverName, summary }) => {
+  const name = sectionName({ ...station, station_id: station.stationId }, riverName || '');
+  const row = describeRow(summary);
+  const main = row.level || row.flow;
+  let note = row.updated;
+  if (!summary) note = null;
+  else if (summary.failed) note = 'Couldn’t load the latest reading';
+  else if (!main) note = 'No recent readings';
+  const change = main?.change;
+  return (
+    <li>
+      <Link to={`/station-details/${encodeURIComponent(station.stationId)}`} className="saved__station">
+        <span className="saved__station-name">
+          <b>{name}</b>
+          {note && <span>{note}</span>}
+        </span>
+        {main && (
+          <span className="saved__station-val">
+            <span className="num">{main.metric.format(main.value)}<small>{main.metric.unit}</small></span>
+            {change && (
+              <span className={`chg${change.direction === 'up' ? ' chg--up' : ''}${main === row.flow ? ' chg--flow' : ''}`}>
+                <TrendIcon direction={change.direction} />{change.amount ?? 'Steady'}
+              </span>
+            )}
+          </span>
+        )}
+      </Link>
+    </li>
+  );
+};
+
+/** A saved river's stations with their latest readings, fetched when the river is opened. Reporting ones first. */
+const RiverStations = ({ river }) => {
+  const stations = useMemo(() => river.stations || [], [river.stations]);
+  const summaries = useSummaries(useMemo(() => stations.map(station => station.stationId), [stations]));
+  const loaded = stations.length > 0 && stations.every(station => summaries[station.stationId]);
+  const ordered = loaded
+    ? [...stations].sort((a, b) => Number(!summaries[a.stationId].reading) - Number(!summaries[b.stationId].reading))
+    : stations;
+  if (!stations.length) return null;
+  return (
+    <ul className="saved__stations" aria-busy={!loaded}>
+      {ordered.map(station => (
+        <RiverStationRow key={station.stationId} station={station} riverName={river.riverName} summary={summaries[station.stationId]} />
+      ))}
+    </ul>
+  );
+};
+
 const RemoveButton = ({ name, onClick }) => (
   <button type="button" className="saved-remove" onClick={onClick} aria-label={`Remove ${name}`}>
     <XIcon />
@@ -44,6 +95,7 @@ const Favorites = () => {
   const [error, setError] = useState(null);
   const [segment, setSegment] = useState(null);
   const [editing, setEditing] = useState(false);
+  const [openRivers, setOpenRivers] = useState(() => new Set());
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return undefined;
@@ -55,7 +107,20 @@ const Favorites = () => {
           headers: { Authorization: `Bearer ${token}` },
           params: { includeRivers: true }
         });
-        if (!cancelled) setFavorites(data);
+        if (cancelled) return;
+        setFavorites(data);
+        // A single saved river starts open.
+        const savedRivers = data.filter(favorite => favorite.favoriteType === 'river');
+        if (savedRivers.length === 1) setOpenRivers(new Set([savedRivers[0].stationId]));
+        // Older favourites were saved without a name; fill them in as the catalogue answers.
+        const unnamed = data.filter(favorite => favorite.favoriteType !== 'river' && !favorite.stationName);
+        if (unnamed.length) {
+          const named = Object.fromEntries((await withStationNames(unnamed)).map(station => [station.stationId, station.stationName]));
+          if (!cancelled) {
+            setFavorites(prev => prev.map(favorite => (named[favorite.stationId] && favorite.favoriteType !== 'river'
+              ? { ...favorite, stationName: named[favorite.stationId] } : favorite)));
+          }
+        }
       } catch (err) {
         console.error('Error fetching favorites:', err);
         if (!cancelled) {
@@ -74,6 +139,12 @@ const Favorites = () => {
 
   // As in the iOS app: rivers first when there are any.
   const shown = segment ?? (rivers.length ? 'rivers' : 'stations');
+
+  const toggleRiver = (id) => setOpenRivers(prev => {
+    const next = new Set(prev);
+    if (!next.delete(id)) next.add(id);
+    return next;
+  });
 
   const remove = async (path, id) => {
     try {
@@ -135,16 +206,33 @@ const Favorites = () => {
         <ul className="ww-card saved__rivers">
           {rivers.map(river => {
             const name = displayTitle(river.riverName || river.stationName);
+            const open = openRivers.has(river.stationId);
+            const panelId = `saved-river-${river.stationId}`;
+            const stationCount = (river.stations || []).length;
             return (
-              <li key={river.stationId}>
-                <Link to={`/river/${encodeURIComponent(river.riverName || '')}`}>
-                  <span className="saved__river">
+              <li key={river.stationId} className={open ? 'is-open' : undefined}>
+                <div className="saved__river-row">
+                  <Link to={`/river/${encodeURIComponent(river.riverName || '')}`} className="saved__river">
                     <b>{name}</b>
-                    <span>{[PROVINCE_NAMES[river.province] || river.province, count((river.stations || []).length, 'station')].filter(Boolean).join(', ')}</span>
-                  </span>
-                  <ChevronRightIcon className="saved__chev" />
-                </Link>
-                {editing && <RemoveButton name={name} onClick={() => remove(`rivers/${encodeURIComponent(river.stationId)}`, river.stationId)} />}
+                    <span>{[PROVINCE_NAMES[river.province] || river.province, count(stationCount, 'station')].filter(Boolean).join(', ')}</span>
+                  </Link>
+                  {stationCount > 0 && (
+                    <button
+                      type="button"
+                      className="saved__toggle"
+                      onClick={() => toggleRiver(river.stationId)}
+                      aria-expanded={open}
+                      aria-controls={panelId}
+                      aria-label={`${name} stations`}
+                    >
+                      <ChevronDownIcon />
+                    </button>
+                  )}
+                  {editing && <RemoveButton name={name} onClick={() => remove(`rivers/${encodeURIComponent(river.stationId)}`, river.stationId)} />}
+                </div>
+                <div id={panelId} hidden={!open}>
+                  {open && <RiverStations river={river} />}
+                </div>
               </li>
             );
           })}

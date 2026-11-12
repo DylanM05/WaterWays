@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
 import axios from 'axios';
 import SavedCard from '../stations/SavedCard';
-import { fetchStationSummaries } from '../utility/stationSummaries';
+import { fetchStationSummaries, withStationNames } from '../utility/stationSummaries';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const SHOWN = 3;
@@ -30,12 +30,7 @@ function useSavedStations() {
           axios.get(`${API_BASE_URL}/sub/status`, { headers }).then(response => response.data).catch(() => ({ subscribed: false }))
         ]);
         if (cancelled || !subscription?.subscribed) return;
-        const saved = (records || []).filter(record => record.favoriteType !== 'river').slice(0, SHOWN);
-        // Older favourites were stored without a name; the station catalogue has it.
-        const named = await Promise.all(saved.map(station => (station.stationName ? station
-          : axios.get(`${API_BASE_URL}/details/coordinates/${station.stationId}`)
-            .then(({ data }) => ({ ...station, stationName: data?.stationName || null }))
-            .catch(() => station))));
+        const named = await withStationNames((records || []).filter(record => record.favoriteType !== 'river').slice(0, SHOWN));
         if (!cancelled) setStations(named);
       } catch (error) {
         // The home page works without this section, so it just stays hidden.
