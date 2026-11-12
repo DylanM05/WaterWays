@@ -1,28 +1,28 @@
 import React, { useState } from 'react';
-import { Modal, Button, Spinner } from 'react-bootstrap';
+import { Modal } from 'react-bootstrap';
 import { useAuth } from '@clerk/clerk-react';
 import axios from 'axios';
-import './styling/profileModal.css';
-
+import { XIcon } from '../icons/Icons';
+import './styling/billingModal.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 /* const API_BASE_URL = 'https://curious-caring-adder.ngrok-free.app'; */
 
-
-const CustomBilling = ({ show, handleClose }) => {
+// Confirms the plan, then sends the person to Stripe's checkout for it. `endpoint` is /sub/cmcs or /sub/cacs.
+export const CheckoutModal = ({ show, handleClose, endpoint, title, price }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const { getToken } = useAuth();
-  
+
   const handleSubscribe = async () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const token = await getToken();
       const response = await axios.post(
-        `${API_BASE_URL}/sub/cmcs`,
+        `${API_BASE_URL}${endpoint}`,
         {},
         {
           headers: {
@@ -30,61 +30,45 @@ const CustomBilling = ({ show, handleClose }) => {
           }
         }
       );
-      
+
       window.location.href = response.data.url;
-      
+
     } catch (err) {
       console.error('Error initiating checkout:', err);
-      setError('Failed to initiate checkout. Please try again.');
+      setError('Couldn’t start checkout. Please try again.');
       setLoading(false);
     }
   };
 
-
   return (
-    <Modal 
+    <Modal
       show={show}
       onHide={handleClose}
-      size="lg"
       centered
-      className="transparent-modal"
-      backdropClassName="transparent-modal-backdrop"
+      contentClassName="ww-modal"
+      backdropClassName="ww-modal-backdrop"
+      aria-labelledby="checkout-title"
     >
-      <Modal.Header className="d-flex justify-content-end">
-        <Button variant="secondary" className="close-button" onClick={handleClose}>
-          Close
-        </Button>
-      </Modal.Header>
-      <Modal.Body>
-        <h4 className="text-center mb-4">Complete Your Monthly Subscription</h4>
-        <p className="text-center">You will be redirected to Stripe in order to complete the payment.</p>
-        
-        {error && <div className="alert alert-danger">{error}</div>}
-        
-        <div className="d-flex justify-content-center mt-4">
-          <Button 
-            variant="primary" 
-            onClick={handleSubscribe} 
-            disabled={loading}
-            style={{ 
-              backgroundColor: 'var(--primary-colour)',
-              borderColor: 'var(--primary-colour)',
-              minWidth: '200px'
-            }}
-          >
-            {loading ? (
-              <>
-                <Spinner as="span" animation="border" size="sm" role="status" aria-hidden="true" />
-                <span className="ms-2">Processing...</span>
-              </>
-            ) : (
-              'Proceed to Checkout'
-            )}
-          </Button>
-        </div>
-      </Modal.Body>
+      <button type="button" className="ww-btn ww-btn--ghost ww-btn--icon ww-modal__close" onClick={handleClose} aria-label="Close">
+        <XIcon />
+      </button>
+      <h2 className="disp ww-modal__title" id="checkout-title">{title}</h2>
+      <p className="ww-modal__text">{price}. You’ll pay on Stripe.</p>
+
+      {error && <p className="ww-modal__error" role="alert">{error}</p>}
+
+      <div className="ww-modal__actions">
+        <button type="button" className="ww-btn ww-btn--ghost" onClick={handleClose}>Not now</button>
+        <button type="button" className="ww-btn ww-btn--pri" onClick={handleSubscribe} disabled={loading}>
+          {loading ? <><span className="ww-modal__spinner" aria-hidden="true" />Opening checkout…</> : 'Continue to checkout'}
+        </button>
+      </div>
     </Modal>
   );
 };
 
-export default CustomBilling;
+const MonthlyBilling = ({ show, handleClose }) => (
+  <CheckoutModal show={show} handleClose={handleClose} endpoint="/sub/cmcs" title="Premium, monthly" price="$4 a month" />
+);
+
+export default MonthlyBilling;
