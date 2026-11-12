@@ -143,8 +143,8 @@ const WeatherTab = ({ weatherData, forecastData, weeklyData, pressureData, error
     const rainChance = pick(weeklyData?.precipitation?.probability, todayIndex);
     const todayFall = [fallText(rainTotal, snowTotal), rainChance ? `${rainChance}% chance` : null].filter(Boolean).join(', ');
     const precipitation = rainTotal === null && rainChance === null ? null : todayFall || 'None expected';
-    // Null when nothing is falling. The server's total adds Open-Meteo's precipitation to its parts, so
-    // rebuild it from rain and showers (mm) and snow (cm).
+    // Null when nothing is falling. Rain and showers (mm) and snow (cm) are shown apart; servers before the
+    // precipitation fix also counted the total twice.
     const falling = weatherData.precipitation;
     const fallingNow = falling
       ? fallText((falling.rain || 0) + (falling.showers || 0), falling.snow || 0) || (isNumber(falling.total) ? `${amount(falling.total)} mm` : null)

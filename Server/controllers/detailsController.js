@@ -142,11 +142,8 @@ exports.getWeather = async (req, res) => {
     const windDirection = getCompassDirection(currentData.wind_direction_10m);
     const formattedTime = formatDateTime(currentData.time);
 
-    // Calculate total precipitation from different sources
-    const totalPrecipitation = (currentData.precipitation || 0) + 
-                             (currentData.rain || 0) + 
-                             (currentData.snowfall || 0) + 
-                             (currentData.showers || 0);
+    // Open-Meteo's precipitation is already rain + showers + snow (as water, mm); adding the parts counted it twice.
+    const totalPrecipitation = currentData.precipitation || 0;
 
     // Determine precipitation type
     let precipitationType = null;
