@@ -76,6 +76,25 @@ const Home = () => {
           <Places title="Provinces" places={provinces} rows={phone} counts={counts} />
           <Places title="Territories" places={territories} rows={phone} counts={counts} />
         </section>
+        <details className="ww-card home__install">
+          <summary>Add WaterWays to your phone’s home screen</summary>
+          <div className="home__install-steps">
+            <div>
+              <h3>iPhone (Safari)</h3>
+              <ol>
+                <li>Tap the Share button.</li>
+                <li>Choose “Add to Home Screen”, then “Add”.</li>
+              </ol>
+            </div>
+            <div>
+              <h3>Android (Chrome)</h3>
+              <ol>
+                <li>Tap the ⋮ menu.</li>
+                <li>Choose “Add to Home screen”, then “Add”.</li>
+              </ol>
+            </div>
+          </div>
+        </details>
       </div>
     </div>
   );

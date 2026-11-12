@@ -126,6 +126,18 @@ html a.home__see-all { font-weight: 600; }
 .home__rows .home__count { font-size: 13px; }
 .home__chev { width: 15px; height: 15px; color: var(--w-ink3); stroke-width: 2.2; }
 
+.home__install { padding: 14px 18px; }
+.home__install summary { cursor: pointer; font-weight: 600; color: var(--w-ink2); }
+.home__install summary:hover { color: var(--w-ink); }
+.home__install-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: 16px;
+  margin-top: 12px;
+}
+.home__install-steps h3 { margin: 0 0 6px; font-size: 15px; font-weight: 600; }
+.home__install-steps ol { margin: 0; padding-left: 20px; color: var(--w-ink2); }
+
 @media (max-width: 1100px) {
   .home__hero.page { padding-top: 56px; }
   .home__search.river-search[data-size="lg"] { --rpad: 32px; }
@@ -138,6 +150,7 @@ html a.home__see-all { font-weight: 600; }
   .home__search.river-search[data-size="md"] { margin: 10px 0 2px; }
 
   .home__section { margin: 0; }
+  .home__install { margin-top: 20px; }
   .home__section-head { padding: 20px 4px 10px; margin: 0; }
   .home__heading { font-size: 20px; margin: 0; padding: 20px 4px 10px; }
   .home__section-head .home__heading { padding: 0; }
