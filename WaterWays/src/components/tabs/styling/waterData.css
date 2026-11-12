@@ -2,6 +2,8 @@
    readings table, and a weather strip. */
 .water-tab {
   display: grid;
+  /* minmax(0, …) so a wide child (the hourly strip) scrolls inside its card instead of widening the page. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
 }
 
@@ -317,5 +319,6 @@
   .chips button.chips__wide { display: none; }
   .wxstrip { padding: 16px; }
   .wxstrip__temp { font-size: 44px; }
-  .wxstrip__hours { grid-template-columns: repeat(6, minmax(52px, 1fr)); overflow-x: auto; }
+  .wxstrip { min-width: 0; }
+  .wxstrip__hours { grid-template-columns: repeat(6, minmax(52px, 1fr)); overflow-x: auto; min-width: 0; }
 }
