@@ -178,6 +178,12 @@ const Settings = () => {
   };
 
   const recurring = status?.subscribed && status.plan !== 'lifetime';
+  // Subscriptions bought in the iPhone app are billed by Apple, not Stripe.
+  const apple = status?.source === 'apple';
+  const refreshStatus = async () => {
+    const data = await loadStatus();
+    if (data) tell(data.subscribed ? `Your plan is ${planName(data)}.` : 'No active subscription found.', data.subscribed ? 'success' : 'info');
+  };
   const renewal = formatDate(status?.expiresAt);
 
   return (
@@ -227,15 +233,17 @@ const Settings = () => {
             {recurring && renewal && (
               <Row label={status.cancelAtPeriodEnd ? 'Ends' : 'Renews'}><span>{renewal}</span></Row>
             )}
-            {recurring && status.cancelAtPeriodEnd && (
+            {recurring && status.cancelAtPeriodEnd && !apple && (
               <p className="settings-note">Premium stays on until {renewal}. Reactivate to keep it after that.</p>
             )}
+            {recurring && apple && <p className="settings-note">Manage or cancel it in your Apple account settings.</p>}
             <div className="settings-actions">
-              {recurring && <button type="button" className="ww-btn" onClick={openBillingPortal}>Manage payment method</button>}
-              {recurring && (status.cancelAtPeriodEnd
+              {recurring && !apple && <button type="button" className="ww-btn" onClick={openBillingPortal}>Manage payment method</button>}
+              {recurring && !apple && (status.cancelAtPeriodEnd
                 ? <button type="button" className="ww-btn ww-btn--pri" onClick={reactivate}>Reactivate</button>
                 : <button type="button" className="ww-btn settings-signout" onClick={() => setShowCancel(true)}>Cancel subscription</button>)}
               {!status.subscribed && <Link to="/pricing" className="ww-btn ww-btn--pri">See Premium</Link>}
+              <button type="button" className="ww-btn ww-btn--ghost" onClick={refreshStatus}>Refresh</button>
             </div>
           </>
         ) : statusFailed ? (
