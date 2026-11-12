@@ -1,4 +1,5 @@
-/* The station page's Water tab: the latest reading with the staff gauge, the chart, and a weather strip. */
+/* The station page's Water tab: the latest reading with the staff gauge, the chart, the conditions, the
+   readings table, and a weather strip. */
 .water-tab {
   display: grid;
   gap: 24px;
@@ -7,9 +8,17 @@
 .water-tab__grid {
   display: grid;
   grid-template-columns: 400px minmax(0, 1fr);
+  grid-template-areas:
+    "now chart"
+    "cond readings";
   gap: 24px;
   align-items: start;
 }
+
+.now-card { grid-area: now; }
+.chart-card { grid-area: chart; }
+.cond-card { grid-area: cond; }
+.readings-card { grid-area: readings; }
 
 .water-tab__retry { justify-self: start; margin-top: 8px; }
 
@@ -80,6 +89,141 @@
   flex-wrap: wrap;
 }
 
+/* Conditions */
+.cond-card {
+  padding: 22px 24px 14px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.cond-card__head,
+.readings-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.cond-card__title,
+.readings-card__title { font-size: 20px; }
+.cond-card__head time { font-size: 13px; }
+
+.cond {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cond th,
+.cond td {
+  padding: 11px 0 11px 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.cond th:first-child,
+.cond td:first-child { padding-left: 0; }
+
+.cond thead th {
+  padding-top: 6px;
+  padding-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--w-ink3);
+}
+
+.cond tbody tr + tr > * { border-top: 1px solid var(--w-line); }
+
+.cond tbody th {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--w-ink2);
+  white-space: nowrap;
+  line-height: 20px;
+}
+
+.cond tbody td { width: 36%; }
+.cond .num { display: block; font-size: 18px; line-height: 20px; white-space: nowrap; }
+.cond .num small { font-size: 12px; margin-left: 3px; }
+.cond .chg { font-size: 14px; line-height: 20px; }
+.cond .chg svg { width: 13px; height: 13px; }
+
+.cond__detail {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--w-ink3);
+  white-space: nowrap;
+}
+
+/* Readings */
+.readings-card {
+  padding: 22px 24px 16px;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.readings-card__size {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+
+.readings-card__scroll { overflow-x: auto; }
+
+.readings {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.readings th,
+.readings td {
+  padding: 0 0 0 16px;
+  white-space: nowrap;
+}
+
+.readings th:first-child,
+.readings td:first-child { padding-left: 0; }
+
+.readings th {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--w-line);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--w-ink3);
+  text-align: left;
+}
+
+.readings td {
+  height: 42px;
+  border-bottom: 1px solid var(--w-line);
+  vertical-align: middle;
+}
+
+.readings tbody tr:last-child td { border-bottom: 0; }
+.readings .readings__r { text-align: right; }
+.readings__time { font-size: 14px; color: var(--w-ink2); }
+.readings .num { font-size: 16px; }
+.readings .num small { font-size: 12px; margin-left: 3px; }
+
+.readings-card__foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--w-line);
+  font-size: 13px;
+}
+
+.readings-card__pager { display: flex; gap: 4px; }
+.readings-card__pager .ww-btn { width: 36px; height: 36px; border-color: transparent; }
+.readings-card__pager .ww-btn:not(:disabled):hover { border-color: var(--w-line); }
+.readings-card__pager .ww-btn:disabled { opacity: .35; }
+
 /* Weather strip */
 .wxstrip {
   padding: 18px 24px;
@@ -142,7 +286,10 @@
 .wxstrip__go .ic { width: 15px; height: 15px; }
 
 @media (max-width: 1100px) {
-  .water-tab__grid { grid-template-columns: 1fr; }
+  .water-tab__grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "now" "chart" "cond" "readings";
+  }
   .wxstrip { flex-wrap: wrap; gap: 16px 28px; }
   .wxstrip__hours { flex-basis: 100%; order: 3; }
 }
@@ -159,6 +306,12 @@
   .now-card__gauge--wide { display: none; }
   .now-card__gauge--phone { display: block; }
   .chart-card { padding: 16px; }
+  .cond-card { padding: 16px 16px 8px; }
+  .readings-card { padding: 16px 16px 10px; }
+  .cond-card__title,
+  .readings-card__title { font-size: 18px; }
+  .cond tbody th,
+  .cond__detail { white-space: normal; }
   .chart-card__title { display: none; }
   .chart-card__head { justify-content: space-between; }
   .chips button.chips__wide { display: none; }

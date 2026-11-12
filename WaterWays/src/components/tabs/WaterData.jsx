@@ -3,7 +3,7 @@ import Spinner from '../spinners/Spinner';
 import StaffGauge from '../station/StaffGauge';
 import ReadingsChart from '../station/ReadingsChart';
 import WeatherStrip from '../station/WeatherStrip';
-import { TrendIcon } from '../icons/Icons';
+import { ChevronLeftIcon, ChevronRightIcon, TrendIcon } from '../icons/Icons';
 import { describeChange, METRICS } from '../utility/readings';
 import { summarizeReadings } from '../utility/waterSummary';
 import './styling/waterData.css';
@@ -46,8 +46,142 @@ const Reading = ({ value, metric, className }) => (
   <div className={`num ${className}`}>{metric.format(value)}<small>{metric.unit}</small></div>
 );
 
+const Value = ({ value, metric }) => (typeof value === 'number'
+  ? <span className="num">{metric.format(value)}<small>{metric.unit}</small></span>
+  : <span className="faint" aria-label="No reading">—</span>);
+
+// "Nov 12, 2:15 p.m.", as the chart's tooltip shows it.
+const shortDateTime = (date) => date.toLocaleString('en-CA', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+/** A change as an arrow and amount, in the flow colour for flow: "↑ 0.07 m". */
+const Change = ({ change, latest, metric }) => {
+  const described = describeChange(change, latest, metric);
+  if (!described) return <span className="faint" aria-label="Not enough readings">—</span>;
+  const flow = metric === METRICS.discharge;
+  const rising = described.direction === 'up';
+  const className = `chg${flow ? ' chg--flow' : ''}${rising ? ' chg--up' : ''}`;
+  if (described.direction === 'flat') return <span className={className}><TrendIcon direction="flat" />Steady</span>;
+  return (
+    <span className={className}>
+      <TrendIcon direction={described.direction} />
+      <span className="visually-hidden">{rising ? 'Up' : 'Down'} </span>
+      {described.amount} {metric.unit}
+    </span>
+  );
+};
+
+const aboveAverage = (summary, metric) => {
+  const described = describeChange(summary.latest - summary.average, summary.latest, metric);
+  if (!described || described.direction === 'flat') return 'Near average';
+  return described.direction === 'up' ? 'Above average' : 'Below average';
+};
+
+/** The 24-hour and 7-day changes, average, low and high of each metric, side by side. */
+const Conditions = ({ summaries, metrics }) => {
+  const latestTime = new Date(Math.max(...metrics.map(m => summaries[m.field].latestTime.getTime())));
+  const span = Math.max(...metrics.map(m => summaries[m.field].spanDays));
+  const rows = [
+    ['24 h', (s, m) => <Change change={s.change24h} latest={s.latest} metric={m} />],
+    ['7 days', (s, m) => <Change change={s.change7d} latest={s.latest} metric={m} />],
+    [`${span}-day average`, (s, m) => <><Value value={s.average} metric={m} /><span className="cond__detail">{aboveAverage(s, m)}</span></>],
+    [`${span}-day low`, (s, m) => <><Value value={s.low} metric={m} /><time className="cond__detail" dateTime={s.lowTime.toISOString()}>{shortDateTime(s.lowTime)}</time></>],
+    [`${span}-day high`, (s, m) => <><Value value={s.high} metric={m} /><time className="cond__detail" dateTime={s.highTime.toISOString()}>{shortDateTime(s.highTime)}</time></>]
+  ];
+  return (
+    <section className="ww-card cond-card" aria-labelledby="cond-title">
+      <div className="cond-card__head">
+        <h2 className="disp cond-card__title" id="cond-title">Conditions</h2>
+        <time className="faint" dateTime={latestTime.toISOString()}>{shortDateTime(latestTime)}</time>
+      </div>
+      <table className="cond">
+        <thead>
+          <tr>
+            <td />
+            {metrics.map(m => <th key={m.field} scope="col">{m.label}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(([label, cell]) => (
+            <tr key={label}>
+              <th scope="row">{label}</th>
+              {metrics.map(m => <td key={m.field}>{cell(summaries[m.field], m)}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+};
+
+const PAGE_SIZES = [10, 25, 50, 100];
+
+const FirstIcon = () => <svg viewBox="0 0 24 24" className="ic" aria-hidden="true" focusable="false"><path d="M12 5l-7 7 7 7M19 5l-7 7 7 7" /></svg>;
+const LastIcon = () => <svg viewBox="0 0 24 24" className="ic" aria-hidden="true" focusable="false"><path d="M5 5l7 7-7 7M12 5l7 7-7 7" /></svg>;
+
+/** Every reading, newest first, a page at a time. */
+const ReadingsTable = ({ readings, metrics }) => {
+  const [pageSize, setPageSize] = useState(10);
+  const [page, setPage] = useState(0);
+
+  const rows = useMemo(() => readings
+    .filter(reading => Object.values(METRICS).some(m => typeof reading[m.field] === 'number'))
+    .reverse(), [readings]);
+
+  const pages = Math.max(1, Math.ceil(rows.length / pageSize));
+  const current = Math.min(page, pages - 1);
+  const first = current * pageSize;
+  const shown = rows.slice(first, first + pageSize);
+  const count = (n) => n.toLocaleString('en-CA');
+
+  return (
+    <section className="ww-card readings-card" aria-labelledby="readings-title">
+      <div className="readings-card__head">
+        <h2 className="disp readings-card__title" id="readings-title">Readings</h2>
+        <div className="readings-card__size">
+          <span className="faint" id="readings-size">Per page</span>
+          <div className="chips" role="group" aria-labelledby="readings-size">
+            {PAGE_SIZES.map(size => (
+              <button key={size} type="button" className={size === pageSize ? 'is-on' : undefined} aria-pressed={size === pageSize} onClick={() => { setPageSize(size); setPage(0); }}>
+                {size}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="readings-card__scroll">
+        <table className="readings">
+          <thead>
+            <tr>
+              <th scope="col">Time</th>
+              {metrics.map(m => <th key={m.field} scope="col" className="readings__r">{m.label}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {shown.map(reading => (
+              <tr key={reading.time}>
+                <td className="readings__time"><time dateTime={new Date(reading.time).toISOString()}>{shortDateTime(new Date(reading.time))}</time></td>
+                {metrics.map(m => <td key={m.field} className="readings__r"><Value value={reading[m.field]} metric={m} /></td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="readings-card__foot">
+        <span className="faint">{count(first + 1)}–{count(first + shown.length)} of {count(rows.length)}</span>
+        <div className="readings-card__pager">
+          <button type="button" className="ww-btn ww-btn--ghost ww-btn--icon" aria-label="First page" disabled={current === 0} onClick={() => setPage(0)}><FirstIcon /></button>
+          <button type="button" className="ww-btn ww-btn--ghost ww-btn--icon" aria-label="Previous page" disabled={current === 0} onClick={() => setPage(current - 1)}><ChevronLeftIcon /></button>
+          <button type="button" className="ww-btn ww-btn--ghost ww-btn--icon" aria-label="Next page" disabled={current >= pages - 1} onClick={() => setPage(current + 1)}><ChevronRightIcon /></button>
+          <button type="button" className="ww-btn ww-btn--ghost ww-btn--icon" aria-label="Last page" disabled={current >= pages - 1} onClick={() => setPage(pages - 1)}><LastIcon /></button>
+        </div>
+      </div>
+    </section>
+  );
+};
+
 /**
- * The Water tab: the latest level and flow with a staff gauge, the readings chart, and a strip of weather.
+ * The Water tab: the latest level and flow with a staff gauge, the readings chart, the 30-day conditions, every
+ * reading in a table, and a strip of weather.
  * readings are the past 30 days, oldest first, each with its time in ms.
  */
 const WaterData = ({ readings, loading, error, onRetry, weatherData, forecastData, weeklyData, onOpenWeather }) => {
@@ -180,6 +314,9 @@ const WaterData = ({ readings, loading, error, onRetry, weatherData, forecastDat
             label={`${metric.label} over the ${WINDOW_TITLES[days].toLowerCase()}; ${metric.format(summaries[metric.field].latest)} ${metric.unit} now`}
           />
         </section>
+
+        <Conditions summaries={summaries} metrics={metrics} />
+        <ReadingsTable readings={readings} metrics={metrics} />
       </div>
       {weather}
     </div>
