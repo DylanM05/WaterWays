@@ -6,16 +6,24 @@ const StationCoordinates = require('../models/StationCoordinates');
 const StationData = require('../models/StationData');
 const StationArchive = require('../models/StationArchive');
 const { cleanReadings } = require('../utilities/waterQuality');
+const { dailyFromHourly, hourlyFromReadings } = require('../utilities/rollups');
 
 // The historical archive (HYDAT) lags by over a year and the real-time API keeps only 30 days, so
-// the months in between were missing from History. Water Office serves provisional five-minute data
-// for the last 18 months; this rolls it up into daily means. Nightly maintenance later rolls days
-// older than 12 months into monthly means, as it does for collected readings.
+// the months in between were missing from History. Water Office serves five-minute data (provisional,
+// and final once approved) for about the last 19 months; this rolls it up into daily means. Nightly
+// maintenance later rolls days older than 12 months into monthly means, as it does for collected
+// readings. The window moves forward every day, so days that fall out of it before this runs are gone
+// until HYDAT catches up (rerun backfillHydrometricHistory.js after each HYDAT release).
 const WATER_OFFICE_URL = 'https://wateroffice.ec.gc.ca/services/real_time_data/csv/inline';
 const LEVEL_PARAMETER = '46';
 const DISCHARGE_PARAMETER = '47';
-const AVAILABLE_MONTHS = 17; // whole months inside Water Office's 18-month window
+// Water Office answered from about 578 days back (checked Nov 2026); asking a little earlier costs one
+// mostly empty request per station.
+const WINDOW_DAYS = 590;
 const STATION_CONCURRENCY = 2;
+// Water Office drops connections for a minute or so when asked too quickly, so requests are spaced out
+// and retried with a growing wait. Tests set pauseMs to 0.
+const settings = { pauseMs: 300, retryWaitsMs: [5000, 10000, 20000, 40000, 60000] };
 const SOURCE = 'wateroffice-provisional';
 const DAY_MS = 24 * 60 * 60 * 1000;
 const USAGE = 'Usage: node scripts/backfillProvisionalDaily.js <stationId|--all> [--dry-run]';
@@ -24,8 +32,10 @@ const monthStart = (date, offset = 0) => new Date(Date.UTC(date.getUTCFullYear()
 const dayStart = date => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
 const formatTime = date => date.toISOString().slice(0, 19).replace('T', ' ');
 
+const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 async function fetchReadings(stationId, start, end) {
-    for (let attempt = 1; ; attempt++) {
+    for (let attempt = 0; ; attempt++) {
         try {
             // Built by hand: the service needs repeated "parameters[]" keys, which axios rewrites.
             const query = [
@@ -35,14 +45,16 @@ async function fetchReadings(stationId, start, end) {
                 ['start_date', formatTime(start)],
                 ['end_date', formatTime(end)]
             ].map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join('&');
+            if (settings.pauseMs) await wait(settings.pauseMs);
+            // Compressed, a station's month is about 75 KB instead of 1 MB (axios asks for gzip and unpacks it).
             const response = await axios.get(`${WATER_OFFICE_URL}?${query}`, {
                 responseType: 'text',
                 timeout: 60000
             });
             return parseReadings(response.data, start, end);
         } catch (error) {
-            if (attempt === 3) throw error;
-            await new Promise(resolve => setTimeout(resolve, attempt * 5000));
+            if (attempt >= settings.retryWaitsMs.length) throw error;
+            await wait(settings.retryWaitsMs[attempt]);
         }
     }
 }
@@ -65,67 +77,44 @@ function parseReadings(csv, start, end) {
     return [...readings.values()].sort((a, b) => a.date_time - b.date_time);
 }
 
-function summarizeMetric(values) {
-    if (!values.length) return { mean: null, min: null, max: null };
-    return {
-        mean: values.reduce((sum, value) => sum + value, 0) / values.length,
-        min: Math.min(...values),
-        max: Math.max(...values)
-    };
-}
-
-// Same shape as the nightly roll-up of collected readings (UTC days, mean/min/max per metric).
+// Thinned the same way as readings this server collects: cleaned, rolled into hours, then into days, so a
+// backfilled day has the same mean, range and per-metric counts as one built by nightly maintenance.
 function dailyMeans(readings) {
-    const days = new Map();
-    for (const reading of cleanReadings(readings)) {
-        const key = dayStart(reading.date_time).getTime();
-        if (!days.has(key)) days.set(key, []);
-        days.get(key).push(reading);
-    }
-    return [...days.entries()].map(([key, members]) => {
-        const level = summarizeMetric(members.map(member => member.water_level).filter(value => value !== null));
-        const discharge = summarizeMetric(members.map(member => member.discharge).filter(value => value !== null));
-        return {
-            date_time: new Date(key),
-            water_level: level.mean,
-            water_level_min: level.min,
-            water_level_max: level.max,
-            discharge: discharge.mean,
-            discharge_min: discharge.min,
-            discharge_max: discharge.max,
-            sample_count: members.length
-        };
-    });
+    return dailyFromHourly(hourlyFromReadings(cleanReadings(readings)));
 }
 
 async function backfillStation(stationId, dryRun) {
     const now = new Date();
-    const [latestMonthly, earliestRaw, earliestHourly] = await Promise.all([
-        StationArchive.findOne({ station_id: stationId, period: 'monthly' }).sort({ date_time: -1 }).select('date_time').lean(),
+    const [recentMonths, earliestRaw, earliestHourly] = await Promise.all([
+        StationArchive.find({ station_id: stationId, period: 'monthly' }).sort({ date_time: -1 }).limit(36)
+            .select('date_time water_level discharge').lean(),
         StationData.findOne({ station_id: stationId }).sort({ date_time: 1 }).select('date_time').lean(),
         StationArchive.findOne({ station_id: stationId, period: 'hourly' }).sort({ date_time: 1 }).select('date_time').lean()
     ]);
 
-    // Start at the first whole month Water Office still has, or after the newest monthly mean.
-    let month = monthStart(now, -AVAILABLE_MONTHS);
-    if (latestMonthly && latestMonthly.date_time >= month) month = monthStart(latestMonthly.date_time, 1);
+    // Start at the first day Water Office still has, or after the newest monthly mean with a value. HYDAT
+    // lists some months it hasn't filled in yet (no level or flow); those don't count.
+    let from = dayStart(new Date(now.getTime() - WINDOW_DAYS * DAY_MS));
+    const latestMonthly = recentMonths.find(record => record.water_level != null || record.discharge != null);
+    if (latestMonthly && monthStart(latestMonthly.date_time, 1) > from) from = monthStart(latestMonthly.date_time, 1);
     // Collected readings (raw, or already rolled into hours) take over from here.
     const collectedFrom = [earliestRaw, earliestHourly].filter(Boolean).map(record => record.date_time);
     const end = collectedFrom.length ? dayStart(new Date(Math.min(...collectedFrom))) : dayStart(now);
 
     let written = 0;
     let days = 0;
-    for (; month < end; month = monthStart(month, 1)) {
-        const monthEnd = new Date(Math.min(monthStart(month, 1).getTime(), end.getTime()));
-        const expectedDays = Math.round((monthEnd - month) / DAY_MS);
+    // A month at a time (the first may start mid-month).
+    for (; from < end; from = monthStart(from, 1)) {
+        const chunkEnd = new Date(Math.min(monthStart(from, 1).getTime(), end.getTime()));
+        const expectedDays = Math.round((chunkEnd - from) / DAY_MS);
         const existing = await StationArchive.countDocuments({
             station_id: stationId,
             period: 'daily',
-            date_time: { $gte: month, $lt: monthEnd }
+            date_time: { $gte: from, $lt: chunkEnd }
         });
         if (existing >= expectedDays) continue; // already backfilled or rolled up from collected readings
 
-        const means = dailyMeans(await fetchReadings(stationId, month, monthEnd));
+        const means = dailyMeans(await fetchReadings(stationId, from, chunkEnd));
         days += means.length;
         if (dryRun || !means.length) continue;
 
@@ -152,8 +141,9 @@ async function main() {
     if (!mongoUri) throw new Error('Set MONGO_URI or MONGODB_URI before running the backfill.');
     await mongoose.connect(mongoUri);
 
+    // Water Office only has stations with a real-time feed; the catalogue marks the others realtime: false.
     const stationIds = target === '--all'
-        ? [...new Set((await StationCoordinates.find({ station_id: { $exists: true, $ne: '' } }).select('station_id').lean())
+        ? [...new Set((await StationCoordinates.find({ station_id: { $exists: true, $ne: '' }, realtime: { $ne: false } }).select('station_id').lean())
             .map(station => station.station_id))]
         : [target.toUpperCase()];
 
@@ -188,4 +178,4 @@ if (require.main === module) {
         .finally(() => mongoose.disconnect());
 }
 
-module.exports = { backfillStation, dailyMeans, parseReadings };
+module.exports = { backfillStation, dailyMeans, parseReadings, settings, WINDOW_DAYS };
