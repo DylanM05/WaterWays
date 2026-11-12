@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSettings } from '../utility/contexts/SettingsContext';
-import { weatherSummary } from '../home/weatherSummary';
+import { weatherSummary } from '../utility/weatherSummary';
 import {
   ChevronRightIcon, CloudIcon, FogIcon, MoonIcon, PartlyIcon, RainIcon, ShowersIcon, SnowIcon, StormIcon, SunIcon
 } from '../icons/Icons';

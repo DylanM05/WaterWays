@@ -1,29 +1,112 @@
-.favorite-btn {
-  transition: transform 0.2s ease, color 0.2s ease;
+.saved {
+  display: grid;
+  gap: 20px;
+  align-content: start;
 }
 
-.favorite-btn:hover {
-  transform: scale(1.15);
+.saved__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
 }
 
-.favorite-card {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+.saved__title {
+  font-size: clamp(34px, 5vw, 58px);
+  font-stretch: 116%;
+  letter-spacing: -.03em;
 }
 
-.favorite-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+.saved__edit {
+  border: 0;
+  padding: 4px 0;
+  background: none;
+  font: 600 15px var(--f-body);
+  color: var(--w-accent);
+  cursor: pointer;
 }
 
-@media (max-width: 768px) {
-  /* Change this to position the delete button on the right */
-  .delete-button {
-    margin-left: auto !important;
-    margin-right: 0 !important;
-  }
-  
-  /* Add padding to ensure there's space between the badge and button */
-  .card-header {
-    padding-right: 10px !important;
-  }
+.saved__seg { justify-self: start; }
+.saved__seg button { min-width: 96px; }
+
+.saved__error {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: var(--w-warn-bg);
+  border: 1px solid var(--w-warn-line);
+  color: var(--w-warn-ink);
+}
+
+.saved__grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.saved__item { position: relative; }
+.saved__item .saved-card { height: 100%; }
+
+/* Shown in Edit mode, over the card's top corner. */
+.saved-remove {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--w-ink);
+  color: var(--w-bg);
+  cursor: pointer;
+}
+
+.saved-remove .ic { width: 14px; height: 14px; stroke-width: 2.6; }
+
+.saved__rivers {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+}
+
+.saved__rivers li {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.saved__rivers li + li { border-top: 1px solid var(--w-line); }
+
+.saved__rivers a {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 11px;
+  color: var(--w-ink);
+  font-weight: 400;
+}
+
+.saved__rivers a:hover { background: var(--w-sunk); color: var(--w-ink); }
+.saved__river { flex: 1; min-width: 0; display: grid; gap: 2px; }
+.saved__river b { font-size: 16px; font-weight: 600; }
+.saved__river span { font-size: 13px; color: var(--w-ink3); }
+.saved__chev { width: 15px; height: 15px; color: var(--w-ink3); stroke-width: 2.2; }
+.saved__rivers .saved-remove { position: static; margin: 0 8px 0 4px; flex: none; }
+
+@media (max-width: 767px) {
+  .saved { gap: 14px; }
+  .saved__seg { justify-self: stretch; display: flex; }
+  .saved__seg button { flex: 1; }
+  .saved__grid { grid-template-columns: 1fr; gap: 12px; }
+  .saved-remove { top: -6px; right: -6px; }
 }

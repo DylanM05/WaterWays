@@ -252,6 +252,50 @@ html a:hover {
   color: var(--w-warn-ink);
 }
 
+/* A segmented control (.seg) and period chips (.chips), shared by the station, Saved and History views. */
+.seg {
+  display: inline-flex;
+  padding: 3px;
+  gap: 2px;
+  border-radius: 11px;
+  background: var(--w-sunk);
+}
+
+.seg button,
+.chips button {
+  border: 0;
+  margin: 0;
+  background: transparent;
+  font: 600 13px var(--f-body);
+  color: var(--w-ink2);
+  cursor: pointer;
+}
+
+.seg button {
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+
+.seg button.is-on {
+  background: var(--w-surface);
+  color: var(--w-ink);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .1);
+}
+
+.chips {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.chips button {
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12.5px;
+}
+
+.chips button:hover { color: var(--w-ink); }
+.chips button.is-on { background: var(--w-ink); color: var(--w-bg); }
+
 .ww-back {
   display: inline-flex;
   align-items: center;
