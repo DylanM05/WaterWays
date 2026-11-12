@@ -1,388 +1,95 @@
-.settings-select {
-  background-color: var(--background-colour);
-  color: var(--text-colour) !important;
-  border: 1px solid var(--border-colour);
-  margin: 0 auto;
-  max-width: 300px;
-  text-align: center;
-  font-size: 1rem;
-  height: 45px;
+.settings {
+  display: grid;
+  gap: 20px;
+  max-width: 860px;
 }
 
-.settings-select:focus {
-  border-color: var(--primary-colour);
-  box-shadow: 0 0 0 0.25rem rgba(var(--primary-colour-rgb), 0.25);
+.settings__title {
+  font-size: clamp(34px, 5vw, 58px);
+  font-stretch: 116%;
+  letter-spacing: -.03em;
+  margin-bottom: 4px;
 }
 
-.settings-button {
-  background-color: var(--primary-colour);
-  border-color: var(--primary-colour);
-  color: var(--primary-text-colour);
-  margin-top: 15px;
+.settings-notice {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 14px;
+  background: var(--w-accent-soft);
+  color: var(--w-ink);
 }
 
-.settings-button:hover {
-  background-color: var(--hover-colour);
-  border-color: var(--hover-colour);
+.settings-notice--success { background: var(--w-accent-soft); }
+.settings-notice--warn { background: var(--w-warn-bg); border: 1px solid var(--w-warn-line); color: var(--w-warn-ink); }
+
+.settings-group {
+  padding: 20px 24px;
+  display: grid;
+  gap: 14px;
 }
 
-.theme-toggle-btn {
-  transition: all 0.3s ease;
+.settings-group__title {
+  margin: 0;
+  font-family: var(--f-display);
+  font-stretch: 112%;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -.01em;
 }
 
-.user-avatar {
-  width: 80px;
-  height: 80px;
+.settings-user {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.settings-user__avatar {
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid var(--primary-colour);
-  margin-bottom: 15px;
+  background: var(--w-sunk);
 }
 
+.settings-user div { display: grid; min-width: 0; }
+.settings-user b { font-size: 16px; }
+.settings-user span { font-size: 14px; color: var(--w-ink2); overflow: hidden; text-overflow: ellipsis; }
 
-.d-flex.justify-content-between.align-items-center {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 15px;
-}
-
-.toggle-description {
-  color: var(--text-colour);
-  opacity: 0.8;
-  font-size: 1rem;
-  margin-bottom: 10px;
-  text-align: center;
-}
-.user-info{
-    color: var(--text-colour) !important;
-}
-.about-section{
-    color: var(--text-colour) !important;
-}
-.settings-card-header{
-    color: var(--text-colour) !important;
-}
-
-
-.custom-switch .form-check-input {
-  height: 34px;
-  width: 68px !important;
-  cursor: pointer;
-  background-color: var(--background-colour);
-  border: 2px solid var(--border-colour);
-  margin: 0;
-}
-
-.custom-switch .form-check-input:checked {
-  background-color: var(--primary-colour);
-  border: 2px solid var(--primary-colour);
-}
-
-
-.form-label {
-  text-align: center;
-  display: block;
-  font-weight: 600;
-  font-size: 1.1rem;
-  margin-bottom: 10px;
-  color: var(--text-colour) !important;
-}
-
-/* Center other content */
-.card-body {
-  text-align: center;
-  background-color: var(--cardbg-colour);
-  border: 1px solid var(--border-colour);
-}
-
-.user-info {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.user-info .mb-3 {
-  flex-direction: column;
-  text-align: center;
-}
-.bottom-button{
-    margin-top: 5px;
-    color: var(--text-colour) !important;
-}
-
-.subscription-dashboard {
-  background-color: var(--card-bg);
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-  margin-bottom: 1.5rem;
-}
-
-.subscription-details {
-  font-size: 0.95rem;
-  color: var(--text-colour);
-}
-
-.subscription-features {
-  padding: 16px;
-  background-color: var(--cardbg-colour);
-  border-bottom: 1px solid var(--border-color);
-  text-align: center;
-}
-
-features-heading {
-  font-size: 1rem;
-  font-weight: 600;
-  margin-bottom: 12px;
-  color: var(--text-colour);
-  text-align: center;
-}
-
-.features-list {
-  list-style-type: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.feature-item {
+.settings-row {
   display: flex;
   align-items: center;
-  margin-bottom: 10px;
-  text-align: center;
-  font-size: 0.95rem;
-  justify-content: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 44px;
 }
 
-/* Subscription status component styling */
-.subscription-card {
-  overflow: hidden;
-  border-radius: 12px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-}
+.settings-row + .settings-row { border-top: 1px solid var(--w-line); padding-top: 12px; }
+.settings-row__label { font-weight: 500; color: var(--w-ink2); }
+.settings-row__control { display: flex; justify-content: flex-end; min-width: 0; }
 
-.subscription-container {
-  padding: 0;
-  color: var(--text-colour);
-}
-
-/* Status badge styling */
-.subscription-status-badge {
-  text-align: center;
-  padding: 12px;
-  background-color: rgba(0, 0, 0, 0.03);
-  border-bottom: 1px solid var(--border-color);
-}
-
-.status-badge {
-  font-size: 1rem;
-  padding: 0.6rem 1.2rem;
-  border-radius: 50px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.status-badge.active {
-  background-color: #28a745;
-  box-shadow: 0 2px 5px rgba(40, 167, 69, 0.3);
-}
-
-.status-badge.inactive {
-  background-color: #6c757d;
-  box-shadow: 0 2px 5px rgba(108, 117, 125, 0.3);
-}
-
-/* Plan info card styling */
-.plan-info-card {
-  padding: 16px;
-  background-color: var(--cardbg-colour);
-  border-bottom: 1px solid var(--border-color);
-  text-align: center;
-}
-
-.plan-info-row {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  margin-bottom: 12px;
-  text-align: center;
-}
-
-.info-label {
-  font-weight: 600;
-  color: var(--text-colour);
-  opacity: 0.8;
-  display: flex;
-  align-items: center;
-  margin-bottom: 4px;
-  font-size: 0.9rem;
-  justify-content: center;
-}
-
-.info-value {
-  font-size: 1.1rem;
-  font-weight: 500;
-}
-
-/* Features styling */
-.subscription-features {
-  padding: 16px;
-  background-color: var(--cardbg-colour);
-  border-bottom: 1px solid var(--border-color);
-  text-align: center;
-}
-
-.features-heading {
-  font-size: 1rem;
-  font-weight: 600;
-  margin-bottom: 12px;
-  color: var(--text-colour);
-  text-align: center;
-}
-
-.features-list {
-  list-style-type: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.feature-item {
-  display: flex;
-  align-items: center;
-  margin-bottom: 10px;
-  text-align: center;
-  font-size: 0.95rem;
-  justify-content: center;
-}
-
-.feature-icon {
-  color: #28a745;
-  margin-right: 10px;
-  flex-shrink: 0;
-}
-
-/* Upgrade button styling */
-.upgrade-container {
-  padding: 20px;
-  text-align: center;
-}
-
-.upgrade-button {
-  padding: 10px 24px;
-  font-weight: 600;
-  background-color: var(--primary-colour);
-  border-color: var(--primary-colour);
-  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-}
-
-.upgrade-button:hover {
-  background-color: var(--hover-colour);
-  transform: translateY(-2px);
-  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.2);
-}
-
-/* Loading state styling */
-.loading-container {
-  padding: 32px 16px;
-  text-align: center;
-}
-
-.spinner-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 16px;
-}
-
-.loading-icon {
-  font-size: 2rem;
-  color: var(--primary-colour);
-  margin-bottom: 12px;
-  opacity: 0.8;
-  animation: pulse 1.5s infinite ease-in-out;
-}
-
-.loading-text {
-  color: var(--text-colour);
-  opacity: 0.8;
-}
-
-.refresh-button {
-  color: var(--primary-colour);
-}
-
-@keyframes pulse {
-  0% { opacity: 0.5; transform: scale(0.95); }
-  50% { opacity: 1; transform: scale(1.05); }
-  100% { opacity: 0.5; transform: scale(0.95); }
-}
-
-/* Subscription management buttons */
-.manage-billing-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.reactivate-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.subscription-actions {
+.settings-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 10px;
 }
 
-/* Desktop adjustments */
-@media (min-width: 768px) {
-  .plan-info-row {
-    flex-direction: row;
-    justify-content: center;
-    align-items: center;
-    gap: 10px;
-  }
-  
-  .info-label {
-    margin-bottom: 0;
-    margin-right: 6px;
-  }
-  
-  .upgrade-button {
-    max-width: 300px;
-    margin: 0 auto;
-  }
+/* Sign out and cancel: plain buttons with a warning colour, not alarming red blocks. */
+.settings-signout { color: var(--w-warn); }
+.settings-signout:hover { color: var(--w-warn); border-color: var(--w-warn); }
+
+.settings-note {
+  margin: 0;
+  font-size: 14px;
+  color: var(--w-ink2);
 }
 
-@media (max-width: 768px) {
-    .d-flex.justify-content-between.align-items-center {
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-    }
-  
-    .toggle-label,
-    .toggle-description {
-      text-align: center;
-      width: 100%;
-    }
-  
-    .toggle-container, 
-    .d-flex.justify-content-between.align-items-center > div {
-      width: 100%;
-    }
+@media (max-width: 767px) {
+  .settings { gap: 14px; }
+  .settings-group { padding: 18px; }
+  .settings-row { flex-direction: column; align-items: stretch; gap: 8px; }
+  .settings-row + .settings-row { padding-top: 14px; }
+  .settings-row__control { justify-content: stretch; }
+  .settings-row__control .seg { display: flex; width: 100%; }
+  .settings-row__control .seg button { flex: 1; }
 }

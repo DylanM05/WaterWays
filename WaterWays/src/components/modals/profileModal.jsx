@@ -1,30 +1,25 @@
 import React from 'react';
-import { Modal, Button } from 'react-bootstrap';
+import { Modal } from 'react-bootstrap';
 import { UserProfile } from '@clerk/clerk-react';
 import './styling/profileModal.css';
 
-const ProfileModal = ({ show, handleClose }) => {
-  return (
-    <Modal 
-      show={show}
-      onHide={handleClose}
-      size="lg"
-      centered
-      className="transparent-modal"
-      backdropClassName="transparent-modal-backdrop"
-    >
-      <Modal.Header className="d-flex justify-content-end">
-        <Button variant="secondary" className="close-button" onClick={handleClose}>
-          Close
-        </Button>
-      </Modal.Header>
-      <Modal.Body>
-        <UserProfile />
-      </Modal.Body>
-      <Modal.Footer>
-      </Modal.Footer>
-    </Modal>
-  );
-};
+/** Clerk's profile manager (name, email, password, connected accounts) in a dialog. */
+const ProfileModal = ({ show, handleClose }) => (
+  <Modal
+    show={show}
+    onHide={handleClose}
+    size="lg"
+    centered
+    className="profile-modal"
+    aria-label="Manage profile"
+  >
+    <div className="profile-modal__bar">
+      <button type="button" className="ww-btn" onClick={handleClose}>Close</button>
+    </div>
+    <Modal.Body className="profile-modal__body">
+      <UserProfile />
+    </Modal.Body>
+  </Modal>
+);
 
 export default ProfileModal;

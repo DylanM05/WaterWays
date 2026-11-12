@@ -1,768 +1,272 @@
-import React, { useContext, useState, useEffect, useRef } from 'react';
-import { Container, Row, Col, Card, Form, Button, Alert, Badge } from 'react-bootstrap';
-import { ThemeContext } from '../components/utility/contexts/Theme';
-import { useUser, useClerk, useAuth } from '@clerk/clerk-react';
+import React, { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { useAuth, useClerk, useUser } from '@clerk/clerk-react';
 import axios from 'axios';
-import './styling/settings.css';
-import { useSettings } from '../components/utility/contexts/SettingsContext'; // Import the useSettings hook
-import { FaCheck, FaCrown, FaCalendarAlt, FaClock, FaInfoCircle, FaCreditCard, FaRedo } from 'react-icons/fa';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import ProfileModal from '../components/modals/profileModal'; 
+import { ThemeContext } from '../components/utility/contexts/Theme';
+import { useSettings } from '../components/utility/contexts/SettingsContext';
+import ProfileModal from '../components/modals/profileModal';
 import CancelSubscriptionModal from '../components/modals/CancelSubscriptionModal';
 import { SUPPORT_EMAIL } from '../components/utility/contact';
+import './styling/settings.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const ADMIN_PATH = '/admin/5jN!^2pw&Bi4a0y26M^H';
 
+const formatDate = (value) => (value
+  ? new Date(value).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })
+  : null);
+
+const planName = (status) => {
+  if (!status?.subscribed) return 'Free';
+  if (status.plan === 'lifetime') return 'Premium, lifetime';
+  if (status.plan === 'annual' || status.plan === 'yearly') return 'Premium, yearly';
+  if (status.plan === 'monthly') return 'Premium, monthly';
+  return 'Premium';
+};
+
+const Segmented = ({ label, options, value, onChange }) => (
+  <div className="seg settings-seg" role="group" aria-label={label}>
+    {options.map(([key, text]) => (
+      <button key={key} type="button" className={value === key ? 'is-on' : undefined} aria-pressed={value === key} onClick={() => onChange(key)}>
+        {text}
+      </button>
+    ))}
+  </div>
+);
+
+const Row = ({ label, children }) => (
+  <div className="settings-row">
+    <span className="settings-row__label">{label}</span>
+    <div className="settings-row__control">{children}</div>
+  </div>
+);
 
 const Settings = () => {
   const navigate = useNavigate();
-  const { darkMode, toggleTheme } = useContext(ThemeContext);
+  const [searchParams] = useSearchParams();
   const { user } = useUser();
-  const { signOut } = useClerk();
   const { getToken } = useAuth();
-  const { updateSettings } = useSettings();
-  const [searchParams] = useSearchParams(); 
-  const [notification, setNotification] = useState({ show: false, message: '', type: 'success' });
-  const [showProfileModal, setShowProfileModal] = useState(false); 
-  const [cancelModalOpen, setCancelModalOpen] = useState(false);
-  const [preferences, setPreferences] = useState({
-    temperatureUnit: localStorage.getItem('temperatureUnit') === 'fahrenheit',
-    defaultTab: localStorage.getItem('defaultTab') || 'water'
-  });
-  const [subscriptionStatus, setSubscriptionStatus] = useState(null); 
-  const [isAdmin, setIsAdmin] = useState(false); 
+  const { signOut } = useClerk();
+  const { darkMode, toggleTheme } = useContext(ThemeContext);
+  const { settings, saveSettings } = useSettings();
 
-  useEffect(() => {
-    if (user) {
-      fetchUserSettings();
-      checkAdminStatus(); 
-    }
-  }, [user]);
+  const [status, setStatus] = useState(null);
+  const [statusFailed, setStatusFailed] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [notice, setNotice] = useState(null);
+  const [showProfile, setShowProfile] = useState(false);
+  const [showCancel, setShowCancel] = useState(false);
+  const noticeTimer = useRef(null);
 
-  useEffect(() => {
-    const isSuccess = searchParams.get('subscription') === 'success';
-    const sessionId = searchParams.get('session_id');
-    
-    if (isSuccess && sessionId && user) {
-      setNotification({
-        show: true,
-        message: 'Verifying your subscription...',
-        type: 'info'
-      });
-      
-      // Call explicit success endpoint to sync subscription data
-      syncSubscription();
-    }
-  }, [searchParams, user, getToken]);
+  // A short message at the top; success and progress messages clear themselves.
+  const tell = useCallback((message, tone = 'info', stay = false) => {
+    clearTimeout(noticeTimer.current);
+    setNotice({ message, tone });
+    if (!stay) noticeTimer.current = setTimeout(() => setNotice(null), 4000);
+  }, []);
+  useEffect(() => () => clearTimeout(noticeTimer.current), []);
 
-  useEffect(() => {
-    if (user) {
-      fetchUserSettings();
-      checkAdminStatus();
-      checkSubscription();
-    }
-  }, [user]); 
+  const authHeaders = useCallback(async () => ({ Authorization: `Bearer ${await getToken()}` }), [getToken]);
 
-  useEffect(() => {
-    if (!user) return;
-    checkSubscription(false);
-    const refreshInterval = setInterval(() => {
-      checkSubscription(false);
-    }, 120000); 
-    return () => clearInterval(refreshInterval);
-  }, [user]); // Only re-run this effect if the user changes
-
-  const fetchUserSettings = async () => {
-    if (!user) return;
-
+  const loadStatus = useCallback(async () => {
     try {
-      const token = await getToken();
-      const response = await axios.get(`${API_BASE_URL}/s/${user.id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      if (response.data && response.data.settings) {
-        const serverSettings = response.data.settings;
-
-        localStorage.setItem('temperatureUnit', serverSettings.temperatureUnit || 'celsius');
-        localStorage.setItem('defaultTab', serverSettings.defaultTab || 'water');
-
-        setPreferences({
-          temperatureUnit: serverSettings.temperatureUnit === 'fahrenheit',
-          defaultTab: serverSettings.defaultTab || 'water'
-        });
-
-        if (serverSettings.theme === 'dark' && !darkMode) {
-          toggleTheme();
-        } else if (serverSettings.theme === 'light' && darkMode) {
-          toggleTheme();
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching user settings:', error);
-      if (error.response && error.response.status !== 404) {
-        setNotification({
-          show: true,
-          message: 'Failed to load your settings. Using local settings instead.',
-          type: 'warning'
-        });
-      }
-    }
-  };
-
-  const saveSettingsToServer = async (settingsToSave) => {
-    if (!user) return;
-
-    try {
-      const token = await getToken();
-      await axios.post(`${API_BASE_URL}/s/${user.id}`, {
-        settings: settingsToSave
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-    } catch (error) {
-      console.error('Error saving settings to server:', error);
-      setNotification({
-        show: true,
-        message: 'Settings saved locally, but failed to sync with the server.',
-        type: 'warning'
-      });
-    }
-    fetchUserSettings();
-  };
-
-  const checkSubscription = async (showNotifications = true) => {
-    try {
-      const token = await getToken();
-      const response = await axios.get(`${API_BASE_URL}/sub/status`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      setSubscriptionStatus(response.data);
-      
-      if (showNotifications) {
-        if (response.data.subscribed) {
-          setNotification({
-            show: true,
-            message: 'Your subscription is active! You now have access to premium features.',
-            type: 'success'
-          });
-        } else {
-          setNotification({
-            show: true,
-            message: 'Your subscription is being processed. It may take a few minutes to activate.',
-            type: 'warning'
-          });
-          
-          setTimeout(() => checkSubscription(true), 10000);
-        }
-      }
+      const { data } = await axios.get(`${API_BASE_URL}/sub/status`, { headers: await authHeaders() });
+      setStatus(data);
+      setStatusFailed(false);
+      return data;
     } catch (error) {
       console.error('Error checking subscription status:', error);
-      
-      if (showNotifications) {
-        setNotification({
-          show: true,
-          message: 'Failed to verify your subscription. Please try again later.',
-          type: 'danger'
-        });
-      }
-      setTimeout(() => checkSubscription(false), 5000);
+      setStatusFailed(true);
+      return null;
     }
-  };
+  }, [authHeaders]);
 
-  const syncSubscription = async () => {
-    let retries = 0;
-    const maxRetries = 3;
-    
-    const attemptSync = async () => {
+  // Status now and every two minutes, so a change made in the billing portal shows up.
+  useEffect(() => {
+    if (!user) return undefined;
+    loadStatus();
+    const timer = setInterval(loadStatus, 120000);
+    return () => clearInterval(timer);
+  }, [user, loadStatus]);
+
+  useEffect(() => {
+    if (!user) return undefined;
+    let cancelled = false;
+    (async () => {
       try {
-        setNotification({
-          show: true,
-          message: retries > 0 ? `Retrying verification (${retries}/${maxRetries})...` : 'Verifying your subscription...',
-          type: 'info'
-        });
-        
-        const token = await getToken();
-        const response = await axios.get(`${API_BASE_URL}/sub/success`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        
-        console.log('Subscription sync successful:', response.data);
-        
-        // After successful sync, check subscription status
-        checkSubscription(true);
-        return true;
-      } catch (err) {
-        console.error('Error syncing subscription:', err);
-        
-        if (retries < maxRetries) {
-          retries++;
-          console.log(`Retrying sync... Attempt ${retries} of ${maxRetries}`);
-          // Wait a bit longer between each retry
-          await new Promise(resolve => setTimeout(resolve, 2000 * retries));
-          return attemptSync();
-        } else {
-          setNotification({
-            show: true,
-            message: 'Failed to verify your subscription after several attempts. Please try refreshing the page.',
-            type: 'danger'
-          });
-          return false;
+        const { data } = await axios.get(`${API_BASE_URL}/admin/check`, { headers: await authHeaders() });
+        if (!cancelled) setIsAdmin(Boolean(data.isAdmin));
+      } catch {
+        if (!cancelled) setIsAdmin(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user, authHeaders]);
+
+  // Back from Stripe checkout: ask the server to record the subscription, then wait for it to show as active.
+  useEffect(() => {
+    if (!user || searchParams.get('subscription') !== 'success' || !searchParams.get('session_id')) return undefined;
+    let cancelled = false;
+    (async () => {
+      tell('Checking your new subscription…', 'info', true);
+      for (let attempt = 0; attempt < 4 && !cancelled; attempt++) {
+        try {
+          await axios.get(`${API_BASE_URL}/sub/success`, { headers: await authHeaders() });
+          break;
+        } catch (error) {
+          console.error('Error syncing subscription:', error);
+          await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
         }
       }
-    };
-    
-    return attemptSync();
+      for (let attempt = 0; attempt < 6 && !cancelled; attempt++) {
+        const data = await loadStatus();
+        if (data?.subscribed) {
+          tell('Premium is active. Thanks for subscribing.', 'success');
+          return;
+        }
+        await new Promise(resolve => setTimeout(resolve, 10000));
+      }
+      if (!cancelled) tell('Your subscription hasn’t shown up yet. Refresh this page in a few minutes, or contact support if it doesn’t.', 'warn', true);
+    })();
+    return () => { cancelled = true; };
+  }, [user, searchParams, authHeaders, loadStatus, tell]);
+
+  const save = async (change) => {
+    const synced = await saveSettings(change);
+    tell(synced ? 'Saved' : 'Saved on this device. Couldn’t update your account; it will try again next time.', synced ? 'success' : 'warn');
   };
 
-  const checkAdminStatus = async () => {
-    if (!user) return;
-    
+  const setTheme = (theme) => {
+    if ((theme === 'dark') !== darkMode) toggleTheme();
+  };
+
+  const openBillingPortal = async () => {
     try {
-      const token = await getToken();
-      const response = await axios.get(`${API_BASE_URL}/admin/check`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      setIsAdmin(response.data.isAdmin);
+      tell('Opening the billing portal…');
+      const { data } = await axios.get(`${API_BASE_URL}/sub/billing-portal`, { headers: await authHeaders() });
+      window.location.href = data.url;
     } catch (error) {
-      console.error('Error checking admin status:', error);
-      setIsAdmin(false);
+      console.error('Error opening billing portal:', error);
+      // Stripe's error when the portal hasn't been set up in the dashboard.
+      const details = String(error.response?.data?.details || '');
+      const notSetUp = details.includes('No configuration provided') || details.includes('configuration has not been created');
+      tell(notSetUp
+        ? `Billing changes aren’t available online yet. Email ${SUPPORT_EMAIL} and we’ll make the change.`
+        : 'Couldn’t open the billing portal. Try again in a moment.', 'warn', true);
     }
   };
 
-  const goToAdminDashboard = () => {
-    navigate('/admin/5jN!^2pw&Bi4a0y26M^H');
+  const reactivate = async () => {
+    try {
+      tell('Reactivating your subscription…');
+      await axios.post(`${API_BASE_URL}/sub/reactivate`, {}, { headers: await authHeaders() });
+      await loadStatus();
+      tell('Your subscription will renew as usual.', 'success');
+    } catch (error) {
+      console.error('Error reactivating subscription:', error);
+      tell('Couldn’t reactivate your subscription. Try again in a moment.', 'warn', true);
+    }
   };
-
-  const handleToggleChange = (e) => {
-    const { name, checked } = e.target;
-    let value;
-
-    if (name === 'temperatureUnit') {
-      value = checked ? 'fahrenheit' : 'celsius';
-      updateSettings({ temperatureUnit: value });
-    }
-
-    setPreferences(prev => ({ ...prev, [name]: checked }));
-    localStorage.setItem(name, value);
-
-    if (user) {
-      const settingsToSave = {
-        temperatureUnit: name === 'temperatureUnit' ? value : (preferences.temperatureUnit ? 'fahrenheit' : 'celsius'),
-        defaultTab: preferences.defaultTab,
-        theme: darkMode ? 'dark' : 'light'
-      };
-
-      saveSettingsToServer(settingsToSave);
-    }
-
-    setNotification({
-      show: true,
-      message: user ? 'Preference saved locally and synced with your account!' : 'Preference saved locally!',
-      type: 'success'
-    });
-
-    setTimeout(() => {
-      setNotification(prev => ({ ...prev, show: false }));
-    }, 3000);
-  };
-
-  const handleSelectChange = (e) => {
-    const { name, value } = e.target;
-
-    if (name === 'defaultTab') {
-      updateSettings({ defaultTab: value });
-    }
-
-    setPreferences(prev => ({ ...prev, [name]: value }));
-    localStorage.setItem(name, value);
-
-    if (user) {
-      const settingsToSave = {
-        temperatureUnit: preferences.temperatureUnit ? 'fahrenheit' : 'celsius',
-        defaultTab: value,
-        theme: darkMode ? 'dark' : 'light'
-      };
-
-      saveSettingsToServer(settingsToSave);
-    }
-
-    setNotification({
-      show: true,
-      message: user ? 'Preference saved locally and synced with your account!' : 'Preference saved locally!',
-      type: 'success'
-    });
-
-    setTimeout(() => {
-      setNotification(prev => ({ ...prev, show: false }));
-    }, 3000);
-  };
-
-  // Save the theme when it changes. Not on the first render: that would send this browser's stored
-  // preferences over the account's before fetchUserSettings has loaded them.
-  const savedTheme = useRef(darkMode);
-  useEffect(() => {
-    if (savedTheme.current === darkMode) return;
-    savedTheme.current = darkMode;
-    if (user) {
-      const settingsToSave = {
-        temperatureUnit: preferences.temperatureUnit ? 'fahrenheit' : 'celsius',
-        defaultTab: preferences.defaultTab,
-        theme: darkMode ? 'dark' : 'light'
-      };
-
-      saveSettingsToServer(settingsToSave);
-    }
-  }, [darkMode]);
 
   const handleSignOut = async () => {
     try {
       await signOut();
     } catch (error) {
-      console.error("Sign out failed:", error);
-      setNotification({
-        show: true,
-        message: 'Failed to sign out. Please try again.',
-        type: 'danger'
-      });
+      console.error('Sign out failed:', error);
+      tell('Couldn’t sign out. Try again.', 'warn');
     }
   };
 
-  const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric', 
-      month: 'long', 
-      day: 'numeric'
-    });
-  };
-
-  const handleCancellationSuccess = () => {
-    checkSubscription(true); // Refresh subscription status
-    setNotification({
-      show: true,
-      message: 'Your subscription has been cancelled. You will have access until the end of your billing period.',
-      type: 'info'
-    });
-  };
-
-  const handleReactivateSubscription = async () => {
-    try {
-      setNotification({
-        show: true,
-        message: 'Reactivating your subscription...',
-        type: 'info'
-      });
-      
-      const token = await getToken();
-      await axios.post(
-        `${API_BASE_URL}/sub/reactivate`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      
-      // Refresh subscription status
-      await checkSubscription(true);
-      
-      setNotification({
-        show: true,
-        message: 'Your subscription has been reactivated!',
-        type: 'success'
-      });
-    } catch (error) {
-      console.error('Error reactivating subscription:', error);
-      setNotification({
-        show: true,
-        message: 'Failed to reactivate subscription. Please try again.',
-        type: 'danger'
-      });
-    }
-  };
-
-  const handleOpenBillingPortal = async () => {
-    try {
-      setNotification({
-        show: true,
-        message: 'Opening billing portal...',
-        type: 'info'
-      });
-      
-      const token = await getToken();
-      const response = await axios.get(`${API_BASE_URL}/sub/billing-portal`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      if (response.data.success && response.data.url) {
-        // Redirect to Stripe billing portal
-        window.location.href = response.data.url;
-      } else {
-        throw new Error('Invalid response from server');
-      }
-    } catch (error) {
-      console.error('Error opening billing portal:', error);
-      
-      // Check if this is the specific configuration error
-      const errorMessage = error.response?.data?.details || '';
-      if (errorMessage.includes('No configuration provided') || 
-          errorMessage.includes('configuration has not been created')) {
-        setNotification({
-          show: true,
-          message: 'The billing portal is not configured yet. Please contact support for help with billing changes.',
-          type: 'warning'
-        });
-      } else {
-        setNotification({
-          show: true,
-          message: 'Failed to open billing portal. Please try again later.',
-          type: 'danger'
-        });
-      }
-    }
-  };
+  const recurring = status?.subscribed && status.plan !== 'lifetime';
+  const renewal = formatDate(status?.expiresAt);
 
   return (
-    <Container className="py-4">
-      <h1 className="mb-4">Settings</h1>
+    <div className="page settings">
+      <h1 className="disp settings__title">Settings</h1>
 
-      {notification.show && (
-        <Alert variant={notification.type} onClose={() => setNotification({ ...notification, show: false })} dismissible>
-          {notification.message}
-        </Alert>
-      )}
+      {notice && <p className={`settings-notice settings-notice--${notice.tone}`} role="status">{notice.message}</p>}
 
-      <Row className="mb-4">
-        <Col>
-          <Card className="settings-card">
-            <Card.Header className="settings-card-header">
-              <h2>Profile Information</h2>
-            </Card.Header>
-            <Card.Body>
-              {user ? (
-                <div className="user-info">
-                  <div className="mb-3 d-flex align-items-center">
-                    <img 
-                      src={user.imageUrl} 
-                      alt={user.fullName || "User"} 
-                      className="user-avatar"
-                    />
-                    <div className="ms-3">
-                      <h3>{user.fullName}</h3>
-                      <p>{user.primaryEmailAddress?.emailAddress}</p>
-                    </div>
-                  </div>
-                  <p>Manage your profile information and billing settings below.</p>
-
-                  <div className="d-flex justify-content-center gap-3">
-                    {isAdmin && (
-                      <Button 
-                        variant="outline-primary" 
-                        className="bottom-button"
-                        onClick={goToAdminDashboard}
-                      >
-                        Admin Dashboard
-                      </Button>
-                    )}
-                    <Button 
-                      variant="primary" 
-                      className="settings-button"
-                      onClick={checkSubscription }
-                      >Verify Subscription</Button>
-                    <Button 
-                      variant="primary" 
-                      className="settings-button"
-                      onClick={() => setShowProfileModal(true)} 
-                    >Manage Profile
-                    </Button>
-                    <Button 
-                      className="settings-button"
-                      onClick={handleSignOut}
-                      style={ { backgroundColor: 'red', color: 'white', border: 'none' } }
-                    >Sign Out
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <p>Please sign in to view your profile information.</p>
-              )}
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
-      <Row className="mb-4">
-  <Col>
-    <Card className="settings-card subscription-card">
-    <Card.Header className="settings-card-header">
-              <h2>Subscription</h2>
-            </Card.Header>
-      <Card.Body className="p-0">
+      <section className="ww-card settings-group" aria-labelledby="settings-account">
+        <h2 id="settings-account" className="settings-group__title">Account</h2>
         {user && (
-          <div className="subscription-container"> 
-            {subscriptionStatus ? (
-              <div className="subscription-details">
-                {/* Status Badge - Made more prominent */}
-                <div className="subscription-status-badge mb-4">
-                  {subscriptionStatus.subscribed ? (
-                    <>
-                      <Badge bg="success" className="status-badge active">
-                        <FaCheck className="me-2" /> Active
-                      </Badge>
-                      <br />
-                {subscriptionStatus.subscribed && 
-                 subscriptionStatus.cancelAtPeriodEnd && (
-                  <div style={{ color: 'orange' }} className="mt-2">
-                    <FaInfoCircle className="me-2" />
-                    Your subscription will end on {formatDate(subscriptionStatus.expiresAt)}. 
-                    Reactivate to continue your subscription without interruption.
-                </div>
-                )}
-                    </>
-                  ) : (
-                    <Badge bg="secondary" className="status-badge inactive">
-                      Free Account
-                    </Badge>
-                  )}
-                </div>
-                
-                {/* Plan Info Card */}
-                <div className="plan-info-card">
-                  <div className="plan-info-row">
-                    <span className="info-label">Plan:</span>
-                    <span className="info-value">
-                      {subscriptionStatus.plan === 'lifetime' ? 'Lifetime Access' : 
-                       subscriptionStatus.plan === 'free' ? 'Free' :
-                       subscriptionStatus.subscribed ? `Premium (${subscriptionStatus.plan || 'Standard'})` : 'Free Plan'}
-                    </span>
-                  </div>
-                  
-                  {subscriptionStatus.expiresAt && (
-                    <div className="plan-info-row">
-                      <span className="info-label">
-                        <FaCalendarAlt className="me-2" /> Next billing:
-                      </span>
-                      <span className="info-value">{formatDate(subscriptionStatus.expiresAt)}</span>
-                    </div>
-                  )}
-                </div>
-                
-                {/* Subscription Features */}
-                {subscriptionStatus.subscribed && subscriptionStatus.plan !== 'lifetime' && (
-                  <div className="subscription-features">
-                    <h5 className="features-heading">Included Features</h5>
-                    <ul className="features-list">
-                      <li className="feature-item">
-                        <FaCheck className="feature-icon" /> Unlimited favorites
-                      </li>
-                      <li className="feature-item">
-                        <FaCheck className="feature-icon" /> Priority support
-                      </li>
-                      <li className="feature-item">
-                        <FaCheck className="feature-icon" /> Premium weather data
-                      </li>
-                    </ul>
-                  </div>
-                )}
-                
-                {/* Subscription management buttons */}
-                {subscriptionStatus.subscribed && subscriptionStatus.plan !== 'lifetime' && (
-                  <div className="d-flex mt-4 flex-wrap gap-2">
-                    {/* Manage Billing Button - Always show for active subscriptions */}
-                    <Button 
-                      variant="outline-primary"
-                      onClick={handleOpenBillingPortal}
-                      className="manage-billing-button"
-                    >
-                      <FaCreditCard className="me-2" /> Manage Payment Method
-                    </Button>
-                    
-                    {/* Cancel Button - Only show if not already cancelled */}
-                    {!subscriptionStatus.cancelAtPeriodEnd ? (
-                      <Button 
-                        variant="outline-danger"
-                        onClick={() => setCancelModalOpen(true)}
-                        className="cancel-subscription-button"
-                      >
-                        Cancel Subscription
-                      </Button>
-                    ) : (
-                      /* Reactivate Button - Show if subscription is cancelled */
-                      <Button 
-                        variant="outline-success"
-                        onClick={handleReactivateSubscription}
-                        className="reactivate-button"
-                      >
-                        <FaRedo className="me-2" /> Reactivate Subscription
-                      </Button>
-                    )}
-                  </div>
-                )}     
-                {/* Upgrade Button */}
-                {!subscriptionStatus.subscribed && (
-                  <div className="upgrade-container">
-                    <Button 
-                      variant="primary"
-                      size="lg"
-                      onClick={() => navigate('/pricing')}
-                      className="upgrade-button"
-                    >
-                      <FaCrown className="me-2" /> Upgrade to Premium
-                    </Button>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="loading-container">
-                <div className="spinner-container">
-                  <FaClock className="loading-icon" />
-                  <span className="loading-text">Loading subscription information...</span>
-                </div>
-                <Button 
-                  variant="link"
-                  onClick={checkSubscription}
-                  className="refresh-button"
-                >
-                  Refresh
-                </Button>
-              </div>
-            )}
+          <div className="settings-user">
+            <img src={user.imageUrl} alt="" className="settings-user__avatar" />
+            <div>
+              <b>{user.fullName || user.primaryEmailAddress?.emailAddress}</b>
+              {user.fullName && <span>{user.primaryEmailAddress?.emailAddress}</span>}
+            </div>
           </div>
         )}
-      </Card.Body>
-    </Card>
-  </Col>
-</Row>
+        <div className="settings-actions">
+          <button type="button" className="ww-btn" onClick={() => setShowProfile(true)}>Manage profile</button>
+          {isAdmin && <button type="button" className="ww-btn" onClick={() => navigate(ADMIN_PATH)}>Invites</button>}
+          <button type="button" className="ww-btn settings-signout" onClick={handleSignOut}>Sign out</button>
+        </div>
+      </section>
 
-      <Row className="mb-4">
-        <Col>
-          <Card className="settings-card">
-            <Card.Header className="settings-card-header">
-              <h2>Display Settings</h2>
-            </Card.Header>
-            <Card.Body>
-              <Form>
-                <Form.Group className="mb-4 toggle-group">
-                  <div className="d-flex justify-content-between align-items-center">
-                    <div>
-                      <Form.Label className="mb-0 toggle-label">Theme</Form.Label>
-                      <div className="toggle-description">
-                        {darkMode ? '🌙 Dark Mode' : '☀️ Light Mode'}
-                      </div>
-                    </div>
-                    <Form.Check 
-                      type="switch"
-                      id="theme-switch"
-                      checked={darkMode}
-                      onChange={toggleTheme}
-                      className="custom-switch"
-                    />
-                  </div>
-                </Form.Group>
+      <section className="ww-card settings-group" aria-labelledby="settings-display">
+        <h2 id="settings-display" className="settings-group__title">Display</h2>
+        <Row label="Theme">
+          <Segmented label="Theme" value={darkMode ? 'dark' : 'light'} onChange={setTheme} options={[['light', 'Light'], ['dark', 'Dark']]} />
+        </Row>
+        <Row label="Temperature">
+          <Segmented label="Temperature" value={settings.temperatureUnit} onChange={(unit) => save({ temperatureUnit: unit })}
+            options={[['celsius', '°C'], ['fahrenheit', '°F']]} />
+        </Row>
+        <Row label="Station opens on">
+          <Segmented label="Station opens on" value={settings.defaultTab} onChange={(tab) => save({ defaultTab: tab })}
+            options={[['water', 'Water'], ['weather', 'Weather'], ['history', 'History'], ['map', 'Map']]} />
+        </Row>
+      </section>
 
-                <Form.Group className="mb-3">
-                  <Form.Label>Default Tab</Form.Label>
-                  <Form.Select 
-                    name="defaultTab"
-                    value={preferences.defaultTab}
-                    onChange={handleSelectChange}
-                    className="settings-select"
-                  >
-                    <option value="water">Water Data</option>
-                    <option value="pressure">Pressure Data</option>
-                    <option value="weather">Current Weather</option>
-                    <option value="hourlyforecast">Hourly Forecast</option>
-                    <option value="weeklyforecast">Weekly Forecast</option>
-                    <option value="map">Map</option>
-                  </Form.Select>
-                </Form.Group>
-              </Form>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+      <section className="ww-card settings-group" aria-labelledby="settings-plan">
+        <h2 id="settings-plan" className="settings-group__title">Subscription</h2>
+        {status ? (
+          <>
+            <Row label="Plan"><b>{planName(status)}</b></Row>
+            {recurring && renewal && (
+              <Row label={status.cancelAtPeriodEnd ? 'Ends' : 'Renews'}><span>{renewal}</span></Row>
+            )}
+            {recurring && status.cancelAtPeriodEnd && (
+              <p className="settings-note">Premium stays on until {renewal}. Reactivate to keep it after that.</p>
+            )}
+            <div className="settings-actions">
+              {recurring && <button type="button" className="ww-btn" onClick={openBillingPortal}>Manage payment method</button>}
+              {recurring && (status.cancelAtPeriodEnd
+                ? <button type="button" className="ww-btn ww-btn--pri" onClick={reactivate}>Reactivate</button>
+                : <button type="button" className="ww-btn settings-signout" onClick={() => setShowCancel(true)}>Cancel subscription</button>)}
+              {!status.subscribed && <Link to="/pricing" className="ww-btn ww-btn--pri">See Premium</Link>}
+            </div>
+          </>
+        ) : statusFailed ? (
+          <div className="settings-actions">
+            <span className="muted">Couldn’t load your subscription.</span>
+            <button type="button" className="ww-btn" onClick={loadStatus}>Try again</button>
+          </div>
+        ) : (
+          <p className="settings-note">Loading…</p>
+        )}
+      </section>
 
-      <Row className="mb-4">
-        <Col>
-          <Card className="settings-card">
-            <Card.Header className="settings-card-header">
-              <h2>Unit Preferences</h2>
-            </Card.Header>
-            <Card.Body>
-              <Form>
-                <Form.Group className="mb-4 toggle-group">
-                  <div className="toggle-container">
-                    <div className="d-flex justify-content-between align-items-center">
-                      <div>
-                        <Form.Label className="mb-0 toggle-label">Temperature Unit</Form.Label>
-                        <div className="toggle-description">
-                          {preferences.temperatureUnit ? 'Fahrenheit (°F)' : 'Celsius (°C)'}
-                        </div>
-                      </div>
-                      <Form.Check 
-                        type="switch"
-                        id="temperature-switch"
-                        name="temperatureUnit"
-                        checked={preferences.temperatureUnit}
-                        onChange={handleToggleChange}
-                        className="custom-switch"
-                      />
-                    </div>
-                  </div>
-                </Form.Group>
-              </Form>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
+      <section className="ww-card settings-group" aria-labelledby="settings-help">
+        <h2 id="settings-help" className="settings-group__title">Help</h2>
+        <div className="settings-actions">
+          <a href={`mailto:${SUPPORT_EMAIL}`} className="ww-btn">Email support</a>
+          <a href="https://github.com/DylanM05/WaterWays" target="_blank" rel="noreferrer" className="ww-btn">Source code</a>
+          <Link to="/privacy" className="ww-btn">Privacy</Link>
+        </div>
+      </section>
 
-      <Row className="mb-4">
-        <Col>
-          <Card className="settings-card">
-            <Card.Header className="settings-card-header">
-              <h2>About WaterWays</h2>
-            </Card.Header>
-            <Card.Body>
-              <div className="about-section">
-                <p><strong>Version:</strong> 1.0.0</p>
-                <p><strong>Last Updated:</strong> May 5, 2025</p>
-                <p>WaterWays provides real-time water level and weather data for rivers and lakes across Canada.</p>
-                <div className="mt-3">
-                  <Button 
-                    variant="outline-secondary" 
-                    className="me-2 bottom-button"
-                    onClick={() => window.open('https://github.com/DylanM05/WaterWays', '_blank')}
-                  >
-                    GitHub Repository
-                  </Button>
-                  <Button 
-                    variant="outline-secondary"
-                    className="bottom-button"
-                    onClick={() => window.open(`mailto:${SUPPORT_EMAIL}`, '_blank')}
-                  >
-                    Contact Support
-                  </Button>
-                </div>
-              </div>
-            </Card.Body>
-          </Card>
-        </Col>
-      </Row>
-
-      {/* Add the modal for UserProfile */}
-      <ProfileModal 
-        show={showProfileModal} 
-        handleClose={() => setShowProfileModal(false)} 
+      <ProfileModal show={showProfile} handleClose={() => setShowProfile(false)} />
+      <CancelSubscriptionModal
+        show={showCancel}
+        handleClose={() => setShowCancel(false)}
+        onCancelSuccess={() => {
+          loadStatus();
+          tell('Your subscription is cancelled. Premium stays on until the end of the period you’ve paid for.', 'info', true);
+        }}
       />
-
-      {/* Add the modal for CancelSubscription */}
-      <CancelSubscriptionModal 
-        show={cancelModalOpen}
-        handleClose={() => setCancelModalOpen(false)}
-        onCancelSuccess={handleCancellationSuccess}
-      />
-    </Container>
+    </div>
   );
 };
 
