@@ -3,10 +3,14 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@clerk/clerk-react';
 import axios from 'axios';
 import Spinner from '../components/spinners/Spinner';
-import SavedCard from '../components/stations/SavedCard';
+import SavedCard, { AlertChip } from '../components/stations/SavedCard';
+import Sparkline from '../components/stations/Sparkline';
+import { useCurrentWeather, useStationAlerts } from '../components/stations/stationLookups';
+import { useSettings } from '../components/utility/contexts/SettingsContext';
+import { formatDegrees, weatherSummary } from '../components/utility/weatherSummary';
 import { fetchStationSummaries, withStationNames } from '../components/utility/stationSummaries';
 import { displayTitle, PROVINCE_NAMES } from '../components/utility/names';
-import { describeRow, sectionName } from '../components/river/riverRows';
+import { describeRow, sectionName, shortLastReported } from '../components/river/riverRows';
 import { ChevronDownIcon, TrendIcon, XIcon } from '../components/icons/Icons';
 import './styling/favorites.css';
 
@@ -32,33 +36,77 @@ function useSummaries(stationIds) {
   return summaries;
 }
 
-/** One station of a saved river: its name and when it last reported, and its level (or flow) with the change. */
+/** A measurement and its 24 h change, stacked; a dash when the station doesn't measure it. */
+const Reading = ({ cell, flow }) => {
+  if (!cell) return <span className="saved__rs-cell saved__rs-cell--none" aria-hidden="true">—</span>;
+  const change = cell.change;
+  return (
+    <span className="saved__rs-cell">
+      <span className="num">{cell.metric.format(cell.value)}<small>{cell.metric.unit}</small></span>
+      {change && (
+        <span className={`chg${change.direction === 'up' ? ' chg--up' : ''}${flow ? ' chg--flow' : ''}`}>
+          <TrendIcon direction={change.direction} />{change.amount ?? 'Steady'}
+        </span>
+      )}
+    </span>
+  );
+};
+
+/** Current temperature and sky at a station, small. */
+const RowWeather = ({ stationId }) => {
+  const { settings } = useSettings();
+  const weather = useCurrentWeather(stationId);
+  const sky = weatherSummary(weather);
+  const degrees = formatDegrees(weather?.temperature, settings?.temperatureUnit);
+  if (!degrees) return <span className="saved__rs-wx" />;
+  const SkyIcon = sky?.Icon;
+  return (
+    <span className="saved__rs-wx" title={sky?.label}>
+      {SkyIcon && <SkyIcon />}
+      {degrees}
+    </span>
+  );
+};
+
+/**
+ * One station of a saved river, as a row: its name, when it last reported and any alert; level and flow with
+ * their 24 h change; the past day's line; and the weather there.
+ */
 const RiverStationRow = ({ station, riverName, summary }) => {
-  const name = sectionName({ ...station, station_id: station.stationId }, riverName || '');
+  const id = station.stationId;
+  const name = sectionName({ ...station, station_id: id }, riverName || '');
+  const alerts = useStationAlerts(id);
   const row = describeRow(summary);
-  const main = row.level || row.flow;
+  const reporting = Boolean(row.level || row.flow);
   let note = row.updated;
   if (!summary) note = null;
   else if (summary.failed) note = 'Couldn’t load the latest reading';
-  else if (!main) note = 'No recent readings';
-  const change = main?.change;
+  else if (!reporting) note = summary.lastReported ? `No recent readings, last ${shortLastReported(summary.lastReported)}` : 'No recent readings';
   return (
     <li>
-      <Link to={`/station-details/${encodeURIComponent(station.stationId)}`} className="saved__station">
-        <span className="saved__station-name">
+      <Link to={`/station-details/${encodeURIComponent(id)}`} className={`saved__rs${reporting ? '' : ' saved__rs--quiet'}`}>
+        <span className="saved__rs-name">
           <b>{name}</b>
-          {note && <span>{note}</span>}
+          <span>{[id, note].filter(Boolean).join(' · ')}</span>
+          <AlertChip alerts={alerts} />
         </span>
-        {main && (
-          <span className="saved__station-val">
-            <span className="num">{main.metric.format(main.value)}<small>{main.metric.unit}</small></span>
-            {change && (
-              <span className={`chg${change.direction === 'up' ? ' chg--up' : ''}${main === row.flow ? ' chg--flow' : ''}`}>
-                <TrendIcon direction={change.direction} />{change.amount ?? 'Steady'}
-              </span>
-            )}
-          </span>
+        {reporting && (
+          <>
+            <Reading cell={row.level} />
+            <Reading cell={row.flow} flow />
+            <span className="saved__rs-line">
+              {row.line && (
+                <Sparkline
+                  points={row.line.points}
+                  minSpan={row.line.minSpan}
+                  format={(value) => `${row.line.metric.format(value)} ${row.line.metric.unit}`}
+                  label={`${row.line.metric.label} over the past 24 hours`}
+                />
+              )}
+            </span>
+          </>
         )}
+        <RowWeather stationId={id} />
       </Link>
     </li>
   );

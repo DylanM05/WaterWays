@@ -127,32 +127,51 @@ html .saved__river:hover { background: var(--w-sunk); color: var(--w-ink); }
   border-left: 2px solid var(--w-line);
 }
 
-html .saved__station {
-  display: flex;
-  justify-content: space-between;
+/* One station: name, level, flow, the past day's line and the weather, in columns that line up down the river. */
+html .saved__rs {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 112px 124px 132px 64px;
   align-items: center;
   gap: 16px;
-  padding: 9px 12px;
+  padding: 10px 12px;
   border-radius: 10px;
   color: var(--w-ink);
   font-weight: 400;
 }
 
-html .saved__station:hover { background: var(--w-sunk); color: var(--w-ink); }
-.saved__station-name { min-width: 0; display: grid; gap: 1px; }
-.saved__station-name b { font-size: 15px; font-weight: 600; line-height: 1.3; }
-.saved__station-name span { font-size: 12.5px; color: var(--w-ink3); }
+html .saved__rs:hover { background: var(--w-sunk); color: var(--w-ink); }
+.saved__rs--quiet .saved__rs-name { grid-column: 1 / 5; }
+.saved__rs-name { min-width: 0; display: grid; gap: 1px; justify-items: start; }
+.saved__rs-name b { font-size: 15px; font-weight: 600; line-height: 1.3; }
+.saved__rs-name > span:not(.saved-card__alert) { font-size: 12.5px; color: var(--w-ink3); }
+.saved__rs-name .saved-card__alert { margin-top: 3px; font-size: 12px; }
 
-.saved__station-val {
-  flex: none;
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
+.saved__rs-cell { display: grid; gap: 2px; justify-items: end; text-align: right; }
+.saved__rs-cell .num { font-size: 18px; white-space: nowrap; }
+.saved__rs-cell small { font-size: 11.5px; margin-left: 2px; }
+.saved__rs-cell--none { color: var(--w-ink3); }
+
+.saved__rs-line { --spark-colour: var(--w-accent); min-width: 0; }
+.saved__rs-line .sparkline { height: 32px; cursor: inherit; }
+
+.saved__rs-wx {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--w-ink2);
+  white-space: nowrap;
 }
 
-.saved__station-val .num { font-size: 17px; white-space: nowrap; }
-.saved__station-val small { font-size: 11.5px; margin-left: 2px; }
-.saved__station-val .chg { min-width: 64px; justify-content: flex-end; }
+.saved__rs-wx .ic { width: 17px; height: 17px; }
+
+@media (max-width: 960px) {
+  html .saved__rs { grid-template-columns: minmax(0, 1fr) 104px 116px 60px; }
+  .saved__rs-line { display: none; }
+  .saved__rs--quiet .saved__rs-name { grid-column: 1 / 4; }
+}
 
 @media (max-width: 767px) {
   .saved { gap: 14px; }
@@ -161,7 +180,13 @@ html .saved__station:hover { background: var(--w-sunk); color: var(--w-ink); }
   .saved__grid { grid-template-columns: 1fr; gap: 12px; }
   .saved-remove { top: -6px; right: -6px; }
   .saved__stations { margin-left: 6px; padding-left: 6px; }
-  html .saved__station { padding: 9px 8px; gap: 12px; }
-  .saved__station-val { display: grid; gap: 2px; justify-items: end; }
-  .saved__station-val .chg { min-width: 0; }
+  /* Phones: name and weather on top, then level, flow and the line, in fixed columns so the lines line up. */
+  html .saved__rs { grid-template-columns: 64px 96px minmax(0, 1fr); gap: 8px 12px; padding: 10px 8px; }
+  .saved__rs-name, .saved__rs--quiet .saved__rs-name { grid-column: 1 / 4; grid-row: 1; padding-right: 56px; }
+  .saved__rs-wx { grid-column: 3; grid-row: 1; align-self: start; justify-self: end; }
+  .saved__rs-cell { justify-items: start; text-align: left; grid-row: 2; }
+  .saved__rs-cell + .saved__rs-cell { grid-column: 2; }
+  .saved__rs-cell--none { visibility: hidden; }
+  .saved__rs-line { display: block; grid-column: 3; grid-row: 2; }
+  .saved__rs-line .sparkline { height: 30px; }
 }
