@@ -4,7 +4,10 @@ const assert = require('node:assert/strict');
 const axios = require('axios');
 const StationArchive = require('../models/StationArchive');
 const StationData = require('../models/StationData');
-const { backfillStation, dailyMeans, parseReadings } = require('../scripts/backfillProvisionalDaily');
+const { backfillStation, dailyMeans, parseReadings, settings, WINDOW_DAYS } = require('../scripts/backfillProvisionalDaily');
+
+settings.pauseMs = 0;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const { fakeModel } = require('./helpers');
 
 const HEADER = '﻿ ID,Date,Parameter/Paramètre,Value/Valeur,Qualifier/Qualificatif,Symbol/Symbole,Approval/Approbation,Grade/Classification,Qualifiers/Qualificatifs';
@@ -22,17 +25,20 @@ function csvFor(stationId, start, end) {
 
 let archive;
 let requestedMonths;
+let requestedStarts;
 
 beforeEach(() => {
   archive = fakeModel(StationArchive);
   fakeModel(StationData);
   requestedMonths = [];
+  requestedStarts = [];
   axios.get = async (url) => {
     const query = new URLSearchParams(url.split('?')[1]);
     assert.deepEqual(query.getAll('parameters[]'), ['46', '47']);
     const start = new Date(`${query.get('start_date').replace(' ', 'T')}Z`);
     const end = new Date(`${query.get('end_date').replace(' ', 'T')}Z`);
     requestedMonths.push(start.toISOString().slice(0, 7));
+    requestedStarts.push(start);
     return { data: csvFor(query.get('stations[]'), start, end) };
   };
 });
@@ -51,7 +57,7 @@ test('ignores rows outside the requested window and rows without a value', () =>
   assert.deepEqual(readings.map(reading => reading.date_time.toISOString()), ['2025-11-01T00:05:00.000Z']);
 });
 
-test('rolls readings up into UTC daily means with min, max and sample counts', () => {
+test('thins readings into UTC days through the same hourly roll-up as collected readings', () => {
   const day = Date.UTC(2025, 10, 1);
   const readings = Array.from({ length: 288 }, (_, index) => ({
     date_time: new Date(day + index * 5 * 60 * 1000),
@@ -61,20 +67,22 @@ test('rolls readings up into UTC daily means with min, max and sample counts', (
   const [mean] = dailyMeans(readings);
   assert.deepEqual(mean, {
     date_time: new Date(day),
-    water_level: 3.5, water_level_min: 3, water_level_max: 4,
-    discharge: 1000, discharge_min: 1000, discharge_max: 1000,
+    water_level: 3.5, water_level_min: 3, water_level_max: 4, water_level_count: 288,
+    discharge: 1000, discharge_min: 1000, discharge_max: 1000, discharge_count: 288,
     sample_count: 288
   });
 });
 
-test('backfills whole months up to where collected readings begin', async () => {
+test("backfills from the start of Water Office's window up to where collected readings begin", async () => {
   const now = new Date();
   const collectedFrom = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 10));
   await StationData.create({ station_id: '08MF005', date_time: collectedFrom });
 
   const { written } = await backfillStation('08MF005', false);
-  assert.equal(requestedMonths.length, 17, 'every whole month in the 18-month window');
-  assert.ok(written > 400);
+  const windowStart = new Date(now.getTime() - WINDOW_DAYS * DAY_MS);
+  assert.equal(requestedStarts[0].toISOString().slice(0, 10), windowStart.toISOString().slice(0, 10), 'starts on the window\'s first day');
+  assert.ok(requestedMonths.length >= 19, `a month at a time across the window, got ${requestedMonths.length}`);
+  assert.ok(written > 500);
   const last = archive.reduce((latest, day) => (day.date_time > latest ? day.date_time : latest), new Date(0));
   assert.ok(last < collectedFrom, 'stops before collected readings take over');
   assert.ok(archive.every(day => day.period === 'daily' && day.source === 'wateroffice-provisional'));
@@ -101,14 +109,40 @@ test('never replaces a day rolled up from collected readings', async () => {
 
 test('starts after the newest monthly mean from the historical archive', async () => {
   const now = new Date();
-  archive.push({ station_id: '08MF005', period: 'monthly', date_time: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 3, 1)) });
+  archive.push({ station_id: '08MF005', period: 'monthly', date_time: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 3, 1)), water_level: 3.2 });
   await backfillStation('08MF005', false);
   assert.equal(requestedMonths.length, 3);
 });
 
+test("a monthly mean the archive hasn't filled in yet doesn't move the start", async () => {
+  const now = new Date();
+  archive.push({ station_id: '08MF005', period: 'monthly', date_time: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 3, 1)), water_level: null, discharge: null });
+  archive.push({ station_id: '08MF005', period: 'monthly', date_time: new Date(Date.UTC(now.getUTCFullYear() - 2, 0, 1)), water_level: 3.2 });
+  await backfillStation('08MF005', false);
+  assert.ok(requestedMonths.length >= 19, `the whole window, got ${requestedMonths.length}`);
+});
+
+test('retries a dropped connection before giving up', async () => {
+  const realGet = axios.get;
+  let failures = 2;
+  axios.get = async (url) => {
+    if (failures-- > 0) throw new Error('socket hang up');
+    return realGet(url);
+  };
+  settings.retryWaitsMs = [0, 0, 0];
+  try {
+    const now = new Date();
+    archive.push({ station_id: '08MF005', period: 'monthly', date_time: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1)), water_level: 3.2 });
+    const { written } = await backfillStation('08MF005', false);
+    assert.ok(written > 0);
+  } finally {
+    settings.retryWaitsMs = [5000, 10000, 20000, 40000, 60000];
+  }
+});
+
 test('a dry run fetches but writes nothing', async () => {
   const { days, written } = await backfillStation('08MF005', true);
-  assert.ok(days > 400);
+  assert.ok(days > 500);
   assert.equal(written, 0);
   assert.equal(archive.length, 0);
 });
