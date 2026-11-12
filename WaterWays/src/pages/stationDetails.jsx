@@ -284,7 +284,12 @@ const StationDetails = () => {
             weeklyData={weekly.data}
             pressureData={pressure.data}
             errors={{ weather: weather.error, forecast: forecast.error, weekly: weekly.error, pressure: pressure.error }}
-            loading={!weather.data && !weather.error}
+            loading={{
+              weather: !weather.data && !weather.error,
+              forecast: !forecast.data && !forecast.error,
+              weekly: !weekly.data && !weekly.error,
+              pressure: !pressure.data && !pressure.error
+            }}
           />
         )}
         {tab === 'history' && <HistoryTab stationId={stationId} />}

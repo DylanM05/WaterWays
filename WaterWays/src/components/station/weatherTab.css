@@ -75,6 +75,9 @@
   background: var(--w-sunk);
 }
 
+/* An odd last fact takes the whole row. */
+.wt-facts div:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
 .wt-facts dt { font-size: 12px; font-weight: 500; color: var(--w-ink3); }
 .wt-facts dd { margin: 0; font-size: 15px; font-weight: 600; }
 

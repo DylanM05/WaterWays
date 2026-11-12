@@ -1,6 +1,6 @@
 import React from 'react';
 
-/** Current conditions: the weather now, today's high and low, and a few facts. Shaped by WeatherTab. */
+/** Current conditions: the weather now, today's high and low, when it was observed, and a few facts. Shaped by WeatherTab. */
 const CurrentWeather = ({ current, error, loading }) => {
   if (!current) {
     if (error) {
@@ -23,6 +23,7 @@ const CurrentWeather = ({ current, error, loading }) => {
         <div className="wt-now__text">
           {current.condition && <b>{current.condition}</b>}
           {current.highLow && <span className="faint">{current.highLow}</span>}
+          {current.updated && <span className="faint">Updated {current.updated}</span>}
         </div>
       </div>
       {current.facts.length > 0 && (
