@@ -93,12 +93,16 @@ const allowedOrigins = [
   'https://water-ways.ca',
   'https://waterways.dylansserver.top',
   'https://backend.water-ways.ca',
+  // The redesign's test build.
+  'https://beta.water-ways.ca',
   'http://localhost:3000',
   'http://localhost:5173',
   'http://localhost',
   'https://localhost',
   'capacitor://localhost',
-  'ionic://localhost'
+  'ionic://localhost',
+  // More origins, comma separated, without a code change (for example a preview build's address).
+  ...(process.env.EXTRA_CORS_ORIGINS || '').split(',').map(origin => origin.trim()).filter(Boolean)
 ];
 
 app.use(cors({
