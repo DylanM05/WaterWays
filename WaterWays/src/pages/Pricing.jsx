@@ -210,7 +210,7 @@ const Pricing = () => {
           <h2 className="disp plan__name" id="plan-free">Free</h2>
           <div className="plan__price"><span className="num">$0</span></div>
           <Features items={FREE_FEATURES} />
-          {!subscribed && <button type="button" className="ww-btn plan__cta" disabled>Current plan</button>}
+          {isSignedIn && !subscribed && <button type="button" className="ww-btn plan__cta" disabled>Current plan</button>}
         </section>
 
         <section className="ww-card plan plan--pro" aria-labelledby="plan-pro">
