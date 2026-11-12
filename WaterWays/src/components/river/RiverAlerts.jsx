@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronRightIcon, WarnIcon } from '../icons/Icons';
+import { severityClass } from '../utility/alertColours';
 
 const clock = (date) => date.toLocaleTimeString('en-CA', { hour: 'numeric', minute: date.getMinutes() ? '2-digit' : undefined });
 
@@ -33,7 +34,7 @@ const RiverAlerts = ({ alerts, preferredIds }) => {
         // A station that's reporting makes a better page to land on.
         const stationId = alert.stationIds.find(id => preferredIds.has(id)) || alert.stationIds[0];
         return (
-          <div key={alert.key} className="ww-alert river-alert">
+          <div key={alert.key} className={`ww-alert river-alert${severityClass(alert.severity)}`}>
             <span className="river-alert__icon"><WarnIcon /></span>
             <p className="river-alert__text">
               <b>{alert.title}</b>

@@ -21,6 +21,16 @@
   --w-warn-bg: #FDEEE2;
   --w-warn-line: #F3C7A3;
   --w-warn-ink: #5A2A07;
+  --w-alert-red: #C8322B;
+  --w-alert-red-on: #FFFFFF;
+  --w-alert-red-bg: #FCEBE9;
+  --w-alert-red-line: #F1BFBA;
+  --w-alert-red-ink: #5E1612;
+  --w-alert-yellow: #E3AE12;
+  --w-alert-yellow-on: #2B2003;
+  --w-alert-yellow-bg: #FDF5DA;
+  --w-alert-yellow-line: #EDD993;
+  --w-alert-yellow-ink: #4A3905;
   --w-glass: rgba(255, 255, 255, .78);
   --w-shadow: 0 1px 2px rgba(13, 40, 48, .05), 0 8px 24px -6px rgba(13, 40, 48, .08);
   --w-pop-shadow: 0 18px 40px -16px rgba(8, 28, 34, .35);
@@ -78,6 +88,16 @@ html.dark {
   --w-warn-bg: #2C1A0C;
   --w-warn-line: #5B3416;
   --w-warn-ink: #FFD9BA;
+  --w-alert-red: #EE5A4F;
+  --w-alert-red-on: #2A0705;
+  --w-alert-red-bg: #2E1412;
+  --w-alert-red-line: #612722;
+  --w-alert-red-ink: #FFD4CF;
+  --w-alert-yellow: #E9C24C;
+  --w-alert-yellow-on: #261C02;
+  --w-alert-yellow-bg: #262009;
+  --w-alert-yellow-line: #55471A;
+  --w-alert-yellow-ink: #F6E3A9;
   --w-glass: rgba(13, 36, 43, .78);
   --w-shadow: 0 0 0 1px rgba(0, 0, 0, .2), 0 10px 30px -10px rgba(0, 0, 0, .5);
   --w-pop-shadow: 0 18px 40px -12px rgba(0, 0, 0, .6);
@@ -250,6 +270,23 @@ html a:hover {
   background: var(--w-warn-bg);
   border: 1px solid var(--w-warn-line);
   color: var(--w-warn-ink);
+}
+
+/* Alert severity: the plain .ww-alert is orange; these re-point its warn tokens, so icons inside follow too. */
+.ww-alert--red {
+  --w-warn: var(--w-alert-red);
+  --w-warn-on: var(--w-alert-red-on);
+  --w-warn-bg: var(--w-alert-red-bg);
+  --w-warn-line: var(--w-alert-red-line);
+  --w-warn-ink: var(--w-alert-red-ink);
+}
+
+.ww-alert--yellow {
+  --w-warn: var(--w-alert-yellow);
+  --w-warn-on: var(--w-alert-yellow-on);
+  --w-warn-bg: var(--w-alert-yellow-bg);
+  --w-warn-line: var(--w-alert-yellow-line);
+  --w-warn-ink: var(--w-alert-yellow-ink);
 }
 
 /* A segmented control (.seg) and period chips (.chips), shared by the station, Saved and History views. */

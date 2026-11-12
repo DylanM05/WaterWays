@@ -1,5 +1,5 @@
 import React from 'react';
-import { alertTitle } from '../utility/alertColours';
+import { alertSeverity, alertTitle, severityClass } from '../utility/alertColours';
 import { WarnIcon } from '../icons/Icons';
 
 const when = (value) => {
@@ -14,7 +14,7 @@ const shortWhen = (value) => {
     : null;
 };
 
-/** Weather alerts covering the station; each opens to show Environment Canada's full text. */
+/** Weather alerts covering the station, coloured by severity; each opens to show Environment Canada's full text. */
 const WeatherAlerts = ({ alerts }) => {
   if (!alerts?.length) return null;
   return (
@@ -22,7 +22,7 @@ const WeatherAlerts = ({ alerts }) => {
       {alerts.map((alert) => {
         const until = shortWhen(alert.eventEnds || alert.expires);
         return (
-          <details key={`${alert.name}|${alert.issued}`} className="ww-alert st-alert">
+          <details key={`${alert.name}|${alert.issued}`} className={`ww-alert st-alert${severityClass(alertSeverity(alert))}`}>
             <summary>
               <span className="st-alert__icon"><WarnIcon /></span>
               <span className="st-alert__text">

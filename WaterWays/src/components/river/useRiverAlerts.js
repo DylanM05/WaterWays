@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
-import { alertTitle } from '../utility/alertColours';
+import { alertSeverity, alertTitle, severityRank } from '../utility/alertColours';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -26,7 +26,7 @@ function lookupStations(stations) {
 
 /**
  * Environment Canada alerts along the river, one entry per kind of alert ("Rainfall warning") with every area
- * it covers, when it ends and the stations it applies to. Most severe first. Failed lookups count as no alert.
+ * it covers, when it ends, its severity and the stations it applies to. Most severe first. Failed lookups count as no alert.
  */
 export function useRiverAlerts(stations) {
   const [alerts, setAlerts] = useState([]);
@@ -45,15 +45,19 @@ export function useRiverAlerts(stations) {
         results.forEach(({ station, alerts: found }) => found.forEach(alert => {
           const key = `${alert.type}|${String(alert.name).toLowerCase()}`;
           if (!groups.has(key)) {
-            groups.set(key, { key, type: alert.type, title: alertTitle(alert.name || 'Weather alert'), areas: [], ends: null, stationIds: [] });
+            groups.set(key, { key, type: alert.type, severity: alertSeverity(alert), title: alertTitle(alert.name || 'Weather alert'), areas: [], ends: null, stationIds: [] });
           }
           const group = groups.get(key);
+          // One kind of alert can be more severe in some areas; the banner takes the worst.
+          const severity = alertSeverity(alert);
+          if (severityRank(severity) < severityRank(group.severity)) group.severity = severity;
           if (alert.area && !group.areas.includes(alert.area)) group.areas.push(alert.area);
           const ends = Date.parse(alert.eventEnds || alert.expires);
           if (Number.isFinite(ends) && (group.ends === null || ends > group.ends)) group.ends = ends;
           if (!group.stationIds.includes(station.station_id)) group.stationIds.push(station.station_id);
         }));
-        setAlerts([...groups.values()].sort((a, b) => (SEVERITY[a.type] ?? 9) - (SEVERITY[b.type] ?? 9)));
+        setAlerts([...groups.values()].sort((a, b) =>
+          severityRank(a.severity) - severityRank(b.severity) || (SEVERITY[a.type] ?? 9) - (SEVERITY[b.type] ?? 9)));
       });
     return () => { cancelled = true; };
   }, [stations]);
