@@ -2,10 +2,10 @@ import { parseUtcTimestamp } from '../utility/dates';
 import { METRICS, describeChange, formatLastReported, metricsOf, timeAgo } from '../utility/readings';
 import { displayTitle } from '../utility/names';
 
-// Words a section name starts with that read as part of a sentence: "at Hope", "near Marguerite".
-const LEADING_WORDS = new Set(['at', 'near', 'above', 'below', 'in', 'on', 'by', 'from', 'to', 'upstream', 'downstream']);
-
-/** The station's name on its river's page: the section ("at Hope"), or the full name without the river's. */
+/**
+ * The station's name in a list of one river's stations (the river page, Saved rivers): the section, capitalized
+ * since it stands alone there ("At Hope", "Near Marguerite"), or the full name without the river's.
+ */
 export function sectionName(station, riverName) {
   let name = station.section;
   if (!name) {
@@ -15,8 +15,7 @@ export function sectionName(station, riverName) {
   }
   const title = displayTitle(name).trim();
   if (!title) return `Station ${station.station_id}`;
-  const [first, ...rest] = title.split(' ');
-  return LEADING_WORDS.has(first.toLowerCase()) ? [first.toLowerCase(), ...rest].join(' ') : title;
+  return title.charAt(0).toUpperCase() + title.slice(1);
 }
 
 /** "Sep 28", or "Sep 28, 2025" when it wasn't this year. */
