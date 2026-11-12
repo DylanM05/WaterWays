@@ -15,6 +15,13 @@ const setRate = (animation, rate) => {
   else animation.playbackRate = rate;
 };
 
+// How an animation follows the current, which runs at 1, or faster while the field has focus. Things the water
+// carries speed up with it; a creature's own movements (a bite, paddling, a tail beat) keep their pace; a fish
+// working against the current beats its tail a little faster.
+const WITH_CURRENT = (current) => current;
+const OWN_PACE = () => 1;
+const EFFORT = (current) => 1 + (current - 1) * 0.3;
+
 // A small seeded random generator, so a river keeps the same banks when it redraws.
 function rng(seed) {
   let s = seed | 0;
@@ -96,6 +103,22 @@ function swim(inner) {
   ];
 }
 
+// Against the current the tail beats faster and wider, and water parts at the nose and slides back along the body.
+function swimHard(inner) {
+  const D = between([210, 260]);
+  const timing = { duration: D, iterations: Infinity, direction: 'alternate', easing: 'ease-in-out', delay: -Math.random() * D };
+  const W = between([620, 760]);
+  return [
+    inner.querySelector('.r-fish-tail').animate([{ transform: 'rotate(24deg)' }, { transform: 'rotate(-24deg)' }], timing),
+    inner.querySelector('.r-fish-body').animate([{ transform: 'rotate(-4.5deg)' }, { transform: 'rotate(4.5deg)' }], timing),
+    inner.querySelector('.r-fish-wake').animate([
+      { transform: 'translateX(1.5px) scaleY(.7)', opacity: 0 },
+      { offset: 0.25, opacity: 1 },
+      { transform: 'translateX(-5px) scaleY(1.15)', opacity: 0 }
+    ], { duration: W, iterations: Infinity, easing: 'ease-out', delay: -Math.random() * W })
+  ];
+}
+
 function paddle(inner) {
   return [inner.animate(
     [{ transform: 'translateY(-.8px) rotate(-3deg)' }, { transform: 'translateY(.8px) rotate(2deg)' }],
@@ -104,7 +127,8 @@ function paddle(inner) {
 }
 
 // Things that drift by, drawn facing downstream (right). The duck and bobbers float along the banks; fish
-// swim under the surface, either way, and deeper ones are smaller and fainter.
+// swim under the surface, either way, and deeper ones are smaller and fainter. Fish heading upstream push
+// against the current (see swimUpstream).
 const LIFE = {
   bobber() {
     // Side view. The body is drawn twice and clipped at the waterline (y 1.5): solid above, faint below,
@@ -128,13 +152,19 @@ const LIFE = {
   fish() {
     const upstream = Math.random() < 0.5;
     const depth = Math.random();
+    const opacity = 0.56 - depth * 0.28;
+    // Two thin lines that part at the nose and run back past the fins.
+    const wake = upstream
+      ? `<g class="r-fish-wake" stroke-opacity="${(opacity * 0.75).toFixed(2)}"><path d="M13,-1Q9,-4.4 2.5,-5.8"/><path d="M13,1Q9,4.4 2.5,5.8"/></g>`
+      : '';
     return {
       speed: upstream ? -1.1 : 1.9,
+      against: upstream,
       deep: true,
       wander: true,
       size: 1.12 - depth * 0.3,
-      animate: swim,
-      svg: `<g class="r-fish" fill-opacity="${(0.56 - depth * 0.28).toFixed(2)}"><g class="r-fish-tail"><path d="M-9.5,0L-16.5,-5.2Q-14.4,0 -16.5,5.2Z"/></g>`
+      animate: upstream ? swimHard : swim,
+      svg: `${wake}<g class="r-fish" fill-opacity="${opacity.toFixed(2)}"><g class="r-fish-tail"><path d="M-9.5,0L-16.5,-5.2Q-14.4,0 -16.5,5.2Z"/></g>`
         + '<g class="r-fish-body"><path d="M11,0C9.6,-3 4,-4.2 -2,-3.6C-6,-3.1 -8.8,-1.8 -10.4,0C-8.8,1.8 -6,3.1 -2,3.6C4,4.2 9.6,3 11,0Z"/><path d="M3.6,-3.5L-.4,-6.8L-1.8,-3.6ZM3.6,3.5L-.4,6.8L-1.8,3.6Z"/></g></g>'
     };
   }
@@ -158,8 +188,10 @@ export function attachRiver(label) {
     const id = setTimeout(() => { timers.delete(id); fn(); }, ms);
     timers.add(id);
   };
-  const track = (animation) => {
-    setRate(animation, st.rate);
+  const pace = new WeakMap();
+  const track = (animation, follows = WITH_CURRENT) => {
+    pace.set(animation, follows);
+    setRate(animation, follows(st.rate));
     if (!st.seen) animation.pause();
     st.anims.push(animation);
   };
@@ -224,28 +256,42 @@ export function attachRiver(label) {
     layer.appendChild(g);
     st.live++;
 
-    // Fish swim in bursts and glides along a gentle wander, nose turned toward where they are heading.
+    const done = (motions) => {
+      if (gen !== st.gen) return;
+      layer.removeChild(g);
+      st.live--;
+      motions.forEach(animation => { animation.cancel(); untrack(animation); });
+    };
+    const own = c.animate(inner);
+    own.forEach(animation => track(animation, c.against ? EFFORT : OWN_PACE));
+
+    // Fish follow a gentle wander between the depths, nose turned toward where they are heading.
+    const amp = Math.min(st.h * 0.07, (L.deep[1] - L.deep[0]) / 2);
+    const waves = between([2, 3.5]);
+    const phase = Math.random() * 6;
+    const wanderY = (x) => Math.min(L.deep[1], Math.max(L.deep[0], y + amp * Math.sin(((x - from) / (to - from)) * waves * Math.PI + phase)));
+    const heading = (x) => (Math.atan((wanderY(x + 1) - wanderY(x - 1)) / 2) * 180) / Math.PI;
+    const place = (x) => `translate(${f1(x)}px,${f1(wanderY(x))}px) rotate(${f1(heading(x))}deg)`;
+
+    if (c.against) {
+      swimUpstream(head ? from + (to - from) * between([0.15, 0.55]) : from);
+      return;
+    }
+
     let frames;
     let total;
     if (c.wander) {
+      // Bursts and glides: each stretch at its own speed.
       const n = 14;
-      const amp = Math.min(st.h * 0.07, (L.deep[1] - L.deep[0]) / 2);
-      const waves = between([2, 3.5]);
-      const phase = Math.random() * 6;
-      const pts = [];
+      frames = [];
       let time = 0;
+      const times = [];
       for (let i = 0; i <= n; i++) {
-        const x = from + ((to - from) * i) / n;
-        const yy = Math.min(L.deep[1], Math.max(L.deep[0], y + amp * Math.sin((i / n) * waves * Math.PI + phase)));
         if (i) time += Math.abs(to - from) / n / (speed * between([0.55, 1.6]));
-        pts.push([x, yy, time]);
+        times.push(time);
       }
       total = time;
-      frames = pts.map((q, i) => {
-        const a = pts[Math.max(0, i - 1)], b = pts[Math.min(n, i + 1)];
-        const angle = (Math.atan((b[1] - a[1]) / (b[0] - a[0])) * 180) / Math.PI;
-        return { offset: q[2] / total, transform: `translate(${f1(q[0])}px,${f1(q[1])}px) rotate(${f1(angle)}deg)` };
-      });
+      for (let i = 0; i <= n; i++) frames.push({ offset: times[i] / total, transform: place(from + ((to - from) * i) / n) });
     } else {
       total = Math.abs(to - from) / speed;
       frames = [
@@ -253,17 +299,45 @@ export function attachRiver(label) {
         { transform: `translate(${to}px,${f1(y + (Math.random() - 0.5) * st.h * 0.06)}px)` }
       ];
     }
+    // Carried along, so it travels faster when the current picks up.
     const move = g.animate(frames, { duration: total * 1000, easing: 'linear' });
     // A creature already on the river when it first draws starts part-way across.
     if (head) move.currentTime = move.effect.getTiming().duration * between([0.15, 0.55]);
-    const motions = [move, ...c.animate(inner)];
-    motions.forEach(track);
-    move.onfinish = () => {
-      if (gen !== st.gen) return;
-      layer.removeChild(g);
-      st.live--;
-      motions.forEach(animation => { animation.cancel(); untrack(animation); });
-    };
+    track(move);
+    move.onfinish = () => done([move, ...own]);
+
+    // Against the current a fish swims in strokes: a lunge upstream, then a slide back as the current takes it,
+    // nose still upstream. Each stroke reads the current as it starts, so when the river speeds up the fish is
+    // pushed back further and gains less, though it still gets there. The lunge itself is the fish's own effort
+    // and keeps its pace.
+    function swimUpstream(x) {
+      if (gen !== st.gen || destroyed) return;
+      if ((to - x) * dir <= 0) { done(own); return; }
+      const current = st.rate;
+      const stretch = (Math.abs(to - from) / 14) * between([0.8, 1.2]);
+      const duration = (stretch / (speed * between([0.55, 1.6]))) * 1000;
+      // Now and then a clean stroke, less often in a strong current.
+      const slip = Math.random() < 0.2 / current ? 0 : between([0.22, 0.42]);
+      const lunge = stretch * (1 + slip) * (1 + 0.12 * (current - 1));
+      const back = stretch * slip * current ** 1.3;
+      const peak = x + dir * lunge;
+      const end = peak - dir * back;
+      const frames = slip
+        ? [
+          { transform: place(x), easing: 'cubic-bezier(.15,.75,.3,1)' },
+          { offset: between([0.38, 0.48]), transform: place(peak), easing: 'ease-in-out' },
+          { transform: place(end) }
+        ]
+        : [{ transform: place(x), easing: 'ease-out' }, { transform: place(peak) }];
+      const stroke = g.animate(frames, { duration, fill: 'forwards' });
+      track(stroke, OWN_PACE);
+      stroke.onfinish = () => {
+        swimUpstream(end);
+        // The next stroke starts where this one ends, so dropping this one now doesn't jump.
+        stroke.cancel();
+        untrack(stroke);
+      };
+    }
   }
 
   function draw() {
@@ -354,7 +428,10 @@ export function attachRiver(label) {
   }
 
   // The current speeds up while the field has focus, and everything pauses while the river is off screen.
-  const rate = (value) => { st.rate = value; st.anims.forEach(animation => setRate(animation, value)); };
+  const rate = (value) => {
+    st.rate = value;
+    st.anims.forEach(animation => setRate(animation, (pace.get(animation) || WITH_CURRENT)(value)));
+  };
   const onFocusIn = () => rate(2.6);
   const onFocusOut = () => rate(1);
   label.addEventListener('focusin', onFocusIn);

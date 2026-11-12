@@ -181,3 +181,4 @@
 .r-eye { fill: #0A0A0A; }
 .r-fish { fill: #021F24; }
 .r-fish-tail { transform-origin: -9.5px 0px; }
+.r-fish-wake { fill: none; stroke: #fff; stroke-width: .7; stroke-linecap: round; transform-box: view-box; transform-origin: 13px 0px; }
