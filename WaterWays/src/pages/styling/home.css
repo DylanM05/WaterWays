@@ -1,213 +1,253 @@
-/* The home page. Colours come from the theme variables in index.css. */
-.home {
-  max-width: 960px;
-  margin: 0 auto;
-  padding: 40px 16px 24px;
-  color: var(--text-colour);
-  text-align: left;
-}
-
-.home__hero {
-  position: relative;
-  max-width: 640px;
-  margin: 0 auto 40px;
-  text-align: center;
+/* The home page (design W1, and P1 on phones). */
+.home__hero.page {
+  padding-top: 72px;
+  padding-bottom: 30px;
 }
 
 .home__title {
-  font-size: 2.5rem;
-  font-weight: 700;
-  margin: 0 0 8px;
+  font-size: clamp(48px, 6.4vw, 76px);
+  line-height: .98;
+  font-weight: 780;
+  font-stretch: 116%;
+  letter-spacing: -.035em;
 }
 
-.home__tagline {
-  font-size: 1.05rem;
-  opacity: 0.8;
-  margin: 0 0 24px;
+/* The river runs edge to edge; its text lines up with the page content's left edge. */
+.home__search.river-search[data-size="lg"] {
+  --rpad: max(64px, calc((100% - 1280px) / 2 + 64px));
+  margin-bottom: 48px;
 }
 
-.home__search {
-  position: relative;
-}
+.home__body.page { padding-top: 0; }
 
-.home__search-icon {
-  position: absolute;
-  left: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  opacity: 0.5;
-  pointer-events: none;
-}
+.home__section { margin-bottom: 56px; }
+.home__section:last-child { margin-bottom: 0; }
 
-.home__search input {
-  width: 100%;
-  padding: 12px 16px 12px 44px;
-  font-size: 1rem;
-  color: var(--text-colour);
-  background: var(--card-bg-colour);
-  border: 1px solid var(--border-colour);
-  border-radius: 999px;
-  outline: none;
-}
-
-.home__search input:focus {
-  border-color: var(--primary-colour);
-  box-shadow: 0 0 0 3px rgba(100, 108, 255, 0.2);
-}
-
-.home__results {
-  list-style: none;
-  margin: 8px 0 0;
-  padding: 6px;
-  text-align: left;
-  background: var(--card-bg-colour);
-  border: 1px solid var(--border-colour);
-  border-radius: 12px;
-}
-
-.home__results button {
+.home__section-head {
   display: flex;
   justify-content: space-between;
-  width: 100%;
-  padding: 10px 12px;
-  font-size: 0.95rem;
-  color: var(--text-colour);
-  background: transparent;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  text-align: left;
-}
-
-.home__results button:hover,
-.home__results button:focus {
-  background: rgba(100, 108, 255, 0.12);
-}
-
-.home__results-province {
-  opacity: 0.6;
-  font-size: 0.85rem;
-}
-
-.home__results-empty {
-  padding: 10px 12px;
-  opacity: 0.7;
-  font-size: 0.9rem;
-}
-
-.home__favourites {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 16px;
-  padding: 8px 18px;
-  color: var(--primary-colour);
-  border: 1px solid var(--primary-colour);
-  border-radius: 999px;
-  text-decoration: none;
-}
-
-.home__favourites:hover {
-  color: var(--primary-text-colour);
-  background: var(--primary-colour);
-}
-
-.home__section {
-  margin-bottom: 40px;
+  align-items: baseline;
+  gap: 16px;
+  margin-bottom: 18px;
 }
 
 .home__heading {
-  font-size: 1.1rem;
-  font-weight: 600;
-  margin: 0 0 12px;
+  font-size: 26px;
+  margin-bottom: 18px;
 }
 
-.home__provinces {
+.home__section-head .home__heading { margin-bottom: 0; }
+.home__places .home__heading + ul + .home__heading { margin-top: 32px; }
+
+html a.home__see-all { font-weight: 600; }
+
+/* Saved stations */
+.saved-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 210px), 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
 }
 
-.home__province {
+.saved-card {
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  min-width: 0;
+  font-weight: 400;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.saved-card,
+.saved-card:hover { color: var(--w-ink); }
+.saved-card:hover { border-color: var(--w-accent); box-shadow: 0 0 0 3px var(--w-accent-soft); }
+
+.saved-card__head { display: grid; gap: 4px; min-width: 0; }
+.saved-card__name { font-size: 18px; }
+
+.saved-card__meta {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 12.5px;
+  color: var(--w-ink3);
+}
+
+.saved-card__now {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.saved-card__value { font-size: 36px; }
+
+.saved-card__status {
+  display: grid;
+  gap: 2px;
+  align-content: center;
+  min-height: 94px;
+  font-size: 14px;
+  color: var(--w-ink2);
+}
+
+/* The sparkline in the design's colours: accent while the water moves, grey when it holds steady. */
+.saved-card__spark { --spark-colour: var(--w-accent); }
+.saved-card__spark--steady { --spark-colour: var(--w-ink3); }
+.saved-card__spark .sparkline { position: relative; height: 44px; cursor: inherit; }
+.saved-card__spark .sparkline svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.saved-card__spark .sparkline__line { fill: none; stroke: var(--spark-colour); stroke-opacity: 1; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+.saved-card__spark .sparkline__stop { stop-color: var(--spark-colour); stop-opacity: .22; }
+.saved-card__spark .sparkline__stop--end { stop-opacity: 0; }
+.saved-card__spark .sparkline__dot { background: var(--spark-colour); width: 7px; height: 7px; }
+
+.saved-card__foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--w-line);
+  font-size: 13px;
+  color: var(--w-ink2);
+}
+
+.saved-card__wx {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--w-ink);
+}
+
+.saved-card__wx .ic { width: 18px; height: 18px; color: var(--w-ink2); }
+
+/* Provinces and territories */
+.home__tiles,
+.home__rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.home__tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+.home__tile {
+  height: 100%;
+  display: grid;
+  gap: 2px;
+  align-content: start;
+  padding: 16px 18px;
+  border-radius: 16px;
+  background: var(--w-surface);
+  border: 1px solid var(--w-line);
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.home__tile,
+.home__tile:hover { color: var(--w-ink); }
+.home__tile:hover { border-color: var(--w-accent); box-shadow: 0 0 0 3px var(--w-accent-soft); }
+
+.home__tile b {
+  font-family: var(--f-display);
+  font-stretch: 118%;
+  font-size: 30px;
+  font-weight: 720;
+  line-height: 1.1;
+  letter-spacing: -.02em;
+  color: var(--w-accent);
+}
+
+.home__tile span { font-size: 15px; font-weight: 600; }
+
+.home__rows { overflow: hidden; }
+.home__rows li + li { border-top: 1px solid var(--w-line); }
+
+.home__rows a {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  font-size: 0.95rem;
-  text-align: left;
-  color: var(--text-colour);
-  background: var(--card-bg-colour);
-  border: 1px solid var(--border-colour);
-  border-radius: 10px;
-  cursor: pointer;
-  transition: border-color 0.15s ease;
+  gap: 12px;
+  min-height: 54px;
+  padding: 0 14px;
+  font-weight: 400;
 }
 
-.home__province:hover {
-  border-color: var(--primary-colour);
-}
+.home__rows a,
+.home__rows a:hover { color: var(--w-ink); }
+.home__rows a:hover { background: var(--w-sunk); }
 
-.home__province-code {
-  flex-shrink: 0;
+.home__badge {
   width: 34px;
-  padding: 3px 0;
-  font-size: 0.75rem;
+  height: 34px;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: var(--w-accent-soft);
+  color: var(--w-accent);
+  font-family: var(--f-display);
+  font-stretch: 115%;
   font-weight: 700;
-  text-align: center;
-  color: var(--primary-text-colour);
-  background: var(--primary-colour);
-  border-radius: 6px;
+  font-size: 12.5px;
 }
 
-.home__features {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-  gap: 16px;
+.home__row-name { flex: 1; min-width: 0; font-size: 16px; }
+.home__chev { width: 15px; height: 15px; color: var(--w-ink3); stroke-width: 2.2; }
+
+@media (max-width: 1100px) {
+  .home__hero.page { padding-top: 56px; }
+  .home__search.river-search[data-size="lg"] { --rpad: 32px; }
 }
 
-.home__features h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  margin: 0 0 4px;
-}
+/* Phones follow P1: a smaller title, a narrower river, cards that scroll sideways and a list of places. */
+@media (max-width: 767px) {
+  .home__hero.page { padding: 10px 20px 0; }
+  .home__title { font-size: 34px; font-stretch: 112%; letter-spacing: -.025em; line-height: 1.06; font-weight: 700; }
+  .home__search.river-search[data-size="md"] { margin: 10px 0 2px; }
 
-.home__features p {
-  font-size: 0.9rem;
-  opacity: 0.8;
-  margin: 0;
-}
+  .home__section { margin: 0; }
+  .home__section-head { padding: 20px 4px 10px; margin: 0; }
+  .home__heading { font-size: 20px; margin: 0; padding: 20px 4px 10px; }
+  .home__section-head .home__heading { padding: 0; }
+  .home__places .home__heading + ul + .home__heading { margin-top: 0; }
+  .home__see-all { font-size: 15px; }
 
-.home__features a {
-  color: var(--primary-colour);
-}
+  .saved-cards {
+    display: flex;
+    gap: 12px;
+    margin: 0 -16px;
+    padding: 0 16px 4px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-padding: 0 16px;
+    scrollbar-width: none;
+  }
 
-.home__install {
-  padding: 12px 16px;
-  background: var(--card-bg-colour);
-  border: 1px solid var(--border-colour);
-  border-radius: 12px;
-}
+  .saved-cards::-webkit-scrollbar { display: none; }
 
-.home__install summary {
-  cursor: pointer;
-  font-weight: 500;
-}
+  .saved-card {
+    flex: none;
+    width: 236px;
+    padding: 14px;
+    gap: 10px;
+    scroll-snap-align: start;
+  }
 
-.home__install-steps {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
-  gap: 16px;
-  margin-top: 12px;
-}
+  .saved-card__name {
+    font-family: var(--f-body);
+    font-stretch: normal;
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0;
+    line-height: 1.25;
+  }
 
-.home__install-steps h3 {
-  font-size: 0.95rem;
-  font-weight: 600;
-  margin: 0 0 6px;
-}
-
-.home__install-steps ol {
-  margin: 0;
-  padding-left: 1.25rem;
-  font-size: 0.9rem;
+  .saved-card__meta { font-size: 11px; }
+  .saved-card__value { font-size: 28px; }
+  .saved-card__status { min-height: 76px; font-size: 13px; }
+  .saved-card__spark .sparkline { height: 34px; }
 }
