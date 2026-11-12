@@ -323,7 +323,7 @@ const HistoryTab = ({ stationId }) => {
   let notes = [];
   if (showsHistory && history.interval === 'season') {
     const typical = history.points;
-    const latest = (history.recent || []).at(-1);
+    const latest = (history.recent || []).slice(-1)[0];
     const usual = latest && typical.find(point => point.month === parseDay(latest.date).getUTCMonth() + 1);
     const peak = typical.reduce((best, point) => (!best || point.average > best.average ? point : best), null);
     const trough = typical.reduce((best, point) => (!best || point.average < best.average ? point : best), null);

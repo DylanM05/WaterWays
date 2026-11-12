@@ -3,10 +3,16 @@
 // "FRASER RIVER AT HOPE" -> "FRASER RIVER". Keep the two in step.
 const LOCATION_WORD = String.raw`(?:NEAR|NR|ABOVE|ABV|AB|BELOW|BLW|BL|AT|IN|UPSTREAM|DOWNSTREAM|(?:NORTH|SOUTH)?(?:NORTH|SOUTH|EAST|WEST)\s+OF|[NSEW]\.?\s+OF)`;
 const DISTANCE = String.raw`(?:\d+(?:\.\d+)?\s*(?:KMS?|MILES?|MI|M)\b\.?\s+)`;
-const FRENCH_LOCATION = String.raw`(?<=\))\s+(?:A|AU|AUX)\b`;
-const LOCATION_PATTERN = new RegExp(String.raw`^(.*?)(?:\s+${DISTANCE}?${LOCATION_WORD}\b|${FRENCH_LOCATION})`, 'i');
+// Quebec names put the waterbody type in brackets and the location after "A"/"AU"/"AUX":
+// "RICHELIEU (RIVIERE) A LA MARINA DE SAINT-JEAN". The server matches these with a lookbehind, which Safari
+// before 16.4 can't parse, so here it's a second pattern and the earlier match wins.
+const LOCATION_PATTERN = new RegExp(String.raw`^(.*?)\s+${DISTANCE}?${LOCATION_WORD}\b`, 'i');
+const FRENCH_PATTERN = /^(.*?\))\s+(?:A|AU|AUX)\b/i;
 
 export function riverOfStation(stationName) {
   const name = String(stationName || '').trim();
-  return name.match(LOCATION_PATTERN)?.[1].trim() || name;
+  const candidates = [name.match(LOCATION_PATTERN)?.[1], name.match(FRENCH_PATTERN)?.[1]]
+    .filter(river => river?.trim());
+  if (!candidates.length) return name;
+  return candidates.reduce((first, river) => (river.length < first.length ? river : first)).trim();
 }
