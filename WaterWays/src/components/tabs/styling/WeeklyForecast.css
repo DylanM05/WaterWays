@@ -1,49 +1,47 @@
+.wt-weekly { padding: 4px 18px; }
 
-.weekly-forecast-container .card {
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-  
-  .weekly-forecast-container .card:hover {
-    box-shadow: 0 3px 8px rgba(0,0,0,0.12);
-    transform: translateY(-2px);
-  }
-  
-  .label {
-    color: var(--text-colour);
-    opacity: 0.7;
-    font-size: 0.8rem;
-    font-weight: 500;
-  }
-  
-  .label + strong, 
-  .label + span {
-    margin-top: 2px;
-  }
-  
-  .weekly-forecast-container strong {
-    font-weight: 600;
-  }
-  
-  @media (max-width: 576px) {
-    .weekly-forecast-container .label {
-      font-size: 0.7rem;
-    }
-    
-    .weekly-forecast-container strong {
-      font-size: 0.85rem;
-    }
-    
-    .weekly-forecast-container .card-body {
-      padding: 0.75rem !important;
-    }
-    
-    .weekly-forecast-container .mb-1 {
-      margin-bottom: 0.25rem !important;
-    }
-  }
-  
-  @media (max-width: 767px) {
-    .weekly-forecast-container .d-flex.flex-column.align-items-end small {
-      text-align: right;
-    }
-  }
+.week {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.week__day {
+  display: grid;
+  grid-template-columns: 52px 56px 34px minmax(40px, 1fr) 34px;
+  align-items: center;
+  gap: 10px;
+  height: 50px;
+  font-size: 14.5px;
+}
+
+.week__day + .week__day { border-top: 1px solid var(--w-line); }
+.week__name { font-weight: 600; }
+
+.week__sky {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--w-ink2);
+}
+
+.week__sky .ic { width: 22px; height: 22px; }
+.week__sky i { font-style: normal; font-size: 12px; font-weight: 600; color: var(--w-accent); }
+.week__low { text-align: right; }
+.week__high { text-align: left; font-weight: 600; }
+
+.week__range {
+  position: relative;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--w-sunk);
+}
+
+.week__range span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 3px;
+  background: var(--w-accent);
+}

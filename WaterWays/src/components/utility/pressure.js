@@ -1,3 +1,5 @@
+import { parseLongDateTime } from './dates';
+
 export const HOUR_MS = 60 * 60 * 1000;
 
 // Steady under 0.5 hPa in three hours; 3 hPa or more is a rapid change.
@@ -27,3 +29,12 @@ export const pressureNow = (hours, now = Date.now()) => {
     dayMin: lastDay.length ? Math.min(...lastDay) : null
   };
 };
+
+/** The /details/pressure response as hours ({ time: ms, msl, surface }); its times are UTC. */
+export const pressureHours = (pressureData) => (pressureData?.time || [])
+  .map((timeString, index) => ({
+    time: parseLongDateTime(timeString, { utc: true })?.getTime() ?? NaN,
+    msl: pressureData.pressureMsl?.[index] ?? null,
+    surface: pressureData.surfacePressure?.[index] ?? null
+  }))
+  .filter(hour => Number.isFinite(hour.time));

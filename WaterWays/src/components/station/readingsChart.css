@@ -1,0 +1,29 @@
+.rchart {
+  position: relative;
+  width: 100%;
+  min-height: 180px;
+  line-height: 0;
+}
+
+.rchart .u-over { overflow: visible; }
+.rchart .u-cursor-x { border-right: 1px dashed var(--w-ink2); }
+.rchart .u-select { background: color-mix(in srgb, var(--w-accent) 12%, transparent); }
+
+.rchart__tip {
+  position: absolute;
+  z-index: 2;
+  display: grid;
+  gap: 2px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--w-ink);
+  color: var(--w-bg);
+  font: 600 11.5px/1.25 var(--f-body);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.rchart__tip span { font-weight: 500; font-size: 11px; opacity: .75; }
+
+.rchart__empty { min-height: 180px; align-content: center; justify-items: center; text-align: center; }

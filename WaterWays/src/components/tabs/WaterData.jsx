@@ -1,363 +1,189 @@
-import React, { useState, useContext, useMemo, useRef, useEffect } from 'react';
-import { Card, Table, Container, Alert } from 'react-bootstrap';
-import { formatLongDateTime, formatTickDate, formatTickDateTime, parseUtcTimestamp } from '../utility/dates';
-import uPlot from 'uplot';
-import 'uplot/dist/uPlot.min.css';
-import './styling/waterData.css';
-import { ThemeContext } from '../utility/contexts/Theme';
+import React, { useMemo, useState } from 'react';
 import Spinner from '../spinners/Spinner';
-import WaterSummary from './WaterSummary';
+import StaffGauge from '../station/StaffGauge';
+import ReadingsChart from '../station/ReadingsChart';
+import WeatherStrip from '../station/WeatherStrip';
+import { TrendIcon } from '../icons/Icons';
+import { describeChange, METRICS } from '../utility/readings';
+import { summarizeReadings } from '../utility/waterSummary';
+import './styling/waterData.css';
 
-const WaterData = ({ waterData, waterDataLoading, waterDataError, onFetchWaterData }) => {
-    const { darkMode } = useContext(ThemeContext);
-    const [timeWindow, setTimeWindow] = useState(1);
-    const [recordsPerPage, setRecordsPerPage] = useState(10);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [selectedSeries, setSelectedSeries] = useState('water');
+const DAY_MS = 24 * 60 * 60 * 1000;
+const WINDOWS = [1, 3, 7, 14, 30];
+const WINDOW_TITLES = { 1: 'Past 24 hours', 3: 'Past 3 days', 7: 'Past 7 days', 14: 'Past 14 days', 30: 'Past 30 days' };
+// summarizeReadings names the series by its older keys.
+const SUMMARY_KEY = { water_level: 'water', discharge: 'discharge' };
 
-    const chartRef = useRef(null);
-    const uplotInstance = useRef(null);
+/** The level's change over 24 hours as a pill: "↑ 0.18 m in 24 h". */
+const ChangePill = ({ summary, metric }) => {
+  const change = describeChange(summary.change24h, summary.latest, metric);
+  if (!change) return null;
+  if (change.direction === 'flat') {
+    return <span className="pill pill--flat"><TrendIcon direction="flat" />Steady over 24 h</span>;
+  }
+  const rising = change.direction === 'up';
+  return (
+    <span className={`pill ${rising ? 'pill--rise' : 'pill--fall'}`} aria-label={`${rising ? 'Up' : 'Down'} ${change.amount} ${metric.unit} in the past 24 hours`}>
+      <TrendIcon direction={change.direction} />{change.amount} {metric.unit} in 24 h
+    </span>
+  );
+};
 
-    // Sort water data for current time window (most recent first)
-    const sortedWaterData = useMemo(() => {
-        const data = waterData[timeWindow] || [];
-        return data.length ? [...data].sort((a, b) => new Date(b.date_time) - new Date(a.date_time)) : [];
-    }, [waterData, timeWindow]);
+/** Flow's change over 24 hours, in the flow colour when rising: "↑ 160 in 24 h". */
+const FlowChange = ({ summary, metric }) => {
+  const change = describeChange(summary.change24h, summary.latest, metric);
+  if (!change) return null;
+  if (change.direction === 'flat') return <span className="chg chg--flow">Steady over 24 h</span>;
+  const rising = change.direction === 'up';
+  return (
+    <span className={`chg chg--flow${rising ? ' chg--up' : ''}`} aria-label={`${rising ? 'Up' : 'Down'} ${change.amount} ${metric.unit} in the past 24 hours`}>
+      <TrendIcon direction={change.direction} />{change.amount} in 24 h
+    </span>
+  );
+};
 
-    const plotData = useMemo(() => {
-        if (!sortedWaterData.length) return null;
+const Reading = ({ value, metric, className }) => (
+  <div className={`num ${className}`}>{metric.format(value)}<small>{metric.unit}</small></div>
+);
 
-        // uPlot needs times in ascending order (the table below lists newest first). It draws every
-        // reading, so no short peak is skipped; a few thousand points are no work for it.
-        const dataToUse = [...sortedWaterData].reverse();
+/**
+ * The Water tab: the latest level and flow with a staff gauge, the readings chart, and a strip of weather.
+ * readings are the past 30 days, oldest first, each with its time in ms.
+ */
+const WaterData = ({ readings, loading, error, onRetry, weatherData, forecastData, weeklyData, onOpenWeather }) => {
+  const [days, setDays] = useState(30);
+  const [chosenField, setChosenField] = useState(null);
 
-        const times = dataToUse.map(entry =>
-            // The API serializes timestamps in UTC.
-            parseUtcTimestamp(entry.date_time).getTime() / 1000
-        );
-        const key = selectedSeries === 'water' ? 'water_level' : 'discharge';
-        const values = dataToUse.map(entry => entry[key] ?? null);
-        // Readings older than a week are hourly averages that carry the hour's own low and high; they're
-        // drawn as a band so short peaks stay visible. Five-minute readings have no band (high = low = value).
-        const highs = dataToUse.map((entry, index) => (values[index] === null ? null : entry[`${key}_max`] ?? values[index]));
-        const lows = dataToUse.map((entry, index) => (values[index] === null ? null : entry[`${key}_min`] ?? values[index]));
+  const summaries = useMemo(() => Object.fromEntries(Object.values(METRICS).map(metric => [
+    metric.field, readings?.length ? summarizeReadings(readings, SUMMARY_KEY[metric.field]) : null
+  ])), [readings]);
 
-        return [times, values, highs, lows];
-    }, [sortedWaterData, selectedSeries]);
+  const metrics = Object.values(METRICS).filter(metric => summaries[metric.field]);
+  const metric = metrics.find(m => m.field === chosenField) || metrics[0];
 
-    useEffect(() => {
-        if (!chartRef.current || !plotData || !plotData[0].length) return;
+  const shown = useMemo(() => {
+    if (!readings || !metric) return [];
+    const since = Date.now() - days * DAY_MS;
+    return readings.filter(reading => reading.time >= since && typeof reading[metric.field] === 'number');
+  }, [readings, metric, days]);
 
-        if (uplotInstance.current) {
-            uplotInstance.current.destroy();
-            uplotInstance.current = null;
-        }
+  const weather = (
+    <WeatherStrip weatherData={weatherData} forecastData={forecastData} weeklyData={weeklyData} onOpen={onOpenWeather} />
+  );
 
-        const isDark = darkMode;
-        const COLORS = {
-            background: isDark ? '#1a1a1a' : '#f9f9f9',
-            text: isDark ? '#ffffff' : '#213547',
-            grid: isDark ? '#333' : '#e0e0e0',
-            primary: '#646cff',
-            secondary: '#f25366',
-            waterFill: 'rgba(100, 108, 255, 0.2)',
-            dischargeFill: 'rgba(235, 94, 110, 0.15)'
-        };
+  if (loading) return <Spinner message="Loading readings…" />;
 
-        const opts = {
-            width: chartRef.current.offsetWidth,
-            height: 300,
-            scales: {
-                x: { time: true, show: true },
-                y: { auto: true },
-            },
-            axes: [
-                {
-                    stroke: COLORS.text,
-                    grid: { show: true, stroke: COLORS.grid },
-                    label: 'Date/Time',
-                    size: 60,
-                    values: (self, ticks) => {
-                        const formatTick = timeWindow <= 3 ? formatTickDateTime : formatTickDate;
-
-                        const tickSpacing = Math.ceil(ticks.length / (chartRef.current.offsetWidth / 100));
-                        
-                        return ticks.map((tick, i) => {
-                            if (i % tickSpacing !== 0) return "";
-                            return formatTick(new Date(tick * 1000));
-                        });
-                    }
-                },
-                {
-                    stroke: selectedSeries === 'water' ? COLORS.text : COLORS.text,
-                    grid: { stroke: COLORS.grid },
-                    size: selectedSeries === 'water' ? 70 : 80, // Increase axis size to accommodate label
-                }
-            ],
-            series: [
-                {
-                  label: "Time",
-                  scale: "x"
-                },
-                selectedSeries === 'water'
-                    ? {
-                        label: 'Water Level',
-                        stroke: COLORS.primary,
-                        width: 2,
-                        fill: COLORS.waterFill,
-                        points: { show: false },
-                    }
-                    : {
-                        label: 'Discharge',
-                        stroke: COLORS.secondary,
-                        width: 2,
-                        fill: COLORS.dischargeFill,
-                        points: { show: false },
-                    },
-                // Each reading's high and low (an hourly figure's range); only the band between them is drawn.
-                { label: 'High', stroke: 'transparent', width: 0, points: { show: false } },
-                { label: 'Low', stroke: 'transparent', width: 0, points: { show: false } }
-            ],
-            bands: [
-                { series: [2, 3], fill: selectedSeries === 'water' ? 'rgba(100, 108, 255, 0.35)' : 'rgba(235, 94, 110, 0.35)' }
-            ],
-            cursor: {
-                y: false,
-                drag: { x: true, y: false }
-              },
-              legend: {
-                show: true,
-                live: true,
-              },
-              hooks: {
-                draw: [
-                  (u) => {
-                    const legend = u.root.querySelector(".u-legend");
-                    if (legend) {
-                      legend.style.color = COLORS.text;
-                    }
-                  }
-                ],
-              }
-              
-        };
-
-        uplotInstance.current = new uPlot(opts, plotData, chartRef.current);
-
-        const handleResize = () => {
-            if (uplotInstance.current) {
-                uplotInstance.current.setSize({
-                    width: chartRef.current.offsetWidth,
-                    height: 300,
-                });
-            }
-        };
-
-        window.addEventListener('resize', handleResize);
-        return () => {
-            window.removeEventListener('resize', handleResize);
-            if (uplotInstance.current) uplotInstance.current.destroy();
-        };
-    }, [plotData, darkMode, selectedSeries, timeWindow]);
-
-    const indexOfLastRecord = currentPage * recordsPerPage;
-    const indexOfFirstRecord = indexOfLastRecord - recordsPerPage;
-    const currentWaterData = sortedWaterData.slice(indexOfFirstRecord, indexOfLastRecord);
-    const totalPages = Math.ceil(sortedWaterData.length / recordsPerPage);
-
-    const handleTimeWindowChange = (days) => {
-        setTimeWindow(days);
-        setCurrentPage(1);
-        
-        if (!waterData[days] && !waterDataLoading[days]) {
-            onFetchWaterData(days);
-        }
-    };
-
+  if (error) {
     return (
-        <Container fluid className="px-0">
-            {waterDataError[timeWindow] && <Alert variant="danger">{waterDataError[timeWindow]}</Alert>}
-
-            <Card className="mb-2" style={{ width: '100%', borderRadius: '0.25rem', border: '1px solid var(--border-colour)' }}>
-                <Card.Body>
-                    <div className="d-flex justify-content-between align-items-center mb-3 flex-wrap">
-                        <h5 className="mb-2 mb-md-0">Water Data Visualization</h5>
-                        <div className="d-flex gap-2">
-                            <button
-                                onClick={() => setSelectedSeries('water')}
-                                style={{
-                                    padding: '6px 12px',
-                                    backgroundColor: selectedSeries === 'water' ? 'var(--primary-colour)' : 'var(--button-bg)',
-                                    color: selectedSeries === 'water' ? 'var(--primary-text-colour)' : 'var(--text-colour)',
-                                    border: '1px solid var(--border-colour)',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                }}
-                            >
-                                Water Level (m)
-                            </button>
-                            <button
-                                onClick={() => setSelectedSeries('discharge')}
-                                style={{
-                                    padding: '6px 12px',
-                                    backgroundColor: selectedSeries === 'discharge' ? 'var(--primary-colour)' : 'var(--button-bg)',
-                                    color: selectedSeries === 'discharge' ? 'var(--primary-text-colour)' : 'var(--text-colour)',
-                                    border: '1px solid var(--border-colour)',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                }}
-                            >
-                                Discharge (m³/s)
-                            </button>
-                        </div>
-                    </div>
-
-                    <div className="d-flex gap-1 flex-wrap mb-3">
-                        {[1, 3, 7, 14, 30].map((days) => (
-                            <button
-                                key={days}
-                                onClick={() => handleTimeWindowChange(days)}
-                                style={{
-                                    padding: '6px 10px',
-                                    fontSize: '0.75rem',
-                                    backgroundColor: timeWindow === days ? 'var(--primary-colour)' : 'var(--button-bg)',
-                                    color: timeWindow === days ? 'var(--primary-text-colour)' : 'var(--text-colour)',
-                                    border: '1px solid var(--border-colour)',
-                                    borderRadius: '4px',
-                                    cursor: 'pointer',
-                                    opacity: waterDataLoading[days] ? 0.7 : 1,
-                                    position: 'relative',
-                                }}
-                                disabled={waterDataLoading[days]}
-                            >
-                                {days} Day{days > 1 ? 's' : ''}
-                                {waterDataLoading[days] && (
-                                    <span className="spinner-border spinner-border-sm ms-1" 
-                                          style={{width: '10px', height: '10px'}} 
-                                          role="status" aria-hidden="true">
-                                    </span>
-                                )}
-                            </button>
-                        ))}
-                    </div>
-
-                    {waterDataLoading[timeWindow] ? (
-                        <div className="d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
-                            <Spinner size="60px" color="var(--primary-colour)" message="Fetching data..." />
-                        </div>
-                    ) : (
-                        <div>
-                            <div ref={chartRef} className="uplot-wrapper mb-3" style={{ width: '100%' }} />
-                        </div>
-                    )}
-
-                    {/* Conditions always use the full 30 days the page loads, whatever window the chart shows. */}
-                    {!waterDataLoading[timeWindow] && (
-                        <WaterSummary readings={waterData[30] || waterData[timeWindow]} series={selectedSeries} />
-                    )}
-
-                    <div className="table-responsive">
-                        <Table className={`table table-striped table-hover ${darkMode ? 'table-dark' : ''}`}>
-                            <thead>
-                                <tr>
-                                    <th>Date/Time</th>
-                                    <th>Water Level</th>
-                                    <th>Discharge</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {waterDataLoading[timeWindow] ? (
-                                    <tr>
-                                        <td colSpan="3" className="text-center">Loading data...</td>
-                                    </tr>
-                                ) : currentWaterData.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="3" className="text-center">No data available</td>
-                                    </tr>
-                                ) : (
-                                    currentWaterData.map((entry, index) => (
-                                        <tr key={index}>
-                                            <td>
-                                                {entry.date_time
-                                                    ? formatLongDateTime(parseUtcTimestamp(entry.date_time), { seconds: false })
-                                                    : 'N/A'}
-                                            </td>
-                                            <td>{entry.water_level !== null ? `${entry.water_level} m` : 'N/A'}</td>
-                                            <td>{entry.discharge !== null ? `${entry.discharge} m³/s` : 'N/A'}</td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </Table>
-                    </div>
-
-                    <div className="d-flex justify-content-between align-items-center flex-wrap mt-3 gap-2">
-                        <div className="records-container">
-                            <span className="d-none d-sm-inline me-1">Records:</span>
-                            {[10, 25, 50, 100].map((num) => (
-                                <button
-                                    key={num}
-                                    onClick={() => {
-                                        setRecordsPerPage(num);
-                                        setCurrentPage(1);
-                                    }}
-                                    style={{
-                                        padding: '4px 8px',
-                                        backgroundColor: recordsPerPage === num ? 'var(--primary-colour)' : 'var(--button-bg)',
-                                        color: recordsPerPage === num ? 'var(--primary-text-colour)' : 'var(--text-colour)',
-                                        border: '1px solid var(--border-colour)',
-                                        borderRadius: '4px',
-                                        cursor: 'pointer',
-                                        fontSize: '0.85rem',
-                                    }} 
-                                    className='record-btns'
-                                >
-                                    {num}
-                                </button>
-                            ))}
-                        </div>
-                        <div className="d-flex align-items-center pagination-controls">
-                            <button 
-                                onClick={() => setCurrentPage(1)} 
-                                disabled={currentPage === 1 || waterDataLoading[timeWindow]} 
-                                className="pagination-btn"
-                                aria-label="First page"
-                            >
-                                <span aria-hidden="true">«</span>
-                            </button>
-                            <button 
-                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))} 
-                                disabled={currentPage === 1 || waterDataLoading[timeWindow]} 
-                                className="pagination-btn"
-                                aria-label="Previous page"
-                            >
-                                <span aria-hidden="true">‹</span>
-                            </button>
-                            <span className="pagination-info">
-                                {currentPage}/{totalPages || 1}
-                            </span>
-                            <button 
-                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))} 
-                                disabled={currentPage === totalPages || waterDataLoading[timeWindow] || totalPages === 0} 
-                                className="pagination-btn"
-                                aria-label="Next page"
-                            >
-                                <span aria-hidden="true">›</span>
-                            </button>
-                            <button 
-                                onClick={() => setCurrentPage(totalPages)} 
-                                disabled={currentPage === totalPages || waterDataLoading[timeWindow] || totalPages === 0} 
-                                className="pagination-btn"
-                                aria-label="Last page"
-                            >
-                                <span aria-hidden="true">»</span>
-                            </button>
-                        </div>
-                    </div>
-                </Card.Body>
-            </Card>
-        </Container>
+      <div className="water-tab">
+        <div className="ww-empty">
+          <b>Couldn’t load this station’s readings</b>
+          <span>Check your connection, then try again.</span>
+          <button type="button" className="ww-btn water-tab__retry" onClick={onRetry}>Try again</button>
+        </div>
+        {weather}
+      </div>
     );
+  }
+
+  if (!metric) {
+    return (
+      <div className="water-tab">
+        <div className="ww-empty">
+          <b>No readings in the past 30 days</b>
+          <span>This station hasn’t reported recently. Older records may be in History.</span>
+        </div>
+        {weather}
+      </div>
+    );
+  }
+
+  const level = summaries.water_level;
+  const flow = summaries.discharge;
+  // The big reading is the level, or the flow at stations that only measure flow.
+  const lead = level ? METRICS.water_level : METRICS.discharge;
+  const leadSummary = summaries[lead.field];
+
+  return (
+    <div className="water-tab">
+      <div className="water-tab__grid">
+        <section className="ww-card now-card" aria-label="Latest reading">
+          <div className="now-card__top">
+            <div className="now-card__lead">
+              <div className="now-card__label">{lead.label}</div>
+              <Reading value={leadSummary.latest} metric={lead} className="now-card__big" />
+              <ChangePill summary={leadSummary} metric={lead} />
+              {level && flow && (
+                <div className="now-card__flowline muted">
+                  Flow <b className="num">{METRICS.discharge.format(flow.latest)}</b> {METRICS.discharge.unit}
+                </div>
+              )}
+            </div>
+            {level && (
+              <>
+                <div className="now-card__gauge now-card__gauge--wide">
+                  <StaffGauge value={level.latest} low={level.low} high={level.high} height={236} plate={36} fontSize={14} />
+                </div>
+                <div className="now-card__gauge now-card__gauge--phone">
+                  <StaffGauge value={level.latest} low={level.low} high={level.high} height={196} plate={30} fontSize={12} />
+                </div>
+              </>
+            )}
+          </div>
+          {level && flow && (
+            <div className="now-card__flow">
+              <div className="now-card__divider" />
+              <div className="now-card__flowrow">
+                <div className="now-card__lead">
+                  <div className="now-card__label">Flow</div>
+                  <Reading value={flow.latest} metric={METRICS.discharge} className="now-card__mid" />
+                </div>
+                <FlowChange summary={flow} metric={METRICS.discharge} />
+              </div>
+            </div>
+          )}
+        </section>
+
+        <section className="ww-card chart-card" aria-label={`${metric.label} chart`}>
+          <div className="chart-card__head">
+            <h2 className="disp chart-card__title">{WINDOW_TITLES[days]}</h2>
+            <div className="chart-card__controls">
+              {metrics.length > 1 && (
+                <div className="seg" role="group" aria-label="Reading">
+                  {metrics.map(m => (
+                    <button key={m.field} type="button" className={m === metric ? 'is-on' : undefined} aria-pressed={m === metric} onClick={() => setChosenField(m.field)}>
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="chips" role="group" aria-label="Period">
+                {WINDOWS.map(windowDays => (
+                  <button
+                    key={windowDays}
+                    type="button"
+                    className={`${windowDays === days ? 'is-on' : ''}${windowDays === 3 || windowDays === 14 ? ' chips__wide' : ''}`}
+                    aria-pressed={windowDays === days}
+                    aria-label={WINDOW_TITLES[windowDays]}
+                    onClick={() => setDays(windowDays)}
+                  >
+                    {windowDays}d
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <ReadingsChart
+            readings={shown}
+            metric={metric}
+            days={days}
+            label={`${metric.label} over the ${WINDOW_TITLES[days].toLowerCase()}; ${metric.format(summaries[metric.field].latest)} ${metric.unit} now`}
+          />
+        </section>
+      </div>
+      {weather}
+    </div>
+  );
 };
 
 export default WaterData;
