@@ -1,6 +1,5 @@
 import React, { lazy, Suspense, useState } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import { ThemeProvider } from './components/utility/contexts/Theme';
 import AppShell from './components/layout/AppShell';
 import Home from './pages/home';
 import ProtectedRoute from './components/utility/ProtectedRoute';
@@ -27,43 +26,43 @@ function App() {
 
   useTrackUser();
 
+  // The theme comes from the ThemeProvider in main.jsx, which SettingsProvider also reads, so theme changes
+  // here are saved to the account.
   return (
-    <ThemeProvider>
-      <div className="App">
-        <Router>
-          <Routes>
-            <Route path="/" element={<AppShell />}>
-              <Route index element={<Home />} />
-              <Route path="/province/:code" element={page(<Province setRivers={setRivers} />)} />
-              <Route path="/river/:riverName" element={page(<RiverSections rivers={rivers} />)} />
-              <Route path="/station-details/:stationId" element={page(<StationDetails />)} />
-              <Route path="/pricing" element={page(<Pricing />)} />
-              <Route path="/privacy" element={page(<Privacy />)} />
-              <Route path="/settings" element={page(
-                <ProtectedRoute>
-                  <Settings />
-                </ProtectedRoute>
-              )} />
-              <Route path="/favourites" element={page(
-                <ProtectedRoute requireSubscription={true}>
-                  <Favorites />
-                </ProtectedRoute>
-              )} />
-              <Route path="/admin/5jN!^2pw&Bi4a0y26M^H" element={page(
-                <ProtectedRoute requireAdmin={true}>
-                  <AdminInvites />
-                </ProtectedRoute>
-              )} />
-            </Route>
-            <Route path="/redeem" element={page(
+    <div className="App">
+      <Router>
+        <Routes>
+          <Route path="/" element={<AppShell />}>
+            <Route index element={<Home />} />
+            <Route path="/province/:code" element={page(<Province setRivers={setRivers} />)} />
+            <Route path="/river/:riverName" element={page(<RiverSections rivers={rivers} />)} />
+            <Route path="/station-details/:stationId" element={page(<StationDetails />)} />
+            <Route path="/pricing" element={page(<Pricing />)} />
+            <Route path="/privacy" element={page(<Privacy />)} />
+            <Route path="/settings" element={page(
               <ProtectedRoute>
-                <RedeemInvite />
-                </ProtectedRoute>
+                <Settings />
+              </ProtectedRoute>
             )} />
-          </Routes>
-        </Router>
-      </div>
-    </ThemeProvider>
+            <Route path="/favourites" element={page(
+              <ProtectedRoute requireSubscription={true}>
+                <Favorites />
+              </ProtectedRoute>
+            )} />
+            <Route path="/admin/5jN!^2pw&Bi4a0y26M^H" element={page(
+              <ProtectedRoute requireAdmin={true}>
+                <AdminInvites />
+              </ProtectedRoute>
+            )} />
+          </Route>
+          <Route path="/redeem" element={page(
+            <ProtectedRoute>
+              <RedeemInvite />
+              </ProtectedRoute>
+          )} />
+        </Routes>
+      </Router>
+    </div>
   );
 }
 
