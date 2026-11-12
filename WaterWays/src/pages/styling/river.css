@@ -221,11 +221,8 @@ html .river-table__name a:hover { color: var(--w-ink); }
 
 /* Stations not reporting */
 .river-quiet {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px 20px;
-  flex-wrap: wrap;
+  display: grid;
+  gap: 6px;
   padding: 16px 20px;
   border: 1px dashed var(--w-line);
   border-radius: 16px;
@@ -234,6 +231,9 @@ html .river-table__name a:hover { color: var(--w-ink); }
 
 html .river-quiet a { color: var(--w-ink); font-weight: 600; }
 html .river-quiet a:hover { color: var(--w-accent); }
+.river-quiet p { margin: 0; }
+.river-quiet__station { display: inline-block; max-width: 100%; }
+.river-quiet__station .faint { font-size: 13px; white-space: nowrap; }
 
 /* Phone list */
 .river-list { display: none; }
@@ -304,6 +304,10 @@ html .river-quiet a:hover { color: var(--w-accent); }
   }
 
   .river-list li + li { border-top: 1px solid var(--w-line); }
+  .river-list--save li { display: flex; align-items: center; }
+  .river-list--save .river-list__row { flex: 1; min-width: 0; padding-right: 4px; }
+  .river-list--save .river-heart { flex: none; margin-right: 8px; }
+  .river-list li.is-saved { background: color-mix(in srgb, var(--w-accent-soft) 45%, var(--w-surface)); }
 
   html .river-list__row {
     display: grid;

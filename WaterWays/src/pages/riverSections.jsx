@@ -114,6 +114,10 @@ const RiverSections = ({ rivers }) => {
   }, [shareNote]);
 
   const toggleFavorite = async (stationId) => {
+    if (!isSignedIn) {
+      openSignIn();
+      return;
+    }
     if (!subscriptionStatus) return;
     if (!subscriptionStatus.subscribed) {
       navigate(`/pricing?station=${encodeURIComponent(stationId)}`);
@@ -219,6 +223,8 @@ const RiverSections = ({ rivers }) => {
     id: station.station_id,
     name: sectionName(station, riverName),
     province: station.province,
+    // The catalogue marks stations that have no real-time feed.
+    realtime: station.realtime !== false,
     row: describeRow(summaries[station.station_id])
   })), [stations, summaries, riverName]);
   // When the readings didn't load, every station stays in the table rather than being called not reporting.
@@ -260,7 +266,6 @@ const RiverSections = ({ rivers }) => {
   } else if (!loaded) {
     body = <Spinner message="Loading readings…" />;
   } else {
-    const showHearts = isSignedIn;
     body = (
       <>
         {readingsFailed && (
@@ -271,17 +276,18 @@ const RiverSections = ({ rivers }) => {
         )}
         {reporting.length > 0 && (
           <>
+            {/* Signed-out visitors see the hearts too; tapping one asks them to sign in. */}
             <RiverStationTable
               rows={reporting}
-              saved={showHearts ? favorites : null}
+              saved={favorites}
               saving={favoriteLoading}
-              onSave={showHearts ? toggleFavorite : null}
+              onSave={toggleFavorite}
               showProvince={provinces.length > 1}
             />
-            <RiverStationList rows={reporting} />
+            <RiverStationList rows={reporting} saved={favorites} saving={favoriteLoading} onSave={toggleFavorite} />
           </>
         )}
-        {quiet.length > 0 && <QuietStations stations={quiet} summaries={summaries} total={rows.length} />}
+        {quiet.length > 0 && <QuietStations stations={quiet} summaries={summaries} />}
       </>
     );
   }
@@ -340,32 +346,35 @@ const RiverSections = ({ rivers }) => {
   );
 };
 
-/** Stations without a recent reading, on one line below the table. */
-const QuietStations = ({ stations, summaries, total }) => {
-  const link = ({ id, name }) => {
-    const last = summaries[id]?.lastReported;
-    return <Link key={id} to={`/station-details/${encodeURIComponent(id)}`} title={last ? `Last reported ${shortLastReported(last)}` : undefined}>{name}</Link>;
-  };
-
-  if (stations.length === 1) {
-    const [only] = stations;
-    const last = summaries[only.id]?.lastReported;
-    return (
-      <div className="river-quiet">
-        <span>{link(only)} is not reporting</span>
-        {last && <span className="faint">Last reported {shortLastReported(last)}</span>}
-      </div>
-    );
-  }
+/**
+ * Stations without a recent reading, below the table: those with a real-time feed that has gone quiet, with
+ * the day each last reported, and those with no real-time feed at all.
+ */
+const QuietStations = ({ stations, summaries }) => {
+  const groups = [
+    ['No recent readings', stations.filter(station => station.realtime), true],
+    ['No live readings', stations.filter(station => !station.realtime), false]
+  ].filter(([, list]) => list.length);
 
   return (
     <div className="river-quiet">
-      <span>
-        {stations.length === total ? `None of the ${total} stations are` : `${stations.length} stations aren’t`} reporting:{' '}
-        {stations.map((station, index) => (
-          <React.Fragment key={station.id}>{index > 0 && ', '}{link(station)}</React.Fragment>
-        ))}
-      </span>
+      {groups.map(([label, list, dated]) => (
+        <p key={label}>
+          {label}:{' '}
+          {list.map(({ id, name }, index) => {
+            const last = dated && summaries[id]?.lastReported;
+            return (
+              <React.Fragment key={id}>
+                {index > 0 && ', '}
+                <span className="river-quiet__station">
+                  <Link to={`/station-details/${encodeURIComponent(id)}`}>{name}</Link>
+                  {last && <span className="faint"> {shortLastReported(last)}</span>}
+                </span>
+              </React.Fragment>
+            );
+          })}
+        </p>
+      ))}
     </div>
   );
 };

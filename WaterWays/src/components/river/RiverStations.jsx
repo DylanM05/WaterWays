@@ -37,9 +37,22 @@ const Line = ({ line }) => line && (
 
 const stationPath = (id) => `/station-details/${encodeURIComponent(id)}`;
 
+const Heart = ({ id, name, isSaved, saving, onSave }) => (
+  <button
+    type="button"
+    className={`river-heart${isSaved ? ' is-on' : ''}`}
+    onClick={() => onSave(id)}
+    disabled={saving}
+    aria-label={isSaved ? `Remove ${name} from saved` : `Save ${name}`}
+    aria-pressed={isSaved}
+  >
+    {isSaved ? <HeartFilledIcon /> : <HeartIcon />}
+  </button>
+);
+
 /**
  * The river's reporting stations as a table (desktop). Each row opens its station; the name is the link, so the
- * row is reachable by keyboard. saved/onSave are omitted for signed-out visitors, which hides the hearts.
+ * row is reachable by keyboard. Without onSave there are no hearts.
  */
 export const RiverStationTable = ({ rows, saved, saving, onSave, showProvince }) => {
   const navigate = useNavigate();
@@ -82,18 +95,7 @@ export const RiverStationTable = ({ rows, saved, saving, onSave, showProvince })
                   {row.updated && <time dateTime={row.time.toISOString()} title={row.time.toLocaleString('en-CA')}>{row.updated}</time>}
                 </td>
                 <td className="river-table__save">
-                  {onSave && (
-                    <button
-                      type="button"
-                      className={`river-heart${isSaved ? ' is-on' : ''}`}
-                      onClick={() => onSave(id)}
-                      disabled={saving?.[id]}
-                      aria-label={isSaved ? `Remove ${name} from saved` : `Save ${name}`}
-                      aria-pressed={isSaved}
-                    >
-                      {isSaved ? <HeartFilledIcon /> : <HeartIcon />}
-                    </button>
-                  )}
+                  {onSave && <Heart id={id} name={name} isSaved={isSaved} saving={saving?.[id]} onSave={onSave} />}
                 </td>
               </tr>
             );
@@ -104,13 +106,17 @@ export const RiverStationTable = ({ rows, saved, saving, onSave, showProvince })
   );
 };
 
-/** The same stations as a list of rows (phone): name and time, a small line, and the level with its change. */
-export const RiverStationList = ({ rows }) => (
-  <ul className="ww-card river-list">
+/**
+ * The same stations as a list of rows (phone): name and time, a small line, the level with its change, and a heart
+ * beside the row, taking the same saved/saving/onSave as the table.
+ */
+export const RiverStationList = ({ rows, saved, saving, onSave }) => (
+  <ul className={`ww-card river-list${onSave ? ' river-list--save' : ''}`}>
     {rows.map(({ id, name, row }) => {
       const main = row.level || row.flow;
+      const isSaved = Boolean(saved?.[id]);
       return (
-        <li key={id}>
+        <li key={id} className={isSaved ? 'is-saved' : undefined}>
           <Link to={stationPath(id)} className="river-list__row">
             <span className="river-list__name">
               <b>{name}</b>
@@ -122,6 +128,7 @@ export const RiverStationList = ({ rows }) => (
               <Change cell={main} flow={!row.level} unit={false} />
             </span>
           </Link>
+          {onSave && <Heart id={id} name={name} isSaved={isSaved} saving={saving?.[id]} onSave={onSave} />}
         </li>
       );
     })}
