@@ -20,13 +20,13 @@ const DISCHARGE_PARAMETER = '47';
 // Water Office answered from about 578 days back (checked Nov 2026); asking a little earlier costs one
 // mostly empty request per station.
 const WINDOW_DAYS = 590;
-const STATION_CONCURRENCY = 2;
-// Water Office drops connections for a minute or so when asked too quickly, so requests are spaced out
-// and retried with a growing wait. Tests set pauseMs to 0.
-const settings = { pauseMs: 300, retryWaitsMs: [5000, 10000, 20000, 40000, 60000] };
+// Water Office handled 8 stations at a time with no pause (240 requests in 6s, none dropped, Nov 2026).
+// When it does drop connections, requests are retried with a growing wait. --concurrency and --pause
+// override these; tests set pauseMs to 0.
+const settings = { concurrency: 8, pauseMs: 0, retryWaitsMs: [5000, 10000, 20000, 40000, 60000] };
 const SOURCE = 'wateroffice-provisional';
 const DAY_MS = 24 * 60 * 60 * 1000;
-const USAGE = 'Usage: node scripts/backfillProvisionalDaily.js <stationId|--all> [--dry-run]';
+const USAGE = 'Usage: node scripts/backfillProvisionalDaily.js <stationId|--all> [--dry-run] [--concurrency N] [--pause MS]';
 
 const monthStart = (date, offset = 0) => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + offset, 1));
 const dayStart = date => new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
@@ -134,6 +134,16 @@ async function backfillStation(stationId, dryRun) {
 async function main() {
     const args = process.argv.slice(2);
     const dryRun = args.includes('--dry-run');
+    const option = name => {
+        const index = args.indexOf(name);
+        if (index === -1) return undefined;
+        const value = Number(args[index + 1]);
+        if (!Number.isInteger(value) || value < 0) throw new Error(USAGE);
+        args.splice(index, 2);
+        return value;
+    };
+    settings.concurrency = option('--concurrency') || settings.concurrency;
+    settings.pauseMs = option('--pause') ?? settings.pauseMs;
     const target = args.find(arg => arg !== '--dry-run');
     if (!target || (target !== '--all' && !/^[A-Za-z0-9]+$/.test(target))) throw new Error(USAGE);
 
@@ -148,7 +158,7 @@ async function main() {
         : [target.toUpperCase()];
 
     const { default: pLimit } = await import('p-limit');
-    const limit = pLimit(STATION_CONCURRENCY);
+    const limit = pLimit(settings.concurrency);
     let finished = 0;
     let totalWritten = 0;
     let failures = 0;
