@@ -19,10 +19,6 @@ export const normalizeDefaultTab = (value) => {
 
 const normalizeUnit = (value) => (value === 'fahrenheit' ? 'fahrenheit' : 'celsius');
 
-// The server only accepts the old tab names, so History is kept in this browser and sent as Water until it
-// accepts 'history' (Server/controllers/settingsController.js and models/UserSettings.js).
-const serverTab = (tab) => (tab === 'history' ? 'water' : tab);
-
 const readLocal = (key) => {
   try {
     return localStorage.getItem(key);
@@ -63,7 +59,7 @@ export const SettingsProvider = ({ children }) => {
     await axios.post(`${API_BASE_URL}/s/${userId}`, {
       settings: {
         temperatureUnit: values.temperatureUnit,
-        defaultTab: serverTab(values.defaultTab),
+        defaultTab: values.defaultTab,
         theme: dark ? 'dark' : 'light'
       }
     }, {
@@ -83,10 +79,10 @@ export const SettingsProvider = ({ children }) => {
         const serverSettings = response.data?.settings;
         if (cancelled || !serverSettings) return;
 
-        let defaultTab = normalizeDefaultTab(serverSettings.defaultTab);
-        // See serverTab: the account stores History as Water.
-        if (defaultTab === 'water' && settingsRef.current.defaultTab === 'history') defaultTab = 'history';
-        const next = { temperatureUnit: normalizeUnit(serverSettings.temperatureUnit), defaultTab };
+        const next = {
+          temperatureUnit: normalizeUnit(serverSettings.temperatureUnit),
+          defaultTab: normalizeDefaultTab(serverSettings.defaultTab)
+        };
         writeLocal('temperatureUnit', next.temperatureUnit);
         writeLocal('defaultTab', next.defaultTab);
         setSettings(prev => ({ ...prev, ...next }));

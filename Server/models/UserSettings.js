@@ -25,7 +25,7 @@ const userSettingsSchema = new mongoose.Schema({
     },
     defaultTab: {
       type: String,
-      enum: ['water', 'pressure', 'weather', 'hourlyforecast', 'weeklyforecast', 'map'],
+      enum: ['water', 'history', 'pressure', 'weather', 'hourlyforecast', 'weeklyforecast', 'map'],
       default: 'water'
     },
     theme: {

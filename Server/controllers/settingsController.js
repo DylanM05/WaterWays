@@ -57,7 +57,7 @@ const saveUserSettings = async (req, res) => {
     temperatureUnit: (value) => ['celsius', 'fahrenheit'].includes(value),
     distanceUnit: (value) => ['metric', 'imperial'].includes(value),
     timeFormat: (value) => ['12h', '24h'].includes(value),
-    defaultTab: (value) => ['water', 'pressure', 'weather', 'hourlyforecast', 'weeklyforecast', 'map'].includes(value),
+    defaultTab: (value) => ['water', 'history', 'pressure', 'weather', 'hourlyforecast', 'weeklyforecast', 'map'].includes(value),
     theme: (value) => ['light', 'dark'].includes(value)
   };
 
