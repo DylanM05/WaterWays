@@ -1,12 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
-import { useAuth } from '@clerk/clerk-react';
-import { FaHeart, FaRegHeart } from 'react-icons/fa';
-import FavouritesSubscribeToast from '../components/toasts/subscriptionRequiredToast';
-import StationCard from '../components/stations/StationCard';
+import { useAuth, useClerk } from '@clerk/clerk-react';
+import Spinner from '../components/spinners/Spinner';
+import { ChevronLeftIcon, HeartFilledIcon, HeartIcon, ShareIcon } from '../components/icons/Icons';
 import { fetchStationSummaries } from '../components/utility/stationSummaries';
 import { displayTitle, PROVINCE_NAMES } from '../components/utility/names';
+import { describeRow, sectionName, shortLastReported } from '../components/river/riverRows';
+import { useRiverAlerts } from '../components/river/useRiverAlerts';
+import RiverAlerts from '../components/river/RiverAlerts';
+import { RiverStationList, RiverStationTable } from '../components/river/RiverStations';
+import './styling/river.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -48,17 +52,20 @@ function useRiverStations(rivers, riverName) {
 
 const RiverSections = ({ rivers }) => {
   const { riverName } = useParams();
+  const navigate = useNavigate();
   const { stations, failed } = useRiverStations(rivers, riverName);
+  const alerts = useRiverAlerts(stations);
   const [summaries, setSummaries] = useState({});
   const [favorites, setFavorites] = useState({});
   const [favoriteLoading, setFavoriteLoading] = useState({});
   const [savedRivers, setSavedRivers] = useState([]);
   const [riverSaving, setRiverSaving] = useState(false);
   const [riverSaveError, setRiverSaveError] = useState(null);
-  const [showToast, setShowToast] = useState(false);
-  const [toastMessage, setToastMessage] = useState('');
-  const [subscriptionStatus, setSubscriptionStatus] = useState({ subscribed: false });
+  // null until known, so a subscriber's click isn't sent to the pricing page while it loads.
+  const [subscriptionStatus, setSubscriptionStatus] = useState(null);
+  const [shareNote, setShareNote] = useState(null);
   const { isSignedIn, getToken } = useAuth();
+  const { openSignIn } = useClerk();
 
   useEffect(() => {
     if (!stations?.length) return undefined;
@@ -69,7 +76,7 @@ const RiverSections = ({ rivers }) => {
       .then(result => { if (!cancelled) setSummaries(result); })
       .catch(error => {
         console.error('Error loading latest readings:', error);
-        // Stop the spinners and say so, rather than showing every station as having no data.
+        // Stop the spinner and say so, rather than showing every station as not reporting.
         if (!cancelled) setSummaries(Object.fromEntries(stationIds.map(id => [id, { failed: true }])));
       });
     return () => { cancelled = true; };
@@ -94,18 +101,25 @@ const RiverSections = ({ rivers }) => {
         setSubscriptionStatus(subscription);
       } catch (error) {
         console.error('Error loading saved stations:', error);
+        if (!cancelled) setSubscriptionStatus(prev => prev || { subscribed: false });
       }
     })();
     return () => { cancelled = true; };
   }, [isSignedIn, stations, getToken]);
 
-  const toggleFavorite = async (station) => {
-    const stationId = station.station_id;
+  useEffect(() => {
+    if (!shareNote) return undefined;
+    const timer = setTimeout(() => setShareNote(null), 2200);
+    return () => clearTimeout(timer);
+  }, [shareNote]);
+
+  const toggleFavorite = async (stationId) => {
+    if (!subscriptionStatus) return;
     if (!subscriptionStatus.subscribed) {
-      setToastMessage('You need a premium subscription to access favorites. Please upgrade your plan.');
-      setShowToast(true);
+      navigate(`/pricing?station=${encodeURIComponent(stationId)}`);
       return;
     }
+    const station = stations.find(item => item.station_id === stationId);
     try {
       setFavoriteLoading(prev => ({ ...prev, [stationId]: true }));
       const token = await getToken();
@@ -136,11 +150,6 @@ const RiverSections = ({ rivers }) => {
   const riverSaved = provinces.length > 0 && provinces.every(province => riverRecords.some(record => record.province === province));
 
   const toggleRiver = async () => {
-    if (!subscriptionStatus.subscribed) {
-      setToastMessage('You need a premium subscription to save rivers. Please upgrade your plan.');
-      setShowToast(true);
-      return;
-    }
     try {
       setRiverSaving(true);
       setRiverSaveError(null);
@@ -169,97 +178,194 @@ const RiverSections = ({ rivers }) => {
       }
     } catch (error) {
       console.error('Error saving river:', error);
-      // Not the subscription toast: this is a failed request, not a missing membership.
       setRiverSaveError('Couldn’t update your saved rivers. Please try again.');
     } finally {
       setRiverSaving(false);
     }
   };
-  const loaded = stations?.length > 0 && Object.keys(summaries).length > 0;
-  const reporting = (stations || []).filter(station => !loaded || summaries[station.station_id]?.reading);
-  const quiet = loaded ? stations.filter(station => !summaries[station.station_id]?.reading) : [];
 
-  const card = (station) => {
-    const stationId = station.station_id;
-    const saved = favorites[stationId];
-    return (
-      <StationCard
-        key={stationId}
-        stationId={stationId}
-        title={station.section ? displayTitle(station.section) : displayTitle(station.stationName)}
-        meta={provinces.length > 1 ? `${station.province} · ${stationId}` : stationId}
-        summary={summaries[stationId]}
-        realtime={station.realtime}
-        action={isSignedIn && (
-          <button
-            type="button"
-            className={`station-card__icon-button${saved ? ' station-card__icon-button--active' : ''}`}
-            onClick={() => toggleFavorite(station)}
-            disabled={favoriteLoading[stationId]}
-            aria-label={saved ? 'Remove from favourites' : 'Add to favourites'}
-            aria-pressed={Boolean(saved)}
-          >
-            {saved ? <FaHeart size={16} /> : <FaRegHeart size={16} />}
-          </button>
-        )}
-      />
-    );
+  const saveRiver = () => {
+    if (!isSignedIn) {
+      openSignIn();
+      return;
+    }
+    if (!subscriptionStatus) return;
+    if (subscriptionStatus.subscribed) toggleRiver();
+    else navigate('/pricing');
   };
 
-  let subtitle = 'Loading stations…';
+  const share = async () => {
+    const url = window.location.href;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, url });
+      } catch {
+        // Closing the share sheet is not an error worth showing.
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      setShareNote('Link copied');
+    } catch {
+      setShareNote('Couldn’t copy the link');
+    }
+  };
+
+  const loaded = stations?.length > 0 && Object.keys(summaries).length > 0;
+  const readingsFailed = loaded && Object.values(summaries).some(summary => summary.failed);
+
+  const rows = useMemo(() => (stations || []).map(station => ({
+    id: station.station_id,
+    name: sectionName(station, riverName),
+    province: station.province,
+    row: describeRow(summaries[station.station_id])
+  })), [stations, summaries, riverName]);
+  // When the readings didn't load, every station stays in the table rather than being called not reporting.
+  const reporting = readingsFailed ? rows : rows.filter(item => item.row.reading);
+  const quiet = loaded && !readingsFailed ? rows.filter(item => !item.row.reading) : [];
+  const reportingIds = new Set(reporting.map(item => item.id));
+
+  const firstProvince = provinces[0];
+  const back = firstProvince && PROVINCE_NAMES[firstProvince]
+    ? { to: `/province/${firstProvince.toLowerCase()}`, label: PROVINCE_NAMES[firstProvince] }
+    : { to: '/', label: 'Explore' };
+
+  let meta = null;
   if (stations?.length) {
-    const count = `${stations.length} station${stations.length === 1 ? '' : 's'}`;
-    const reportingNow = loaded ? ` · ${reporting.length} reporting now` : '';
-    subtitle = `${provinces.map(province => PROVINCE_NAMES[province] || province).join(', ')} · ${count}${reportingNow}`;
+    meta = `${stations.length} ${stations.length === 1 ? 'station' : 'stations'}`;
+    if (loaded && !readingsFailed) meta += `, ${reporting.length} reporting`;
+  }
+
+  const hasStations = stations?.length > 0;
+  const saveDisabled = riverSaving || (isSignedIn && !subscriptionStatus);
+  const saveLabel = riverSaved ? `Remove ${title} from saved` : `Save ${title}`;
+  const note = shareNote && <span className="river__note" role="status">{shareNote}</span>;
+
+  let body;
+  if (stations === null) {
+    body = <Spinner message="Loading stations…" />;
+  } else if (stations.length === 0) {
+    body = failed ? (
+      <div className="ww-empty">
+        <b>Couldn’t load {title}</b>
+        <span>Check your connection and refresh to try again.</span>
+      </div>
+    ) : (
+      <div className="ww-empty">
+        <b>No stations found on {title}</b>
+        <span>Search for the river by another name, or browse its province.</span>
+      </div>
+    );
+  } else if (!loaded) {
+    body = <Spinner message="Loading readings…" />;
+  } else {
+    const showHearts = isSignedIn;
+    body = (
+      <>
+        {readingsFailed && (
+          <div className="ww-empty">
+            <b>Couldn’t load the latest readings</b>
+            <span>Check your connection and refresh to try again.</span>
+          </div>
+        )}
+        {reporting.length > 0 && (
+          <>
+            <RiverStationTable
+              rows={reporting}
+              saved={showHearts ? favorites : null}
+              saving={favoriteLoading}
+              onSave={showHearts ? toggleFavorite : null}
+              showProvince={provinces.length > 1}
+            />
+            <RiverStationList rows={reporting} />
+          </>
+        )}
+        {quiet.length > 0 && <QuietStations stations={quiet} summaries={summaries} total={rows.length} />}
+      </>
+    );
   }
 
   return (
-    <div className="station-page">
-      <header className="station-page__header station-page__header--with-action">
-        <div>
-          <h1 className="station-page__title">{title}</h1>
-          {stations?.length !== 0 && <p className="station-page__subtitle">{subtitle}</p>}
-        </div>
-        {isSignedIn && stations?.length > 0 && (
+    <div className="page river">
+      {/* Phones get the iOS app's round buttons in place of the back link and header actions. */}
+      <div className="river__bar">
+        <Link to={back.to} className="river__round" aria-label={`Back to ${back.label}`}><ChevronLeftIcon /></Link>
+        {note}
+        <button type="button" className="river__round" onClick={share} aria-label={`Share ${title}`}><ShareIcon /></button>
+        {hasStations && (
           <button
             type="button"
-            className={`station-page__save${riverSaved ? ' station-page__save--active' : ''}`}
-            onClick={toggleRiver}
-            disabled={riverSaving}
+            className={`river__round${riverSaved ? ' is-on' : ''}`}
+            onClick={saveRiver}
+            disabled={saveDisabled}
+            aria-label={saveLabel}
             aria-pressed={riverSaved}
           >
-            {riverSaved ? <FaHeart size={14} /> : <FaRegHeart size={14} />}
-            {riverSaved ? 'Saved' : 'Save river'}
+            {riverSaved ? <HeartFilledIcon /> : <HeartIcon />}
           </button>
         )}
-      </header>
-      {riverSaveError && <p className="station-page__error" role="alert">{riverSaveError}</p>}
+      </div>
 
-      {stations === null ? (
-        <div className="text-center py-4">
-          <span className="spinner-border" role="status" aria-label="Loading stations" style={{ color: 'var(--primary-colour)' }} />
+      <div className="river__back-row">
+        {stations !== null && <Link to={back.to} className="ww-back"><ChevronLeftIcon />{back.label}</Link>}
+      </div>
+      <header className="river__head">
+        <div>
+          <h1 className="disp river__title">{title}</h1>
+          {meta && <p className="river__meta">{meta}</p>}
         </div>
-      ) : stations.length === 0 ? (
-        <div className="station-page__empty">
-          {failed ? 'Couldn’t load this river. Check your connection and refresh to try again.' : 'No stations were found for this river.'}
-        </div>
-      ) : (
-        <>
-          <div className="station-grid">{reporting.map(card)}</div>
-          {quiet.length > 0 && (
-            <>
-              <h2 className="station-page__section-title">Not reporting right now</h2>
-              <div className="station-grid">{quiet.map(card)}</div>
-            </>
+        <div className="river__acts">
+          {note}
+          <button type="button" className="ww-btn ww-btn--ghost ww-btn--icon" onClick={share} aria-label={`Share ${title}`}><ShareIcon /></button>
+          {hasStations && (
+            <button
+              type="button"
+              className={`ww-btn${riverSaved ? ' ww-btn--soft' : ''}`}
+              onClick={saveRiver}
+              disabled={saveDisabled}
+              aria-pressed={riverSaved}
+            >
+              {riverSaved ? <HeartFilledIcon /> : <HeartIcon />}
+              {riverSaved ? 'Saved' : 'Save river'}
+            </button>
           )}
-        </>
-      )}
+        </div>
+      </header>
+      {riverSaveError && <p className="river__error" role="alert">{riverSaveError}</p>}
 
-      <FavouritesSubscribeToast
-        showToast={showToast}
-        setShowToast={setShowToast}
-        toastMessage={toastMessage}
-      />
+      <RiverAlerts alerts={alerts} preferredIds={reportingIds} />
+      {body}
+    </div>
+  );
+};
+
+/** Stations without a recent reading, on one line below the table. */
+const QuietStations = ({ stations, summaries, total }) => {
+  const link = ({ id, name }) => {
+    const last = summaries[id]?.lastReported;
+    return <Link key={id} to={`/station-details/${encodeURIComponent(id)}`} title={last ? `Last reported ${shortLastReported(last)}` : undefined}>{name}</Link>;
+  };
+
+  if (stations.length === 1) {
+    const [only] = stations;
+    const last = summaries[only.id]?.lastReported;
+    return (
+      <div className="river-quiet">
+        <span>{link(only)} is not reporting</span>
+        {last && <span className="faint">Last reported {shortLastReported(last)}</span>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="river-quiet">
+      <span>
+        {stations.length === total ? `None of the ${total} stations are` : `${stations.length} stations aren’t`} reporting:{' '}
+        {stations.map((station, index) => (
+          <React.Fragment key={station.id}>{index > 0 && ', '}{link(station)}</React.Fragment>
+        ))}
+      </span>
     </div>
   );
 };
