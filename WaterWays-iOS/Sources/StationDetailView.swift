@@ -13,49 +13,57 @@ struct StationDetailView: View {
     @State private var showSubscriptionPrompt = false
     @State private var favoriteError: String?
     @State private var alerts: [WeatherAlert] = []
+    /// The station's catalogue entry, for its name and location when it was opened from a search result.
+    @State private var details: RiverStation?
+    /// Pull to refresh bumps this; each tab reloads when it changes.
+    @State private var refreshToken = 0
+
+    private var shown: RiverStation { details ?? station }
 
     var body: some View {
-        VStack(spacing: 0) {
-            if !alerts.isEmpty {
-                WeatherAlertBanner(alerts: alerts)
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
-            }
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(StationDataTab.allCases) { tab in
-                        Button { selectedTab = tab } label: {
-                            HStack(spacing: 5) {
-                                if tab == .history && !appState.isPremiumSubscriber {
-                                    Image(systemName: "lock.fill").font(.caption2)
-                                }
-                                Text(tab.title)
-                            }
-                                .font(.subheadline.weight(.semibold))
-                                .foregroundStyle(selectedTab == tab ? .white : .primary)
-                                .padding(.horizontal, 14).padding(.vertical, 9)
-                                .background(selectedTab == tab ? Theme.accent : Theme.surface, in: Capsule())
-                        }
-                        .buttonStyle(.plain)
-                    }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                if !alerts.isEmpty {
+                    WeatherAlertBanner(alerts: alerts)
                 }
-                .padding(.horizontal, 16).padding(.vertical, 12)
+                SegmentedPills(options: StationDataTab.allCases.map { ($0, $0.title) }, selection: $selectedTab, fill: true)
+                switch selectedTab {
+                case .water: WaterTab(station: shown, refreshToken: refreshToken)
+                case .weather: StationWeatherTab(station: shown, refreshToken: refreshToken)
+                case .history: StationHistoryTab(station: shown, refreshToken: refreshToken)
+                case .map: StationMapView(station: shown)
+                }
             }
-            if selectedTab == .map {
-                StationMapView(station: station)
-            } else {
-                StationDataPanel(station: station, tab: selectedTab)
-            }
+            .padding(.horizontal, 16)
+            .padding(.top, 6)
+            .padding(.bottom, 24)
         }
         .background(Theme.bg)
-        .navigationTitle(station.displayName)
+        .navigationTitle(shown.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
-            selectedTab = StationDataTab(rawValue: defaultStationTab) ?? .water
+            selectedTab = StationDataTab(setting: defaultStationTab)
         }
+        .refreshable { refreshToken += 1 }
         // Safety information, so it's shown to everyone; a failed check just shows no banner.
-        .task { alerts = (try? await APIClient.weatherAlerts(stationID: station.stationID)) ?? [] }
+        .task(id: refreshToken) { alerts = (try? await APIClient.weatherAlerts(stationID: station.stationID)) ?? [] }
+        .task {
+            guard station.latitude == nil || station.province.isEmpty else { return }
+            details = try? await APIClient.coordinates(stationID: station.stationID)
+        }
         .toolbar {
+            ToolbarItem(placement: .principal) {
+                VStack(spacing: 0) {
+                    Text(shown.displayName)
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(1)
+                    Text(station.stationID)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(Theme.ink3)
+                }
+                .accessibilityElement(children: .combine)
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     guard clerk.user != nil else {
@@ -64,7 +72,7 @@ struct StationDetailView: View {
                     }
                     Task {
                         do {
-                            let result = try await appState.toggleFavorite(station, clerk: clerk)
+                            let result = try await appState.toggleFavorite(shown, clerk: clerk)
                             showSubscriptionPrompt = result == .subscriptionRequired
                             if result == .signedOut { isAuthPresented = true }
                         } catch {
@@ -73,7 +81,7 @@ struct StationDetailView: View {
                     }
                 } label: {
                     Image(systemName: appState.isFavorite(station) ? "heart.fill" : "heart")
-                        .foregroundStyle(appState.isFavorite(station) ? .red : .primary)
+                        .foregroundStyle(appState.isFavorite(station) ? Theme.accent : Theme.ink)
                 }
                 .disabled(appState.isUpdatingFavorite(station))
                 .accessibilityLabel(appState.isFavorite(station) ? "Remove from saved stations" : "Save station")
@@ -97,45 +105,22 @@ struct StationDetailView: View {
 }
 
 enum StationDataTab: String, CaseIterable, Identifiable {
-    case water, history, pressure, weather, hourly, weekly, map
+    case water, weather, history, map
     var id: String { rawValue }
     var title: String {
         switch self {
         case .water: "Water"
+        case .weather: "Weather"
         case .history: "History"
-        case .pressure: "Pressure"
-        case .weather: "Current weather"
-        case .hourly: "Hourly forecast"
-        case .weekly: "Weekly forecast"
         case .map: "Map"
         }
     }
-    var path: String? {
-        switch self {
-        case .water: "details/water-data/{id}/1"
-        case .history: nil
-        case .pressure: "details/pressure/{id}"
-        case .weather: "details/weather/{id}"
-        case .hourly: "details/weather/hourly/{id}"
-        case .weekly: "details/weather/weekly/{id}"
-        case .map: nil
-        }
-    }
-}
 
-struct StationDataPanel: View {
-    let station: RiverStation
-    let tab: StationDataTab
-
-    var body: some View {
-        switch tab {
-        case .water: WaterChartPanel(station: station)
-        case .history: HistoryPanel(station: station)
-        case .pressure: PressureChartPanel(station: station)
-        case .weather: CurrentWeatherPanel(station: station)
-        case .hourly: HourlyForecastPanel(station: station)
-        case .weekly: WeeklyForecastPanel(station: station)
-        case .map: StationMapView(station: station)
+    /// The saved default tab. Pressure and the forecasts were tabs of their own before they joined Weather.
+    init(setting: String) {
+        switch setting {
+        case "pressure", "hourly", "weekly", "hourlyforecast", "weeklyforecast": self = .weather
+        default: self = StationDataTab(rawValue: setting) ?? .water
         }
     }
 }
@@ -160,35 +145,24 @@ struct StationMapView: View {
     let station: RiverStation
 
     var body: some View {
-        if let latitude = station.latitude.flatMap(Double.init),
-           let longitude = station.longitude.flatMap(Double.init) {
-            Map(initialPosition: .region(MKCoordinateRegion(
-                center: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
-                span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08)
-            ))) {
-                Marker(station.displayName, coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude))
-            }
-            .mapControls { MapCompass(); MapScaleView() }
-        } else {
-            ContentUnavailableView("Location unavailable", systemImage: "map")
-        }
-    }
-}
-
-extension WeatherAlert {
-    /// Environment Canada's risk colour when it gives one, otherwise by alert type.
-    var tint: Color {
-        switch colour?.lowercased() ?? "" {
-        case "red": return .red
-        case "orange": return .orange
-        case "yellow": return .yellow
-        default:
-            switch type {
-            case "warning": return .red
-            case "watch": return .orange
-            default: return .yellow
+        Group {
+            if let latitude = station.latitude.flatMap(Double.init),
+               let longitude = station.longitude.flatMap(Double.init) {
+                Map(initialPosition: .region(MKCoordinateRegion(
+                    center: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+                    span: MKCoordinateSpan(latitudeDelta: 0.08, longitudeDelta: 0.08)
+                ))) {
+                    Marker(station.displayName, coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude))
+                        .tint(Theme.accent)
+                }
+                .mapControls { MapCompass(); MapScaleView() }
+            } else {
+                ContentUnavailableView("Location unavailable", systemImage: "map")
             }
         }
+        .frame(height: 440)
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Theme.line))
     }
 }
 
@@ -197,23 +171,27 @@ struct WeatherAlertBanner: View {
     let alerts: [WeatherAlert]
     @State private var isPresented = false
 
-    private var tint: Color { alerts.first?.tint ?? .yellow }
-
     var body: some View {
+        let palette = AlertPalette(alerts.first)
         Button { isPresented = true } label: {
             HStack(spacing: 10) {
-                Image(systemName: "exclamationmark.triangle.fill").font(.title3)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(alerts[0].title).font(.subheadline.weight(.semibold))
-                    Text(alerts.count > 1 ? "and \(alerts.count - 1) more · Environment Canada" : "Environment Canada")
-                        .font(.caption)
-                }
-                Spacer(minLength: 8)
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold))
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(palette.on)
+                    .frame(width: 28, height: 28)
+                    .background(palette.mark, in: Circle())
+                (Text(alerts[0].title).fontWeight(.bold)
+                    + Text(alerts.count > 1 ? " and \(alerts.count - 1) more" : ""))
+                    .font(.system(size: 13))
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Image(systemName: "chevron.right").font(.system(size: 13, weight: .semibold))
             }
-            .foregroundStyle(tint == .yellow ? Color.black : Color.white)
-            .padding(.horizontal, 14).padding(.vertical, 10)
-            .background(tint, in: RoundedRectangle(cornerRadius: 12))
+            .foregroundStyle(palette.ink)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(palette.background, in: RoundedRectangle(cornerRadius: 14))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(palette.line))
         }
         .buttonStyle(.plain)
         .accessibilityHint("Shows the full alert")

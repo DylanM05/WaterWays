@@ -91,6 +91,15 @@ struct LeadReading {
         }
     }
 
+    /// A summary figure with its change; the decimals follow the value, as for a reading.
+    init(value: Double, isFlow: Bool, change: Double?) {
+        self.value = value
+        self.isFlow = isFlow
+        self.change = change
+        unit = isFlow ? "m³/s" : "m"
+        decimals = isFlow ? WaterFormat.flowDecimals(value) : 2
+    }
+
     var formatted: String { WaterFormat.number(value, decimals: decimals) }
 }
 
