@@ -1,5 +1,6 @@
 import ClerkKit
 import ClerkKitUI
+import StoreKit
 import SwiftUI
 
 struct AccountView: View {
@@ -13,6 +14,29 @@ struct AccountView: View {
 
     var body: some View {
         List {
+            if let user = clerk.user {
+                Section {
+                    HStack(spacing: 14) {
+                        Text(initials(of: user))
+                            .font(.system(size: 17, weight: .bold))
+                            .foregroundStyle(Theme.accent)
+                            .frame(width: 48, height: 48)
+                            .background(Theme.accentSoft, in: Circle())
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 2) {
+                            if let name = [user.firstName, user.lastName].compactMap({ $0 }).joined(separator: " ").nilIfEmpty {
+                                Text(name).font(.display(18)).foregroundStyle(Theme.ink)
+                            }
+                            Text(user.primaryEmailAddress?.emailAddress ?? "Email unavailable")
+                                .font(.system(size: 14))
+                                .foregroundStyle(Theme.ink2)
+                                .textSelection(.enabled)
+                        }
+                    }
+                    .padding(.vertical, 6)
+                }
+                .listRowBackground(Theme.surface)
+            }
             Section {
                 NavigationLink { PreferencesView() } label: { Label("Preferences", systemImage: "slider.horizontal.3") }
                 if clerk.user != nil {
@@ -28,25 +52,9 @@ struct AccountView: View {
                 }
                 NavigationLink { AboutView() } label: { Label("About WaterWays", systemImage: "info.circle") }
             }
-            Section("Account") {
-                if let user = clerk.user {
-                    HStack(alignment: .top, spacing: 12) {
-                        Image(systemName: "person.crop.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(.secondary)
-                            .frame(width: 36, height: 36)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("Signed in as")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Text(user.primaryEmailAddress?.emailAddress ?? "Email unavailable")
-                                .font(.body)
-                                .foregroundStyle(.primary)
-                                .fixedSize(horizontal: false, vertical: true)
-                                .textSelection(.enabled)
-                        }
-                    }
-                    .padding(.vertical, 4)
+            .listRowBackground(Theme.surface)
+            Section {
+                if clerk.user != nil {
                     Button {
                         isProfilePresented = true
                     } label: {
@@ -70,9 +78,10 @@ struct AccountView: View {
                     }
                 }
                 if let authError {
-                    Text(authError).font(.footnote).foregroundStyle(.red)
+                    Text(authError).font(.footnote).foregroundStyle(Theme.alertRed)
                 }
             }
+            .listRowBackground(Theme.surface)
             if clerk.user != nil {
                 Section {
                     Button(role: .destructive) {
@@ -88,6 +97,7 @@ struct AccountView: View {
                 } footer: {
                     Text("Permanently deletes your WaterWays account, saved rivers and stations.")
                 }
+                .listRowBackground(Theme.surface)
             }
         }
         .themedList()
@@ -119,6 +129,11 @@ struct AccountView: View {
                 authError = error.localizedDescription
             }
         }
+    }
+
+    private func initials(of user: User) -> String {
+        let letters = [user.firstName, user.lastName].compactMap { $0?.first.map(String.init) }.joined()
+        return (letters.isEmpty ? user.primaryEmailAddress?.emailAddress.first.map(String.init) ?? "?" : letters).uppercased()
     }
 
     private var deletionWarning: String {
@@ -171,7 +186,7 @@ struct PreferencesView: View {
 
     private var defaultTabBinding: Binding<String> {
         Binding(
-            get: { defaultStationTab },
+            get: { StationDataTab(setting: defaultStationTab).rawValue },
             set: { value in
                 defaultStationTab = value
                 saveSettingsIfSignedIn()
@@ -188,27 +203,27 @@ struct PreferencesView: View {
                     }
                 }
             }
+            .listRowBackground(Theme.surface)
             Section("Measurements") {
                 Picker("Temperature", selection: temperatureBinding) {
                     Text("Celsius").tag("celsius")
                     Text("Fahrenheit").tag("fahrenheit")
                 }
             }
+            .listRowBackground(Theme.surface)
             Section("Station details") {
-                Picker("Default data view", selection: defaultTabBinding) {
-                    Text("Water").tag("water")
-                    Text("History").tag("history")
-                    Text("Pressure").tag("pressure")
-                    Text("Weather").tag("weather")
-                    Text("Hourly forecast").tag("hourly")
-                    Text("Weekly forecast").tag("weekly")
-                    Text("Map").tag("map")
+                Picker("Opens on", selection: defaultTabBinding) {
+                    ForEach(StationDataTab.allCases) { tab in
+                        Text(tab.title).tag(tab.rawValue)
+                    }
                 }
             }
+            .listRowBackground(Theme.surface)
             if let settingsError {
                 Section {
-                    Text(settingsError).font(.footnote).foregroundStyle(.red)
+                    Text(settingsError).font(.footnote).foregroundStyle(Theme.alertRed)
                 }
+                .listRowBackground(Theme.surface)
             }
             #if DEBUG
             Section {
@@ -218,8 +233,11 @@ struct PreferencesView: View {
             } footer: {
                 Text("Debug builds only. Sends requests to \(APIClient.localServerURL.absoluteString). Pull to refresh or reopen screens after switching.")
             }
+            .listRowBackground(Theme.surface)
             #endif
         }
+        .scrollContentBackground(.hidden)
+        .background(Theme.bg)
         .navigationTitle("Preferences")
         .task(id: clerk.user?.id) {
             await loadSettings()
@@ -238,7 +256,7 @@ struct PreferencesView: View {
             if let settings = try await APIClient.userSettings(userID: userID, token: token) {
                 serverSettings = settings
                 temperatureUnit = settings.temperatureUnit
-                defaultStationTab = nativeTabValue(settings.defaultTab)
+                defaultStationTab = StationDataTab(setting: settings.defaultTab).rawValue
             } else {
                 serverSettings = .defaults
             }
@@ -257,7 +275,7 @@ struct PreferencesView: View {
         settingsError = nil
         var settings = serverSettings
         settings.temperatureUnit = temperatureUnit
-        settings.defaultTab = serverTabValue(defaultStationTab)
+        settings.defaultTab = defaultStationTab
         serverSettings = settings
         Task {
             do {
@@ -266,22 +284,6 @@ struct PreferencesView: View {
             } catch {
                 settingsError = "Saved on this device, but couldn’t sync your preferences."
             }
-        }
-    }
-
-    private func nativeTabValue(_ serverValue: String) -> String {
-        switch serverValue {
-        case "hourlyforecast": "hourly"
-        case "weeklyforecast": "weekly"
-        default: serverValue
-        }
-    }
-
-    private func serverTabValue(_ nativeValue: String) -> String {
-        switch nativeValue {
-        case "hourly": "hourlyforecast"
-        case "weekly": "weeklyforecast"
-        default: nativeValue
         }
     }
 }
@@ -293,11 +295,15 @@ struct MembershipView: View {
     @State private var isUpdatingSubscription = false
     @State private var isCancelConfirmationPresented = false
     @State private var isManagingAppleSubscription = false
+    @State private var selectedProductID = NativeSubscriptionProducts.annual
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                currentMembership
+                // Non-members see the offer alone, unless their status couldn't be checked.
+                if appState.isPremiumSubscriber || appState.isCheckingSubscription || appState.subscriptionPlan == nil {
+                    currentMembership
+                }
                 if appState.isPremiumSubscriber {
                     if appState.subscriptionSource == "apple" {
                         appleMembershipActions
@@ -306,69 +312,7 @@ struct MembershipView: View {
                     }
                 } else if !appState.isCheckingSubscription,
                           appState.subscriptionPlan?.lowercased() != "lifetime" {
-                    Text("Choose your plan").font(.title2.weight(.bold))
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Premium includes").font(.headline)
-                        Label("Historical water data and typical-year comparisons", systemImage: "clock.arrow.circlepath")
-                        Label("Saved rivers and stations, synced to your account", systemImage: "heart")
-                    }
-                    .font(.subheadline)
-                    PlanRow(title: "Free", price: "$0/month", detail: "Water data and current weather")
-                    if appState.subscriptionPlan == nil {
-                        Text("Your current membership status couldn’t be checked.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                    if appState.appleProducts.isEmpty {
-                        Text(appState.applePurchaseMessage ?? "Subscriptions aren’t available right now. Please try again later.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        ForEach(appState.appleProducts, id: \.id) { product in
-                            Button {
-                                Task { await appState.purchaseAppleSubscription(product, clerk: clerk) }
-                            } label: {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 5) {
-                                        Text(product.id == NativeSubscriptionProducts.annual ? "Annual" : "Monthly")
-                                            .font(.headline)
-                                        Text(product.id == NativeSubscriptionProducts.annual ? "Billed annually" : "Billed monthly")
-                                            .font(.subheadline)
-                                            .foregroundStyle(.secondary)
-                                    }
-                                    Spacer()
-                                    if appState.isPurchasingAppleSubscription {
-                                        ProgressView()
-                                    } else {
-                                        Text(product.displayPrice)
-                                            .font(.subheadline.weight(.semibold))
-                                    }
-                                }
-                                .padding(16)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .cardBackground(cornerRadius: 14)
-                            }
-                            .buttonStyle(.plain)
-                            .disabled(appState.isPurchasingAppleSubscription)
-                        }
-                    }
-                    Button("Restore Apple purchases") {
-                        Task { await appState.restoreApplePurchases(clerk: clerk) }
-                    }
-                    .disabled(appState.isPurchasingAppleSubscription)
-                    if !appState.appleProducts.isEmpty, let applePurchaseMessage = appState.applePurchaseMessage {
-                        Text(applePurchaseMessage).font(.footnote).foregroundStyle(.secondary)
-                    }
-                    if !appState.appleProducts.isEmpty {
-                        Text("Subscriptions renew automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in your Apple account settings.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
-                    HStack(spacing: 16) {
-                        Link("Terms of Use", destination: NativeSubscriptionProducts.termsOfUseURL)
-                        Link("Privacy Policy", destination: NativeSubscriptionProducts.privacyPolicyURL)
-                    }
-                    .font(.footnote)
+                    premiumOffer
                 }
             }
             .padding(20)
@@ -432,6 +376,146 @@ struct MembershipView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
+    /// The design's Premium sheet: what Premium adds, the two App Store plans, and the required legal text.
+    private var premiumOffer: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Image(systemName: "crown")
+                .font(.system(size: 26, weight: .medium))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 58, height: 58)
+                .background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 18))
+                .accessibilityHidden(true)
+            Text("WaterWays Premium")
+                .font(.display(28, relativeTo: .title1))
+                .foregroundStyle(Theme.ink)
+            VStack(alignment: .leading, spacing: 10) {
+                feature("Archived levels and flows", symbol: "clock.arrow.circlepath")
+                feature("Typical-year comparisons", symbol: "chart.xyaxis.line")
+                feature("Saved rivers and stations", symbol: "heart")
+            }
+            if appState.subscriptionPlan == nil {
+                Text("Your current membership status couldn’t be checked.")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.ink2)
+            }
+            if appState.appleProducts.isEmpty {
+                Text(appState.applePurchaseMessage ?? "Subscriptions aren’t available right now. Please try again later.")
+                    .font(.footnote)
+                    .foregroundStyle(Theme.ink2)
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(sortedProducts, id: \.id) { product in planOption(product) }
+                }
+                Button {
+                    guard let product = selectedProduct else { return }
+                    Task { await appState.purchaseAppleSubscription(product, clerk: clerk) }
+                } label: {
+                    Group {
+                        if appState.isPurchasingAppleSubscription {
+                            ProgressView().tint(Theme.accentInk)
+                        } else {
+                            Text("Continue")
+                        }
+                    }
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Theme.accentInk)
+                    .frame(maxWidth: .infinity, minHeight: 52)
+                    .background(Theme.accent, in: RoundedRectangle(cornerRadius: 16))
+                }
+                .buttonStyle(.plain)
+                .disabled(appState.isPurchasingAppleSubscription || selectedProduct == nil)
+            }
+            if !appState.appleProducts.isEmpty, let applePurchaseMessage = appState.applePurchaseMessage {
+                Text(applePurchaseMessage).font(.footnote).foregroundStyle(Theme.ink2)
+            }
+            VStack(spacing: 8) {
+                Button("Restore purchases") {
+                    Task { await appState.restoreApplePurchases(clerk: clerk) }
+                }
+                .font(.system(size: 13, weight: .semibold))
+                .tint(Theme.accent)
+                .disabled(appState.isPurchasingAppleSubscription)
+                if !appState.appleProducts.isEmpty {
+                    Text("Renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in your Apple account settings.")
+                }
+                HStack(spacing: 16) {
+                    Link("Terms of Use", destination: NativeSubscriptionProducts.termsOfUseURL)
+                    Link("Privacy Policy", destination: NativeSubscriptionProducts.privacyPolicyURL)
+                }
+                .tint(Theme.accent)
+            }
+            .font(.system(size: 11))
+            .foregroundStyle(Theme.ink3)
+            .multilineTextAlignment(.center)
+            .frame(maxWidth: .infinity)
+        }
+    }
+
+    private func feature(_ title: String, symbol: String) -> some View {
+        Label {
+            Text(title).font(.system(size: 15)).foregroundStyle(Theme.ink)
+        } icon: {
+            Image(systemName: symbol).font(.system(size: 15, weight: .semibold)).foregroundStyle(Theme.accent)
+        }
+    }
+
+    /// Annual first, as in the design.
+    private var sortedProducts: [Product] {
+        appState.appleProducts.sorted { first, _ in first.id == NativeSubscriptionProducts.annual }
+    }
+
+    private var selectedProduct: Product? {
+        appState.appleProducts.first { $0.id == selectedProductID } ?? sortedProducts.first
+    }
+
+    private var monthlyProduct: Product? {
+        appState.appleProducts.first { $0.id == NativeSubscriptionProducts.monthly }
+    }
+
+    private func planOption(_ product: Product) -> some View {
+        let selected = product.id == selectedProduct?.id
+        let annual = product.id == NativeSubscriptionProducts.annual
+        return Button {
+            selectedProductID = product.id
+        } label: {
+            HStack(spacing: 12) {
+                Circle()
+                    .strokeBorder(selected ? Theme.accent : Theme.line, lineWidth: 2)
+                    .background(Circle().fill(selected ? Theme.accent : .clear))
+                    .overlay(Circle().fill(Theme.accentInk).frame(width: 8, height: 8).opacity(selected ? 1 : 0))
+                    .frame(width: 22, height: 22)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("\(product.displayPrice) \(annual ? "a year" : "a month")")
+                        .font(.system(size: 16, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                    if annual {
+                        Text("\((product.price / 12).formatted(product.priceFormatStyle)) a month")
+                            .font(.system(size: 13))
+                            .foregroundStyle(Theme.ink2)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                if annual, let monthly = monthlyProduct, monthly.price > 0 {
+                    let saving = Int((1 - NSDecimalNumber(decimal: product.price / (monthly.price * 12)).doubleValue) * 100)
+                    if saving > 0 {
+                        Text("Save \(saving)%")
+                            .font(.system(size: 11.5, weight: .bold))
+                            .foregroundStyle(Theme.accentInk)
+                            .padding(.horizontal, 8)
+                            .frame(height: 22)
+                            .background(Theme.accent, in: RoundedRectangle(cornerRadius: 6))
+                    }
+                }
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 14)
+            .background(selected ? Theme.accentSoft.opacity(0.5) : Theme.surface, in: RoundedRectangle(cornerRadius: 16))
+            .overlay(RoundedRectangle(cornerRadius: 16).strokeBorder(selected ? Theme.accent : Theme.line, lineWidth: selected ? 2 : 1.5))
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
     private var cancelledMessage: String {
         guard let expiresAt = appState.subscriptionExpiresAt else { return "Your membership is cancelled and won’t renew." }
         return "Your membership is cancelled and won’t renew. Premium stays on until \(formattedDate(expiresAt))."
@@ -462,7 +546,7 @@ struct MembershipView: View {
     @ViewBuilder
     private var currentMembership: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Current membership").font(.headline)
+            Text("Your membership").font(.display(18)).foregroundStyle(Theme.ink)
             if appState.isCheckingSubscription {
                 ProgressView("Checking membership")
             } else if appState.subscriptionPlan != nil {
@@ -486,7 +570,7 @@ struct MembershipView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .cardBackground(cornerRadius: 14)
+        .cardBackground()
     }
 
     private func refreshStatus() async {
@@ -521,10 +605,11 @@ struct AboutView: View {
     var body: some View {
         List {
             Section {
-                LabeledContent("Version", value: "0.1")
+                LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "—")
                 Text("WaterWays provides river water-level and weather information for monitoring stations across Canada.")
                     .foregroundStyle(.secondary)
             }
+            .listRowBackground(Theme.surface)
             Section {
                 Text("Water data, records and weather alerts come from Environment and Climate Change Canada (Water Survey of Canada and the Meteorological Service of Canada). Contains information licensed under the Open Government Licence – Canada.")
                     .foregroundStyle(.secondary)
@@ -535,27 +620,14 @@ struct AboutView: View {
             } header: {
                 Text("Data")
             }
+            .listRowBackground(Theme.surface)
         }
+        .scrollContentBackground(.hidden)
+        .background(Theme.bg)
         .navigationTitle("About WaterWays")
     }
 }
 
-struct PlanRow: View {
-    let title: String
-    let price: String
-    let detail: String
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack {
-                Text(title).font(.headline)
-                Spacer()
-                Text(price).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.accent)
-            }
-            Text(detail).font(.subheadline).foregroundStyle(.secondary)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .cardBackground(cornerRadius: 14)
-    }
+extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }
