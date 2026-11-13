@@ -1,0 +1,121 @@
+/* A saved station as a card: name, ID and province, any alert, the latest readings and change, the last day,
+   weather. */
+.saved-card {
+  padding: 20px;
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  min-width: 0;
+  font-weight: 400;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.saved-card,
+.saved-card:hover { color: var(--w-ink); }
+.saved-card:hover { border-color: var(--w-accent); box-shadow: 0 0 0 3px var(--w-accent-soft); }
+
+.saved-card__head { display: grid; gap: 4px; min-width: 0; }
+.saved-card__name { font-size: 18px; }
+
+.saved-card__meta {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 12.5px;
+  color: var(--w-ink3);
+}
+
+.saved-card__now {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.saved-card__value { font-size: 36px; }
+
+/* The second measurement, under the first. */
+.saved-card__second {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: -6px;
+  font-size: 13px;
+  color: var(--w-ink3);
+}
+
+.saved-card__second .num { font-size: 15px; color: var(--w-ink); }
+.saved-card__second small { font-size: 11px; margin-left: 2px; }
+.saved-card__second .chg { font-size: 12.5px; }
+
+/* The most severe weather alert, coloured by the .ww-alert--* severity tokens (orange by default). */
+.saved-card__alert {
+  justify-self: start;
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 4px;
+  padding: 2px 9px 2px 7px;
+  border-radius: 999px;
+  background: var(--w-warn-bg);
+  border: 1px solid var(--w-warn-line);
+  color: var(--w-warn-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
+.saved-card__alert .ic { width: 13px; height: 13px; flex: none; color: var(--w-warn); stroke-width: 2.4; }
+.saved-card__alert-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.saved-card__alert-more { flex: none; opacity: .75; }
+
+.saved-card__status {
+  display: grid;
+  gap: 2px;
+  align-content: center;
+  min-height: 94px;
+  font-size: 14px;
+  color: var(--w-ink2);
+}
+
+/* The sparkline in the design's colours: accent while the water moves, grey when it holds steady. */
+.saved-card__spark { --spark-colour: var(--w-accent); }
+.saved-card__spark--steady { --spark-colour: var(--w-ink3); }
+.saved-card__spark .sparkline { position: relative; height: 44px; cursor: inherit; }
+.saved-card__spark .sparkline svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.saved-card__spark .sparkline__line { fill: none; stroke: var(--spark-colour); stroke-opacity: 1; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+.saved-card__spark .sparkline__stop { stop-color: var(--spark-colour); stop-opacity: .22; }
+.saved-card__spark .sparkline__stop--end { stop-opacity: 0; }
+.saved-card__spark .sparkline__dot { background: var(--spark-colour); width: 7px; height: 7px; }
+
+.saved-card__foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--w-line);
+  font-size: 13px;
+  color: var(--w-ink2);
+}
+
+.saved-card__wx {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.saved-card__sky {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--w-ink);
+  white-space: nowrap;
+}
+
+.saved-card__wx .ic { width: 18px; height: 18px; color: var(--w-ink2); }
+.saved-card__wind { white-space: nowrap; }
+.saved-card__foot time { white-space: nowrap; }

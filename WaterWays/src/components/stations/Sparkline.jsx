@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
+import './sparkline.css';
 
 const GAP_MS = 90 * 60 * 1000;
 
 /**
  * A small line of the last day's hourly values ({ time: ms, value }, oldest first), with the newest point
- * marked in the accent colour. Hovering shows the value at that hour. minSpan is the smallest range the
- * height stands for, so a nearly flat river doesn't look jagged.
+ * marked. Hovering shows the value at that hour. minSpan is the smallest range the height stands for, so a
+ * nearly flat river doesn't look jagged. The colour is --spark-colour (the accent unless a parent sets it).
  */
 const Sparkline = ({ points, minSpan, format, label, onClick }) => {
   const [hovered, setHovered] = useState(null);
+  const fillId = `spark-fill${useId().replace(/:/g, '')}`;
   const usable = points.filter(point => Number.isFinite(point.time) && Number.isFinite(point.value));
   if (usable.length < 2) return null;
 
@@ -60,7 +62,13 @@ const Sparkline = ({ points, minSpan, format, label, onClick }) => {
       onClick={onClick}
     >
       <svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
-        {areas.map((area, index) => <path key={index} className="sparkline__area" d={area} />)}
+        <defs>
+          <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" className="sparkline__stop" />
+            <stop offset="1" className="sparkline__stop sparkline__stop--end" />
+          </linearGradient>
+        </defs>
+        {areas.map((area, index) => <path key={index} className="sparkline__area" d={area} fill={`url(#${fillId})`} />)}
         <path className="sparkline__line" d={line} vectorEffect="non-scaling-stroke" />
       </svg>
       {hovered && <span className="sparkline__crosshair" style={{ left: `${x(hovered.time)}%` }} />}

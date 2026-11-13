@@ -1,323 +1,324 @@
-body {
-    background-color: var(--background-colour) !important;
-    color: var(--text-colour);
-  }
-  h5 {
-    color: var(--text-colour) !important;
-  }
-  
-  .chart-container {
-    background-color: var(--background-colour) !important;
-    color: var(--text-colour);
-    margin-bottom: 40px;
-  }
-  
-  .card {
-    background-color: var(--background-colour) !important;
-    border: 1px solid var(--border-colour);
-  }
-  
-  .nav-tabs .nav-link {
-    color: var(--text-colour);
-  }
-  .tabs .nav-link.active{
-    background-color: var(--primary-colour) !important;
-    color: var(--primary-text-colour) !important;
-  }
-
-  
-  .button-group .btn {
-    background-color: var(--button-bg);
-    color: var(--text-colour);
-  }
-  
-  .button-group .btn:hover {
-    background-color: var(--hover-colour);
-  }
-  
-  .label {
-    color: var(--text-colour);
-  }
-  .time-window-button {
-    color: var(--text-colour) !important;
-  }
-    .time-window-button.active {
-        color: var(--primary-text-colour) !important;
-    }
-
-  .pagination-container .page-item .page-link {
-    background-color: var(--button-bg);
-    color: var(--text-colour);
-    border: 1px solid var(--border-colour);
-  }
-
-  .pagination-container .page-item.active .page-link {
-    background-color: var(--primary-colour);
-    color: var(--primary-text-colour);
-    border: 1px solid var(--primary-colour);
-  }
-
-  .pagination-container .page-item .page-link:hover {
-    background-color: var(--hover-colour);
-    color: var(--text-colour);
-  }
-
-.table {
-    background-color: var(--background-colour) ;
-    border: 1px solid var(--border-colour);
-    border-radius: 8px;
-    overflow: hidden;
+/* The station page's Water tab: the latest reading with the staff gauge, the chart, the conditions, the
+   readings table, and a weather strip. */
+.water-tab {
+  display: grid;
+  /* minmax(0, …) so a wide child (the hourly strip) scrolls inside its card instead of widening the page. */
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
 }
 
-.table-body td {
-    padding: 12px;
-    text-align: center;
-    color: var(--text-colour);
+.water-tab__grid {
+  display: grid;
+  grid-template-columns: 400px minmax(0, 1fr);
+  grid-template-areas:
+    "now chart"
+    "cond readings";
+  gap: 24px;
+  align-items: start;
 }
 
-.table-header th, .table-body td {
-    border: 1px solid var(--border-colour);
+.now-card { grid-area: now; }
+.chart-card { grid-area: chart; }
+.cond-card { grid-area: cond; }
+.readings-card { grid-area: readings; }
+
+.water-tab__retry { justify-self: start; margin-top: 8px; }
+
+/* Now */
+.now-card {
+  padding: 24px;
+  display: grid;
+  gap: 20px;
 }
 
-.text-muted.small {
-    color: var(--secondary-text-colour);
-}
-
-form .form-select {
-    background-color: var(--background-colour);
-    color: var(--text-colour);
-    border: 1px solid var(--border-colour);
-    border-radius: 5px;
-}
-
-form .form-select:focus {
-    border-color: var(--primary-colour);
-    box-shadow: 0 0 5px var(--primary-colour);
-}
-
-/* Pagination controls */
-.pagination-controls {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    justify-content: center;
-    margin: 10px auto 0;
-}
-
-.pagination-btn {
-    width: 32px;
-    height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--button-bg);
-    color: var(--text-colour);
-    border: 1px solid var(--border-colour);
-    border-radius: 4px;
-    cursor: pointer;
-    padding: 0;
-}
-
-.pagination-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-}
-
-.pagination-info {
-    padding: 0 8px;
-    min-width: 50px;
-    text-align: center;
-    color: var(--text-colour)
-}
-
-/* Update the record buttons styling */
-.record-btns {
-  margin-bottom: 6px;
-  margin-right: 2px;
-  min-width: 36px;
-  padding: 4px 2px !important;
-}
-
-/* Create a dedicated container for records buttons */
-.records-container {
+.now-card__top {
   display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.now-card__lead {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.now-card__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--w-ink2);
+}
+
+.now-card__big { font-size: 60px; }
+.now-card__mid { font-size: 34px; }
+.now-card__flowline { display: none; font-size: 13px; }
+.now-card__flowline .num { font-size: 16px; color: var(--w-ink); }
+.now-card__divider { height: 1px; background: var(--w-line); margin-bottom: 20px; }
+
+.now-card__flowrow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.now-card__flowrow .chg { font-size: 14px; }
+.now-card__gauge--phone { display: none; }
+
+/* Chart */
+.chart-card {
+  padding: 22px 24px 18px;
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.chart-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-bottom: 8px;
-  margin-right: 50px
 }
 
-/* Phone layout for the station page's tabs (scoped to the page, so it doesn't restyle other pages). */
-@media (max-width: 768px) {
-  .station-details-page .container-fluid {
-    padding-left: 0 !important;
-    padding-right: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-  }
+.chart-card__title { font-size: 20px; }
 
-  /* Full-width panels on phones; the hourly forecast's cards are left out so they stay a row to swipe through. */
-  .station-details-page .card:not(.forecast-card) {
-    width: 100% !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-    border-left: none !important;
-    border-right: none !important;
-    border-radius: 0 !important;
-    min-width: 325px !important;
-  }
-
-  .station-details-page .card-body {
-    padding: 0.5rem !important;
-  }
-
-  .station-details-page .d-flex.justify-content-between {
-    flex-wrap: wrap !important;
-  }
-
-  .station-details-page .d-flex.gap-1 button {
-    padding: 4px 6px !important;
-    font-size: 0.7rem !important;
-  }
-
-  .station-details-page [class*="ToggleButton"] {
-    padding: 4px 8px !important;
-    font-size: 0.75rem !important;
-  }
-
-  .station-details-page .chart-container {
-    padding: 4px !important;
-  }
-
-  .station-details-page .table {
-    margin-bottom: 0;
-  }
-
-  .station-details-page .table td, .station-details-page .table th {
-    padding: 0.25rem 0.5rem;
-  }
+.chart-card__controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
-@media (max-width: 576px) {
-  .d-flex.overflow-x-auto {
-    -webkit-overflow-scrolling: touch;
-  }
-  
-  .d-flex.justify-content-between {
-    flex-direction: column !important;
-    align-items: flex-start !important;
-    gap: 8px !important;
-  }
-
-  .d-flex.gap-1 {
-    width: 100% !important;
-    justify-content: space-between !important;
-  }
-  
-  .table-responsive {
-    border: none !important;
-  }
-  
-  .table th, .table td {
-    padding: 0.25rem 0.3rem !important;
-    font-size: 0.75rem !important;
-  }
-
-  .d-flex.justify-content-between.align-items-center.flex-wrap {
-    flex-direction: column;
-    align-items: center !important;
-    gap: 12px;
-  }
-    
-  .records-container {
-    justify-content: center;
-    width: 100%;
-    margin-right: 0px !important;
-  }
-    
-  .pagination-btn {
-    width: 28px;
-    height: 28px;
-  }
-    
-  .pagination-info {
-    min-width: 40px;
-    padding: 0 4px;
-  }
-    
-  .pagination-controls {
-    margin: 0 auto;
-    width: 100%;
-    justify-content: center;
-  }
+/* Conditions */
+.cond-card {
+  padding: 22px 24px 14px;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
 }
 
-/* uPlot customizations */
-.u-plot {
-    font-family: var(--font-family, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif);
+.cond-card__head,
+.readings-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
-.u-legend .u-marker {
-    border-radius: 50%;
+.cond-card__title,
+.readings-card__title { font-size: 20px; }
+.cond-card__head time { font-size: 13px; }
+
+.cond {
+  width: 100%;
+  border-collapse: collapse;
 }
 
-.u-legend .u-label {
-    font-weight: 500;
+.cond th,
+.cond td {
+  padding: 11px 0 11px 12px;
+  text-align: left;
+  vertical-align: top;
 }
 
-.u-series > path {
-    transition: stroke-width 0.2s ease;
+.cond th:first-child,
+.cond td:first-child { padding-left: 0; }
+
+.cond thead th {
+  padding-top: 6px;
+  padding-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--w-ink3);
 }
 
-.u-series > path:hover {
-    stroke-width: 3px;
-}
+.cond tbody tr + tr > * { border-top: 1px solid var(--w-line); }
 
-/* Improve axis label readability */
-.u-axis text {
-    font-weight: 500;
-}
-
-.u-axis .u-vals > div {
-  color: var(--text-colour) !important;
-  font-size: 12px;
-  visibility: visible !important;
-  display: block !important;
-}
-
-.u-axis.u-bottom .u-vals > div {
-  transform: rotate(-30deg);
-  transform-origin: top right;
+.cond tbody th {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--w-ink2);
   white-space: nowrap;
-  color: var(--text-colour)
+  line-height: 20px;
 }
 
-/* Dark mode optimizations */
-.dark-mode .u-plot {
-    --u-bg: var(--card-bg-colour);
-    --u-fg: var(--text-colour);
-    --u-grid: rgba(255, 255, 255, 0.1);
-    color: var(--text-colour);
+.cond tbody td { width: 36%; }
+.cond .num { display: block; font-size: 18px; line-height: 20px; white-space: nowrap; }
+.cond .num small { font-size: 12px; margin-left: 3px; }
+.cond .chg { font-size: 14px; line-height: 20px; }
+.cond .chg svg { width: 13px; height: 13px; }
+
+.cond__detail {
+  display: block;
+  margin-top: 3px;
+  font-size: 12px;
+  color: var(--w-ink3);
+  white-space: nowrap;
 }
 
-.dark-mode .u-legend {
-    background: rgba(0, 0, 0, 0.4);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+/* Readings */
+.readings-card {
+  padding: 22px 24px 16px;
+  display: grid;
+  gap: 10px;
+  min-width: 0;
 }
 
-/* Tooltip animations */
-.uplot-tooltip {
-    animation: fadeIn 0.2s ease;
-}
-.u-over {
-  border-radius: 6px;
-  transition: background-color 0.3s ease;
+.readings-card__size {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
 }
 
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+.readings-card__scroll { overflow-x: auto; }
+
+.readings {
+  width: 100%;
+  border-collapse: collapse;
 }
 
+.readings th,
+.readings td {
+  padding: 0 0 0 16px;
+  white-space: nowrap;
+}
 
+.readings th:first-child,
+.readings td:first-child { padding-left: 0; }
+
+.readings th {
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--w-line);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--w-ink3);
+  text-align: left;
+}
+
+.readings td {
+  height: 42px;
+  border-bottom: 1px solid var(--w-line);
+  vertical-align: middle;
+}
+
+.readings tbody tr:last-child td { border-bottom: 0; }
+.readings .readings__r { text-align: right; }
+.readings__time { font-size: 14px; color: var(--w-ink2); }
+.readings .num { font-size: 16px; }
+.readings .num small { font-size: 12px; margin-left: 3px; }
+
+.readings-card__foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding-top: 8px;
+  border-top: 1px solid var(--w-line);
+  font-size: 13px;
+}
+
+.readings-card__pager { display: flex; gap: 4px; }
+.readings-card__pager .ww-btn { width: 36px; height: 36px; border-color: transparent; }
+.readings-card__pager .ww-btn:not(:disabled):hover { border-color: var(--w-line); }
+.readings-card__pager .ww-btn:disabled { opacity: .35; }
+
+/* Weather strip */
+.wxstrip {
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  gap: 40px;
+}
+
+.wxstrip__now {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: none;
+}
+
+.wxstrip__icon { width: 44px; height: 44px; color: var(--w-ink2); stroke-width: 1.5; }
+.wxstrip__temp { font-size: 52px; }
+.wxstrip__cond { display: grid; }
+.wxstrip__cond b { font-size: 16px; }
+.wxstrip__cond span { font-size: 13px; }
+
+.wxstrip__hours {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.wxstrip__hours li {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  padding: 10px 4px;
+  border-radius: 12px;
+  font-size: 12.5px;
+  color: var(--w-ink2);
+}
+
+.wxstrip__hours li.is-now { background: var(--w-sunk); color: var(--w-ink); }
+.wxstrip__hours .ic { width: 24px; height: 24px; stroke-width: 1.6; }
+.wxstrip__hours b { font-family: var(--f-display); font-size: 18px; font-weight: 600; color: var(--w-ink); }
+.wxstrip__hours i { font-style: normal; font-size: 12px; font-weight: 600; color: var(--w-accent); }
+
+.wxstrip__go {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  padding: 0;
+  background: none;
+  font: 600 14px var(--f-body);
+  color: var(--w-accent);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.wxstrip__go .ic { width: 15px; height: 15px; }
+
+@media (max-width: 1100px) {
+  .water-tab__grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "now" "chart" "cond" "readings";
+  }
+  .wxstrip { flex-wrap: wrap; gap: 16px 28px; }
+  .wxstrip__hours { flex-basis: 100%; order: 3; }
+}
+
+/* Phones follow the iPhone app: a compact now card with the gauge beside it. */
+@media (max-width: 767px) {
+  .water-tab { gap: 12px; }
+  .water-tab__grid { gap: 12px; }
+  .now-card { padding: 18px; }
+  .now-card__lead { gap: 10px; }
+  .now-card__big { font-size: 54px; }
+  .now-card__flowline { display: block; }
+  .now-card__flow { display: none; }
+  .now-card__gauge--wide { display: none; }
+  .now-card__gauge--phone { display: block; }
+  .chart-card { padding: 16px; }
+  .cond-card { padding: 16px 16px 8px; }
+  .readings-card { padding: 16px 16px 10px; }
+  .cond-card__title,
+  .readings-card__title { font-size: 18px; }
+  .cond tbody th,
+  .cond__detail { white-space: normal; }
+  .chart-card__title { display: none; }
+  .chart-card__head { justify-content: space-between; }
+  .chips button.chips__wide { display: none; }
+  .wxstrip { padding: 16px; }
+  .wxstrip__temp { font-size: 44px; }
+  .wxstrip { min-width: 0; }
+  .wxstrip__hours { grid-template-columns: repeat(6, minmax(52px, 1fr)); overflow-x: auto; min-width: 0; }
+}

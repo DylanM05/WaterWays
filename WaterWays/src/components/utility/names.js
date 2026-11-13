@@ -29,3 +29,7 @@ export const PROVINCE_NAMES = {
   SK: 'Saskatchewan',
   YT: 'Yukon'
 };
+
+// Provinces, then territories, in the order the home page lists them.
+export const PROVINCES = ['AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'ON', 'PE', 'QC', 'SK'].map(code => ({ code, name: PROVINCE_NAMES[code], territory: false }))
+  .concat(['NT', 'NU', 'YT'].map(code => ({ code, name: PROVINCE_NAMES[code], territory: true })));

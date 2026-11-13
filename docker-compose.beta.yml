@@ -1,0 +1,11 @@
+# The redesign's test site for beta.water-ways.ca, run beside production without touching it:
+#   docker compose -f docker-compose.beta.yml -p waterways-beta up -d --build
+# Its own project name keeps its container and image apart from the production ones. It has no server of its
+# own: set VITE_API_BASE_URL=https://backend.water-ways.ca in WaterWays/.env before building.
+services:
+  client-beta:
+    build:
+      context: ./WaterWays
+    ports:
+      - "5174:5173"
+    restart: unless-stopped

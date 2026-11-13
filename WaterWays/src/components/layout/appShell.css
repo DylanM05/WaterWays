@@ -1,0 +1,208 @@
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.capacitor-app .shell {
+  padding-top: max(44px, env(safe-area-inset-top, 0px));
+}
+
+.shell__main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Page width for everything but the home page's edge-to-edge river. */
+.page {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 32px 64px 64px;
+}
+
+@media (max-width: 1100px) {
+  .page { padding: 28px 32px 56px; }
+}
+
+@media (max-width: 767px) {
+  .page { padding: 16px 16px 40px; }
+}
+
+/* Top bar */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: var(--w-surface);
+  border-bottom: 1px solid var(--w-line);
+}
+
+.topbar__in {
+  max-width: 1280px;
+  margin: 0 auto;
+  height: 66px;
+  padding: 0 40px;
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--f-display);
+  font-stretch: 115%;
+  font-weight: 760;
+  font-size: 19px;
+  letter-spacing: -.015em;
+  color: var(--w-ink);
+  flex: none;
+}
+
+.brand:hover { color: var(--w-ink); }
+.brand__mark { width: 30px; height: 30px; }
+
+.topbar__nav {
+  display: flex;
+  gap: 2px;
+}
+
+.topbar__nav a {
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 14.5px;
+  color: var(--w-ink2);
+}
+
+.topbar__nav a:hover { color: var(--w-ink); }
+.topbar__nav a.is-on { color: var(--w-ink); background: var(--w-sunk); }
+
+.topbar__end {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.topbar__search {
+  width: 360px;
+  flex: 0 1 360px;
+  min-width: 180px;
+}
+
+.topbar__icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--w-ink2);
+  cursor: pointer;
+  flex: none;
+}
+
+.topbar__icon:hover { background: var(--w-sunk); color: var(--w-ink); }
+.topbar__icon .ic { width: 19px; height: 19px; }
+
+.topbar__avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  background: var(--w-accent-soft);
+  color: var(--w-accent);
+  font-weight: 700;
+  font-size: 13px;
+  flex: none;
+}
+
+.topbar__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.topbar__signin { height: 36px; }
+
+@media (max-width: 1100px) {
+  .topbar__in { padding: 0 24px; gap: 20px; }
+  .topbar__search { flex-basis: 260px; }
+}
+
+/* Footer */
+.site-foot {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 26px 64px;
+  border-top: 1px solid var(--w-line);
+  background: var(--w-surface);
+  color: var(--w-ink3);
+  font-size: 13px;
+}
+
+.site-foot p { margin: 0; max-width: 80ch; }
+.site-foot a { color: var(--w-ink2); font-weight: 500; text-decoration: underline; text-underline-offset: 2px; }
+.site-foot nav { display: flex; gap: 20px; flex: none; }
+.site-foot nav a { text-decoration: none; }
+
+/* Phones follow the iPhone app: no links in the top bar, a floating tab bar instead. */
+.tabbar { display: none; }
+
+@media (max-width: 767px) {
+  .topbar__in { height: 56px; padding: 0 16px; gap: 12px; }
+  .topbar__nav,
+  .topbar__search,
+  .topbar__avatar,
+  .topbar__signin { display: none; }
+  .brand { font-size: 17px; }
+  .brand__mark { width: 26px; height: 26px; }
+
+  .site-foot {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 22px 16px calc(110px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .tabbar {
+    position: fixed;
+    left: 18px;
+    right: 18px;
+    bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    z-index: 50;
+    height: 64px;
+    display: flex;
+    padding: 5px;
+    border-radius: 32px;
+    background: var(--w-glass);
+    -webkit-backdrop-filter: blur(18px) saturate(1.6);
+    backdrop-filter: blur(18px) saturate(1.6);
+    border: 1px solid var(--w-line);
+    box-shadow: 0 12px 32px -12px rgba(8, 28, 34, .35);
+  }
+
+  .tabbar a,
+  .tabbar button {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    border: 0;
+    border-radius: 27px;
+    padding: 0;
+    background: transparent;
+    font: 600 10.5px var(--f-body);
+    color: var(--w-ink2);
+    cursor: pointer;
+  }
+
+  .tabbar .ic { width: 23px; height: 23px; }
+  .tabbar .is-on { background: var(--w-accent-soft); color: var(--w-accent); }
+}

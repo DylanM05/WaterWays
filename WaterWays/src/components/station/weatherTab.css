@@ -1,0 +1,92 @@
+/* The station page's Weather tab: current conditions, hourly, pressure and seven days on one view. */
+.wt {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.wt-hourly,
+.wt-pressure { grid-column: 1 / -1; }
+
+.wt-card-title {
+  margin: 0;
+  font-family: var(--f-display);
+  font-stretch: 112%;
+  font-weight: 700;
+  font-size: 18px;
+  letter-spacing: -.01em;
+}
+
+/* Visible to screen readers only. */
+.wt-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.wt-skeleton {
+  min-height: 160px;
+  background: linear-gradient(90deg, var(--w-surface), var(--w-sunk), var(--w-surface));
+  background-size: 200% 100%;
+  animation: wt-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes wt-shimmer { to { background-position: -200% 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .wt-skeleton { animation: none; }
+}
+
+/* Current conditions */
+.wt-current {
+  padding: 22px 24px;
+  display: grid;
+  gap: 18px;
+}
+
+.wt-now {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.wt-now__icon { width: 52px; height: 52px; color: var(--w-ink2); stroke-width: 1.4; }
+.wt-now__temp { font-size: 60px; }
+.wt-now__text { display: grid; }
+.wt-now__text b { font-size: 17px; }
+.wt-now__text span { font-size: 13px; }
+
+.wt-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.wt-facts div {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--w-sunk);
+}
+
+/* An odd last fact takes the whole row. */
+.wt-facts div:last-child:nth-child(odd) { grid-column: 1 / -1; }
+
+.wt-facts dt { font-size: 12px; font-weight: 500; color: var(--w-ink3); }
+.wt-facts dd { margin: 0; font-size: 15px; font-weight: 600; }
+
+@media (max-width: 900px) {
+  .wt { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 767px) {
+  .wt { gap: 12px; }
+  .wt-current { padding: 18px; gap: 14px; }
+  .wt-now__temp { font-size: 54px; }
+}

@@ -1,26 +1,22 @@
 import React from 'react';
 import { SUPPORT_EMAIL } from '../components/utility/contact';
+import './styling/simplePages.css';
 
 // The privacy policy for the website and the iOS app (linked from the app's Membership screen and
 // from App Store Connect). Keep it in step with what the server stores; see Server/models.
 const UPDATED = 'October 29, 2026';
 
-// The top padding keeps the title clear of the floating menu button.
-const pageStyle = { maxWidth: '760px', margin: '0 auto', padding: '56px 16px 24px',color: 'var(--text-colour)', textAlign: 'left', lineHeight: 1.6 };
-const headingStyle = { fontSize: '1.25rem', fontWeight: 600, marginTop: '28px', marginBottom: '8px' };
-const linkStyle = { color: 'var(--text-colour)', textDecoration: 'underline' };
-
 const Section = ({ title, children }) => (
   <section>
-    <h2 style={headingStyle}>{title}</h2>
+    <h2 className="disp">{title}</h2>
     {children}
   </section>
 );
 
 const Privacy = () => (
-  <main style={pageStyle}>
-    <h1 style={{ fontSize: '1.75rem', fontWeight: 700, marginBottom: '4px' }}>Privacy Policy</h1>
-    <p style={{ opacity: 0.7 }}>Last updated {UPDATED}</p>
+  <article className="page prose">
+    <h1 className="disp simple__title">Privacy policy</h1>
+    <p className="prose__updated">Last updated {UPDATED}</p>
 
     <p>
       This policy covers the WaterWays website (water-ways.ca) and the WaterWays iOS app. WaterWays shows river levels,
@@ -97,10 +93,10 @@ const Privacy = () => (
     <Section title="Your choices and questions">
       <p>
         You can ask for a copy of your data, or ask us to correct or delete it, by emailing{' '}
-        <a href={`mailto:${SUPPORT_EMAIL}`} style={linkStyle}>{SUPPORT_EMAIL}</a>. If this policy changes, we'll update the date at the top of this page.
+        <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>. If this policy changes, we'll update the date at the top of this page.
       </p>
     </Section>
-  </main>
+  </article>
 );
 
 export default Privacy;

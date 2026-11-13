@@ -1,0 +1,141 @@
+/* Privacy, Redeem invite, the invite admin page and the sign-in and Premium gates. */
+.simple__title {
+  font-size: clamp(32px, 5vw, 48px);
+  font-stretch: 116%;
+  letter-spacing: -.03em;
+  line-height: 1.02;
+  margin: 24px 0 20px;
+  max-width: 18ch;
+}
+
+/* Privacy */
+.prose {
+  font-size: 16px;
+  line-height: 1.65;
+}
+
+.prose > *:not(.simple__title) { max-width: 70ch; }
+.prose__updated { color: var(--w-ink2); font-size: 14px; margin: -8px 0 24px; }
+
+.prose h2 {
+  font-size: 21px;
+  margin: 36px 0 10px;
+}
+
+.prose ul { padding-left: 1.2em; margin: 0 0 1em; }
+.prose li { margin-bottom: 8px; }
+.prose li::marker { color: var(--w-ink3); }
+.prose strong { font-weight: 600; }
+.prose p { margin: 0 0 1em; }
+.prose a { text-decoration: underline; text-underline-offset: 2px; }
+
+/* A single centred card: redeem, gates */
+.simple__narrow {
+  max-width: 480px;
+}
+
+.simple__card {
+  display: grid;
+  gap: 16px;
+  padding: 26px;
+}
+
+.simple__card .ww-btn { width: 100%; height: 46px; font-size: 15px; }
+
+.simple__field {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.simple__field input {
+  height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--w-line);
+  border-radius: 12px;
+  background: var(--w-sunk);
+  color: var(--w-ink);
+  font: 400 16px var(--f-mono);
+  outline: none;
+}
+
+.simple__field input::placeholder { color: var(--w-ink3); font-family: var(--f-body); }
+.simple__field input:focus { box-shadow: 0 0 0 2px var(--w-accent); }
+
+.simple__msg { margin: 0; font-size: 14.5px; color: var(--w-ink2); }
+.simple__msg--error { color: var(--w-gauge); }
+.simple__msg--ok { color: var(--w-accent); font-weight: 600; }
+
+.simple__spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: simple-spin .7s linear infinite;
+}
+
+@keyframes simple-spin { to { transform: rotate(360deg); } }
+
+/* Gates: a title and one action */
+.gate {
+  display: grid;
+  justify-items: start;
+  gap: 20px;
+  padding-top: 64px;
+}
+
+.gate .simple__title { margin: 0; }
+.gate .ww-btn { height: 46px; padding: 0 22px; font-size: 15px; }
+
+/* Invites (admin) */
+.invites__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.invites__head .simple__title { margin: 0; }
+
+.invites__msgs { display: grid; gap: 6px; margin-bottom: 16px; }
+
+.invites__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+}
+
+.invites__table th {
+  padding: 12px 18px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--w-ink2);
+  border-bottom: 1px solid var(--w-line);
+}
+
+.invites__table td {
+  padding: 10px 18px;
+  border-bottom: 1px solid var(--w-line);
+  vertical-align: middle;
+}
+
+.invites__table tr:last-child td { border-bottom: 0; }
+.invites__table td:last-child, .invites__table th:last-child { text-align: right; }
+.invites__table .ww-btn { height: 34px; padding: 0 12px; font-size: 13px; }
+.invites__used { color: var(--w-ink3); }
+.invites__open { color: var(--w-accent); font-weight: 600; }
+.invites__wrap { overflow-x: auto; }
+.invites__empty { padding: 22px 18px; color: var(--w-ink2); }
+
+@media (max-width: 767px) {
+  .gate { padding-top: 32px; }
+  .gate .ww-btn { width: 100%; }
+  .invites__table th, .invites__table td { padding: 10px 12px; }
+  .invites__date { display: none; }
+}

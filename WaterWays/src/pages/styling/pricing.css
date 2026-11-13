@@ -1,0 +1,198 @@
+.pricing {
+  display: grid;
+  gap: 32px;
+  padding-top: 56px;
+}
+
+.pricing__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 32px;
+}
+
+.pricing__title {
+  font-size: clamp(34px, 5vw, 54px);
+  font-stretch: 116%;
+  letter-spacing: -.03em;
+  line-height: 1;
+  max-width: 15ch;
+}
+
+/* Billing period */
+.pricing__period {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 11px;
+  background: var(--w-sunk);
+}
+
+.pricing__period button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--w-ink2);
+  font: 600 14px var(--f-body);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.pricing__period button:hover { color: var(--w-ink); }
+.pricing__period button.is-on { background: var(--w-surface); color: var(--w-ink); box-shadow: 0 1px 3px rgba(0, 0, 0, .1); }
+
+.pricing__badge {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 6px;
+  background: var(--w-accent);
+  color: var(--w-accent-ink);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+/* Plans */
+.pricing__grid {
+  display: grid;
+  grid-template-columns: 300px 300px 1fr;
+  gap: 20px;
+  align-items: stretch;
+}
+
+.plan {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 26px;
+}
+
+.plan--pro {
+  border: 2px solid var(--w-accent);
+  box-shadow: 0 0 0 5px var(--w-accent-soft);
+}
+
+.plan__name { font-size: 22px; }
+
+.plan__price {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.plan__price .num { font-size: 52px; }
+.plan__per { font-size: 13.5px; margin-top: 4px; }
+
+.plan__state {
+  margin: 0;
+  font-size: 15px;
+  color: var(--w-ink2);
+}
+
+.plan__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+  font-size: 14.5px;
+}
+
+.plan__list li { display: flex; gap: 10px; align-items: flex-start; }
+.plan__list .ic { width: 18px; height: 18px; margin-top: 1px; color: var(--w-accent); stroke-width: 2.4; }
+
+.plan__cta { margin-top: auto; width: 100%; }
+.plan__cta:disabled { opacity: 1; color: var(--w-ink3); }
+.plan__cta--big { height: 46px; font-size: 15px; }
+
+.plan__actions {
+  display: grid;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.plan__actions .plan__cta { margin-top: 0; }
+
+.plan__manage {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.plan__note,
+.plan__notice {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--w-ink2);
+}
+
+.plan__notice--error { color: var(--w-gauge); }
+
+/* Typical-year preview */
+.pricing__preview {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+  padding: 22px 24px;
+  box-shadow: var(--w-shadow);
+}
+
+.pricing__station {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pricing__station h2 { font-size: 19px; min-width: 0; }
+
+.sketch { display: block; width: 100%; height: auto; }
+.sketch__grid { stroke: var(--w-line); stroke-width: 1; stroke-dasharray: 2 4; }
+.sketch__base { stroke: var(--w-line); stroke-width: 1; }
+.sketch__band { fill: var(--w-flow-soft); }
+.sketch__typical { fill: none; stroke: var(--w-ink3); stroke-width: 1.6; stroke-dasharray: 5 4; }
+.sketch__year { fill: none; stroke: var(--w-flow); stroke-width: 2.6; stroke-linecap: round; }
+.sketch__halo { fill: var(--w-flow); opacity: .2; }
+.sketch__dot { fill: var(--w-flow); stroke: var(--w-surface); stroke-width: 2; }
+
+.pricing__legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  font-size: 12.5px;
+  color: var(--w-ink2);
+}
+
+.pricing__legend span { display: inline-flex; align-items: center; gap: 7px; }
+.pricing__legend i { display: inline-block; width: 18px; height: 0; }
+.pricing__legend .is-year { border-top: 2.5px solid var(--w-flow); }
+.pricing__legend .is-typical { border-top: 1.5px dashed var(--w-ink3); }
+.pricing__legend .is-range { height: 10px; border-radius: 3px; background: var(--w-flow-soft); }
+
+@media (max-width: 1100px) {
+  .pricing__grid { grid-template-columns: 1fr 1fr; }
+  .pricing__preview { grid-column: 1 / -1; }
+}
+
+/* Phone: the Premium card first, then Free, then the preview. */
+@media (max-width: 767px) {
+  .pricing { gap: 20px; padding-top: 24px; }
+  .pricing__head { flex-direction: column; align-items: stretch; gap: 18px; }
+  .pricing__title { font-size: 32px; }
+  .pricing__period { display: flex; }
+  .pricing__period button { flex: 1; height: 38px; padding: 0 10px; }
+  .pricing__grid { grid-template-columns: 1fr; gap: 16px; }
+  .plan--pro { order: -1; }
+  .plan { padding: 22px; }
+  .plan__price .num { font-size: 44px; }
+  .plan__cta--big { height: 52px; font-size: 17px; border-radius: 16px; }
+  .pricing__preview { padding: 18px; }
+}

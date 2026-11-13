@@ -1,0 +1,184 @@
+/* The river search, in three sizes. Proportions inside the drawing come from riverEngine.js. */
+.river-search {
+  position: relative;
+  z-index: 20;
+}
+
+.river-search[data-size="lg"] { --rh: 104px; --rpad: 64px; --rgap: 14px; --rfs: 19px; --ric: 22px; }
+.river-search[data-size="md"] { --rh: 58px; --rpad: 22px; --rgap: 10px; --rfs: 17px; --ric: 18px; }
+.river-search[data-size="sm"] { --rh: 40px; --rpad: 15px; --rgap: 9px; --rfs: 14px; --ric: 16px; }
+
+.river-search__field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: var(--rh);
+  padding: 0 var(--rpad);
+  gap: var(--rgap);
+  margin: 0;
+  color: #fff;
+  cursor: text;
+}
+
+.river-search__water {
+  position: absolute;
+  inset: 0;
+  line-height: 0;
+}
+
+.river-search__water svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.river-search__glass {
+  position: relative;
+  width: var(--ric);
+  height: var(--ric);
+  stroke-width: 2.2;
+  filter: drop-shadow(0 1px 2px rgba(0, 22, 26, .5));
+}
+
+.river-search__field input {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #fff;
+  caret-color: #fff;
+  font: 500 var(--rfs) var(--f-body);
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.river-search[data-size="lg"] .river-search__field input { max-width: 640px; }
+.river-search__field input::-webkit-search-cancel-button { display: none; }
+.river-search__field input::placeholder { color: rgba(255, 255, 255, .94); }
+.river-search__field input,
+.river-search__field input::placeholder {
+  text-shadow: 0 1px 2px rgba(0, 22, 26, .5), 0 0 12px var(--w-water-deep);
+}
+
+/* Results */
+.river-search__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: var(--rpad);
+  width: min(640px, calc(100% - 2 * var(--rpad)));
+  max-height: min(430px, 70vh);
+  overflow: auto;
+  padding: 6px;
+  border-radius: 16px;
+  background: var(--w-surface);
+  border: 1px solid var(--w-line);
+  box-shadow: var(--w-pop-shadow);
+  text-align: left;
+}
+
+.river-search__panel[hidden] { display: none; }
+.river-search[data-size="md"] .river-search__panel { left: 12px; right: 12px; width: auto; }
+.river-search[data-size="sm"] .river-search__panel { left: auto; right: 0; width: min(440px, calc(100vw - 32px)); }
+
+.river-search__group {
+  padding: 10px 12px 4px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--w-ink3);
+}
+
+.river-search__row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 11px;
+  cursor: pointer;
+  color: var(--w-ink);
+}
+
+.river-search__row[aria-selected="true"] { background: var(--w-sunk); }
+
+.river-search__icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  background: var(--w-accent-soft);
+  color: var(--w-accent);
+}
+
+.river-search__icon .ic { width: 16px; height: 16px; stroke-width: 2.2; }
+.river-search__text { min-width: 0; }
+
+.river-search__name {
+  display: block;
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.3;
+}
+
+.river-search__row mark {
+  background: none;
+  color: inherit;
+  padding: 0;
+  font-weight: 700;
+}
+
+.river-search__sub {
+  display: block;
+  font-size: 12.5px;
+  color: var(--w-ink3);
+}
+
+.river-search__val {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
+}
+
+.river-search__val .num { font-size: 18px; }
+
+.river-search__empty {
+  display: grid;
+  gap: 4px;
+  padding: 14px 12px;
+}
+
+.river-search__empty b { font-size: 15px; font-weight: 600; }
+.river-search__empty span { font-size: 13.5px; color: var(--w-ink2); }
+
+.river-search[data-size="md"] .river-search__row { gap: 10px; padding: 8px 10px; }
+.river-search[data-size="md"] .river-search__name { font-size: 14.5px; }
+
+/* The drawing */
+.r-shallow { fill: var(--w-shallow); transition: fill .25s; }
+.river-search__field:focus-within .r-shallow { fill: var(--w-glint); }
+.r-streak { fill: none; stroke-linecap: round; }
+.r-foam { fill: none; stroke: #fff; stroke-opacity: .16; stroke-linecap: round; }
+.r-calm { opacity: .82; }
+.r-life { transform-box: fill-box; transform-origin: center; }
+.r-bob-top { fill: #D9382C; }
+.r-bob-low { fill: #F4F1EA; }
+.r-bob-band { stroke: #2A1A17; stroke-opacity: .55; stroke-width: .8; }
+.r-bob-shine { fill: #fff; fill-opacity: .5; }
+.r-bob-wake { transform-box: fill-box; transform-origin: center; }
+.r-wake { fill: none; stroke: #fff; stroke-opacity: .28; stroke-width: 1.2; stroke-linecap: round; }
+.r-wake.r-bob-wake { stroke-opacity: 1; }
+.r-duck { fill: #A39079; }
+.r-wing { fill: #7E6C58; }
+.r-duck-tail { fill: #3B3631; }
+.r-head { fill: #2F6E4E; }
+.r-collar { stroke: #F4F1EA; stroke-width: 1.3; stroke-linecap: round; }
+.r-beak { fill: #E9A43C; }
+.r-eye { fill: #0A0A0A; }
+.r-fish { fill: #021F24; }
+.r-fish-tail { transform-origin: -9.5px 0px; }
+.r-fish-wake { fill: none; stroke: #fff; stroke-width: .7; stroke-linecap: round; transform-box: view-box; transform-origin: 13px 0px; }
