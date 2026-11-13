@@ -170,3 +170,156 @@ extension SectionHeading where Trailing == EmptyView {
         self.init(title: title) { EmptyView() }
     }
 }
+
+/// The v4 segmented control: options on a sunk track, the chosen one raised. `fill` stretches the options across
+/// the width, as for a page's tabs.
+struct SegmentedPills<Value: Hashable>: View {
+    let options: [(value: Value, title: String)]
+    @Binding var selection: Value
+    var fill = false
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(options, id: \.value) { option in
+                let selected = option.value == selection
+                Button {
+                    withAnimation(.snappy(duration: 0.2)) { selection = option.value }
+                } label: {
+                    Text(option.title)
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(selected ? Theme.ink : Theme.ink2)
+                        .lineLimit(1)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .frame(maxWidth: fill ? .infinity : nil)
+                        .background {
+                            if selected {
+                                RoundedRectangle(cornerRadius: 8)
+                                    .fill(Theme.surface)
+                                    .shadow(color: .black.opacity(0.1), radius: 1.5, y: 1)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
+        }
+        .padding(3)
+        .background(Theme.sunk, in: RoundedRectangle(cornerRadius: 11))
+    }
+}
+
+extension WeatherCondition {
+    /// A symbol for the server's description of current conditions ("Overcast", "Light rain").
+    static func symbol(forDescription description: String, isDay: Bool) -> String {
+        let text = description.lowercased()
+        if text.contains("thunder") { return "cloud.bolt.rain.fill" }
+        if text.contains("freezing") { return "cloud.sleet.fill" }
+        if text.contains("snow") { return "cloud.snow.fill" }
+        if text.contains("shower") { return isDay ? "cloud.sun.rain.fill" : "cloud.moon.rain.fill" }
+        if text.contains("drizzle") { return "cloud.drizzle.fill" }
+        if text.contains("heavy rain") { return "cloud.heavyrain.fill" }
+        if text.contains("rain") { return "cloud.rain.fill" }
+        if text.contains("fog") { return "cloud.fog.fill" }
+        if text.contains("partly") { return isDay ? "cloud.sun.fill" : "cloud.moon.fill" }
+        if text.contains("clear") || text.contains("sunny") { return isDay ? "sun.max.fill" : "moon.stars.fill" }
+        return "cloud.fill"
+    }
+}
+
+/// The colours for an alert, by Environment Canada's risk colour or, without one, its type.
+struct AlertPalette {
+    let mark: Color, on: Color, background: Color, line: Color, ink: Color
+
+    init(_ alert: WeatherAlert?) {
+        let colour = alert?.colour?.lowercased() ?? ""
+        let level = colour.isEmpty ? (alert?.type == "warning" ? "red" : alert?.type == "watch" ? "orange" : "yellow") : colour
+        switch level {
+        case "red": (mark, on, background, line, ink) = (Theme.alertRed, Theme.alertRedOn, Theme.alertRedBg, Theme.alertRedLine, Theme.alertRedInk)
+        case "orange": (mark, on, background, line, ink) = (Theme.warn, Theme.warnOn, Theme.warnBg, Theme.warnLine, Theme.warnInk)
+        default: (mark, on, background, line, ink) = (Theme.alertYellow, Theme.alertYellowOn, Theme.alertYellowBg, Theme.alertYellowLine, Theme.alertYellowInk)
+        }
+    }
+}
+
+/// One station in a river's card: where it is and how old the reading is, the last day as a short line, and the
+/// reading with its change.
+struct StationRow: View {
+    let station: RiverStation
+    let readings: LatestReadings
+    /// The readings request has finished (or failed) for this station.
+    let loaded: Bool
+    let failed: Bool
+
+    private var reading: LatestWaterReading? { readings.readings[station.stationID] }
+    private var trend: WaterTrend? { readings.trends[station.stationID] }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(station.displaySection)
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
+                    .multilineTextAlignment(.leading)
+                Text(status)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(Theme.ink3)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if let reading, let lead = LeadReading(reading: reading, trend: trend) {
+                let points = TrendPoint.points(from: trend, level: !lead.isFlow)
+                if points.count > 1 {
+                    TrendSparkline(
+                        points: points,
+                        minSpan: lead.isFlow ? max(abs(lead.value) * 0.04, 0.05) : 0.05,
+                        label: "The past 24 hours",
+                        height: 28
+                    )
+                    .frame(width: 64)
+                }
+                VStack(alignment: .trailing, spacing: 3) {
+                    ReadingNumber(value: lead.formatted, unit: lead.unit, size: 19)
+                    ChangeLabel(lead: lead, showsUnit: false)
+                }
+            } else if !loaded {
+                ProgressView().controlSize(.small)
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+    }
+
+    private var status: String {
+        readings.status(for: station, loaded: loaded, failed: failed)
+    }
+}
+
+extension LatestReadings {
+    /// The line under a station's name: how old its reading is, or why there isn't one.
+    func status(for station: RiverStation, loaded: Bool, failed: Bool) -> String {
+        if let date = readings[station.stationID]?.date { return TimeAgo.label(date) }
+        guard loaded else { return station.stationID }
+        if failed { return "Couldn’t load the reading" }
+        // Seasonal or paused gauges: when they last sent data.
+        if station.realtime != false, let label = lastReportedLabel(for: station.stationID) { return label }
+        return station.noReadingMessage
+    }
+}
+
+/// Rows stacked in one card with hairlines between them.
+struct CardRows<Item: Identifiable, Row: View>: View {
+    let items: [Item]
+    @ViewBuilder let row: (Item) -> Row
+
+    var body: some View {
+        VStack(spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+                if index > 0 { Rectangle().fill(Theme.line).frame(height: 1) }
+                row(item)
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 18))
+        .cardBackground()
+    }
+}

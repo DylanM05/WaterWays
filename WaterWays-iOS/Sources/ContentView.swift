@@ -35,10 +35,15 @@ struct NativeTabShell: View {
 
 #if DEBUG
 /// Launch arguments for screenshots of a particular screen, for example `-debugTab saved`, `-debugSearch fraser`
-/// or `-debugStation 08MF005`.
+/// `-debugStation 08MF005`, `-debugRiver "FRASER RIVER"` (with `-debugProvince BC`) or `-debugProvince BC` alone.
 enum DebugLaunch {
     static var search: String? { UserDefaults.standard.string(forKey: "debugSearch") }
     static var stationID: String? { UserDefaults.standard.string(forKey: "debugStation") }
+    static var river: String? { UserDefaults.standard.string(forKey: "debugRiver") }
+    static var province: Province? {
+        UserDefaults.standard.string(forKey: "debugProvince").flatMap { code in Province.all.first { $0.code == code } }
+    }
+    static var opensScreen: Bool { stationID != nil || province != nil }
 
     @MainActor
     static func apply(to appState: AppState) {

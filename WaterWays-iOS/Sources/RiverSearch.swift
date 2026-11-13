@@ -220,6 +220,8 @@ struct RiverLoaderView: View {
             }
         }
         .background(Theme.bg)
+        .navigationTitle(name.displayTitle)
+        .navigationBarTitleDisplayMode(.large)
         .task { await load() }
     }
 

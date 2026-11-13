@@ -57,9 +57,15 @@ struct ExploreView: View {
         .task(id: searchText) { search = await RiverSearchState.run(searchText, current: search) }
         #if DEBUG
         .onAppear { if let text = DebugLaunch.search { query = text } }
-        .navigationDestination(isPresented: .constant(DebugLaunch.stationID != nil)) {
+        .navigationDestination(isPresented: .constant(DebugLaunch.opensScreen)) {
             if let stationID = DebugLaunch.stationID {
                 StationDetailView(station: RiverStation(stationName: stationID, stationID: stationID, province: "", latitude: nil, longitude: nil, section: nil))
+            } else if let province = DebugLaunch.province {
+                if let river = DebugLaunch.river {
+                    RiverLoaderView(name: river, province: province.code)
+                } else {
+                    RiverListView(province: province)
+                }
             }
         }
         #endif
@@ -270,19 +276,30 @@ struct RiverListView: View {
             } else {
                 List {
                     ForEach(groupedRiverNames, id: \.letter) { group in
-                        Section(group.letter) {
+                        Section {
                             ForEach(group.names, id: \.self) { name in
                                 NavigationLink {
                                     RiverDetailView(name: name, province: province.code, stations: rivers[name] ?? [])
                                 } label: {
-                                    VStack(alignment: .leading, spacing: 3) {
-                                        Text(name.displayTitle).font(.body.weight(.medium))
-                                        Text(stationCount(rivers[name]?.count ?? 0))
-                                            .font(.caption).foregroundStyle(.secondary)
+                                    HStack {
+                                        Text(name.displayTitle)
+                                            .font(.system(size: 16))
+                                            .foregroundStyle(Theme.ink)
+                                        Spacer(minLength: 8)
+                                        Text("\(rivers[name]?.count ?? 0)")
+                                            .font(.system(size: 13))
+                                            .foregroundStyle(Theme.ink3)
+                                            .accessibilityLabel(stationCount(rivers[name]?.count ?? 0))
                                     }
-                                    .padding(.vertical, 2)
+                                    .padding(.vertical, 4)
                                 }
+                                .listRowBackground(Theme.surface)
+                                .listRowSeparatorTint(Theme.line)
                             }
+                        } header: {
+                            Text(group.letter)
+                                .font(.display(15, relativeTo: .headline))
+                                .foregroundStyle(Theme.ink2)
                         }
                     }
                 }
@@ -294,8 +311,10 @@ struct RiverListView: View {
                 }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Theme.bg)
         .navigationTitle(province.name)
-        .searchable(text: $filter, prompt: "Filter rivers in \(province.name)")
+        .searchable(text: $filter, prompt: "Filter rivers")
         .task { await loadRivers() }
         .refreshable { await loadRivers() }
     }
@@ -314,7 +333,7 @@ struct RiverListView: View {
 }
 
 func stationCount(_ count: Int) -> String {
-    count == 1 ? "1 monitoring station" : "\(count) monitoring stations"
+    count == 1 ? "1 station" : "\(count) stations"
 }
 
 struct RiverDetailView: View {
@@ -323,38 +342,56 @@ struct RiverDetailView: View {
     let name: String
     let province: String
     let stations: [RiverStation]
-    @State private var latestReadings: [String: LatestWaterReading] = [:]
-    @State private var lastReported = LatestReadings(readings: [:], lastReported: [:])
+    @State private var readings = LatestReadings(readings: [:], lastReported: [:])
     @State private var readingsFailed = false
-    @State private var completedReadingIDs: Set<String> = []
+    @State private var loaded = false
     @State private var isAuthPresented = false
     @State private var showSubscriptionPrompt = false
     @State private var favoriteError: String?
 
     private var isFavorite: Bool { appState.isFavoriteRiver(name: name, province: province) }
 
+    private var summary: String {
+        guard loaded, !readingsFailed else { return stationCount(stations.count) }
+        let reporting = stations.filter { readings.readings[$0.stationID] != nil }.count
+        return "\(stationCount(stations.count)), \(reporting) reporting"
+    }
+
+    private var shareURL: URL? {
+        var components = URLComponents(string: "https://water-ways.ca")
+        components?.path = "/river/\(name)"
+        return components?.url
+    }
+
     var body: some View {
-        List {
-            Section(stationCount(stations.count)) {
-                ForEach(stations) { station in
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                Text(summary)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.ink2)
+                    .padding(.horizontal, 4)
+                CardRows(items: stations) { station in
                     NavigationLink {
                         StationDetailView(station: station)
                     } label: {
-                        VStack(alignment: .leading, spacing: 11) {
-                            Text(station.displaySection).font(.body.weight(.semibold))
-                            Text("Station \(station.stationID)")
-                                .font(.caption).foregroundStyle(.secondary)
-                            readingPreview(for: station)
-                        }
-                        .padding(.vertical, 7)
+                        StationRow(station: station, readings: readings, loaded: loaded, failed: readingsFailed)
                     }
+                    .buttonStyle(CardRowButtonStyle())
                 }
             }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 24)
         }
-        .themedList()
+        .background(Theme.bg)
         .navigationTitle(name.displayTitle)
-        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarTitleDisplayMode(.large)
         .toolbar {
+            if let shareURL {
+                ToolbarItem(placement: .topBarTrailing) {
+                    ShareLink(item: shareURL) { Image(systemName: "square.and.arrow.up") }
+                        .accessibilityLabel("Share river")
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     guard clerk.user != nil else {
@@ -377,10 +414,10 @@ struct RiverDetailView: View {
                     }
                 } label: {
                     Image(systemName: isFavorite ? "heart.fill" : "heart")
-                        .foregroundStyle(isFavorite ? .red : .primary)
+                        .foregroundStyle(isFavorite ? Theme.accent : Theme.ink)
                 }
                 .disabled(appState.isUpdatingFavoriteRiver(name: name, province: province))
-                .accessibilityLabel(isFavorite ? "Remove river from favorites" : "Save river")
+                .accessibilityLabel(isFavorite ? "Remove river from saved" : "Save river")
             }
         }
         .task { await loadLatestReadings() }
@@ -404,35 +441,11 @@ struct RiverDetailView: View {
         }
     }
 
-    @ViewBuilder
-    private func readingPreview(for station: RiverStation) -> some View {
-        if let reading = latestReadings[station.stationID] {
-            StationReadingSummary(reading: reading, trend: lastReported.trends[station.stationID])
-        } else if completedReadingIDs.contains(station.stationID), readingsFailed {
-            Label("Couldn’t load the latest reading · pull to refresh", systemImage: "exclamationmark.triangle")
-                .font(.caption).foregroundStyle(.secondary)
-        } else if completedReadingIDs.contains(station.stationID) {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(station.noReadingMessage)
-                // Seasonal or paused gauges: when they last sent data.
-                if station.realtime != false, let label = lastReported.lastReportedLabel(for: station.stationID) {
-                    Text(label)
-                }
-            }
-            .font(.caption).foregroundStyle(.secondary)
-        } else {
-            ProgressView().controlSize(.small)
-        }
-    }
-
     @MainActor
     private func loadLatestReadings() async {
-        latestReadings = [:]
-        completedReadingIDs = []
-        let stationIDs = stations.map(\.stationID)
         let result: LatestReadings
         do {
-            result = try await APIClient.latestWaterData(stationIDs: stationIDs)
+            result = try await APIClient.latestWaterData(stationIDs: stations.map(\.stationID))
             readingsFailed = false
         } catch {
             if error.isCancellation || Task.isCancelled { return }
@@ -442,33 +455,8 @@ struct RiverDetailView: View {
         }
         // A newer load has started; let it fill the rows.
         guard !Task.isCancelled else { return }
-        latestReadings = result.readings
-        lastReported = result
-        completedReadingIDs = Set(stationIDs)
-    }
-}
-
-struct CompactReading: View {
-    let title: String
-    let value: String
-    let icon: String
-    /// A line under the value, such as the change over 24 hours.
-    var detail: String? = nil
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Label(title, systemImage: icon)
-                .font(.caption2).foregroundStyle(.secondary)
-            Text(value).font(.subheadline.weight(.bold)).foregroundStyle(.primary)
-            if let detail {
-                Text(detail)
-                    .font(.caption2).foregroundStyle(.secondary)
-                    .accessibilityLabel(detail.replacingOccurrences(of: "▲", with: "Up").replacingOccurrences(of: "▼", with: "Down"))
-            }
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(9)
-        .background(Theme.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 9))
+        readings = result
+        loaded = true
     }
 }
 
@@ -481,69 +469,6 @@ enum WaterFormat {
 
     static func number(_ value: Double, decimals: Int) -> String {
         value.formatted(.number.precision(.fractionLength(decimals)))
-    }
-
-    static func level(_ value: Double) -> String { number(value, decimals: 2) }
-    static func flow(_ value: Double) -> String { number(value, decimals: flowDecimals(value)) }
-
-    /// "▼ 0.07 m in 24 h", "Steady over 24 h", or nil when the change isn't known.
-    static func change(_ change: Double?, decimals: Int, unit: String) -> String? {
-        guard let change else { return nil }
-        if abs(change) < 0.5 * pow(10, -Double(decimals)) { return "Steady over 24 h" }
-        return "\(change > 0 ? "▲" : "▼") \(number(abs(change), decimals: decimals)) \(unit) in 24 h"
-    }
-}
-
-/// A station's latest level and flow, each with its change over 24 hours, a line of the last day, and when
-/// it was measured. Used on river pages and the Saved tab.
-struct StationReadingSummary: View {
-    let reading: LatestWaterReading
-    let trend: WaterTrend?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 9) {
-            HStack(spacing: 10) {
-                if let waterLevel = reading.waterLevel {
-                    CompactReading(
-                        title: "Water level", value: "\(WaterFormat.level(waterLevel)) m", icon: "drop.fill",
-                        detail: WaterFormat.change(trend?.change.waterLevel, decimals: 2, unit: "m")
-                    )
-                }
-                if let discharge = reading.discharge {
-                    CompactReading(
-                        title: "Discharge", value: "\(WaterFormat.flow(discharge)) m³/s", icon: "water.waves",
-                        detail: WaterFormat.change(trend?.change.discharge, decimals: WaterFormat.flowDecimals(discharge), unit: "m³/s")
-                    )
-                }
-            }
-            let points = trendPoints
-            if points.count > 1, let first = points.first, let last = points.last {
-                let unit = reading.waterLevel != nil ? "m" : "m³/s"
-                let format = reading.waterLevel != nil ? WaterFormat.level : WaterFormat.flow
-                TrendSparkline(
-                    points: points,
-                    minSpan: reading.waterLevel != nil ? 0.05 : max(abs(reading.discharge ?? 0) * 0.04, 0.05),
-                    label: "\(reading.waterLevel != nil ? "Water level" : "Discharge") over the past 24 hours, from \(format(first.value)) to \(format(last.value)) \(unit)"
-                )
-            }
-            // "Updated 42 minutes ago", as on the website; older readings show their date.
-            if let date = reading.date {
-                Label {
-                    if Date.now.timeIntervalSince(date) < 2 * 24 * 60 * 60 {
-                        Text("Updated \(date, format: .relative(presentation: .named))")
-                    } else {
-                        Text("Updated \(reading.formattedTime)")
-                    }
-                } icon: {
-                    Image(systemName: "clock")
-                }
-                .font(.caption2).foregroundStyle(.secondary)
-            }
-        }
-    }
-
-    private var trendPoints: [TrendPoint] {
-        TrendPoint.points(from: trend, level: reading.waterLevel != nil)
     }
 }
 
