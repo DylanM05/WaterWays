@@ -1,4 +1,16 @@
-.wt-weekly { padding: 4px 10px; }
+.wt-weekly { padding: 16px 10px 4px; }
+
+/* The title, then Low and High over their columns. */
+.week__head {
+  display: grid;
+  grid-template-columns: 52px 56px 34px minmax(40px, 1fr) 34px 16px;
+  gap: 6px 10px;
+  padding: 0 8px 2px;
+}
+
+.week__head .wt-card-title { grid-column: 1 / -1; }
+.week__col { grid-column: 5; font-size: 12px; font-weight: 600; color: var(--w-ink3); }
+.week__col--low { grid-column: 3; text-align: right; }
 
 .week {
   margin: 0;
@@ -44,7 +56,7 @@
 
 .week__sky .ic { width: 22px; height: 22px; }
 .week__sky i { font-style: normal; font-size: 12px; font-weight: 600; color: var(--w-accent); }
-.week__low { text-align: right; }
+.week__low { text-align: right; color: var(--w-ink2); }
 .week__high { text-align: left; font-weight: 600; }
 
 .week__range {
@@ -52,6 +64,17 @@
   height: 6px;
   border-radius: 3px;
   background: var(--w-sunk);
+}
+
+.week__now {
+  position: absolute;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin: -5px 0 0 -5px;
+  border: 2px solid var(--w-surface);
+  border-radius: 50%;
+  background: var(--w-ink);
 }
 
 .week__range span {

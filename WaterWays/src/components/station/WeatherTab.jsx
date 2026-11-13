@@ -96,6 +96,30 @@ const fallText = (rainMm, snowCm) => [
   snowCm > 0 ? `${amount(snowCm)} cm snow` : null
 ].filter(Boolean).join(', ') || null;
 
+// Temperature colours in °C, cold to hot, for the 7-day bars.
+const TEMPERATURE_COLOURS = [[-20, '#7B6CF0'], [-5, '#4A90E2'], [5, '#2FB7C9'], [15, '#8CCB6A'], [22, '#F2BE4B'], [30, '#EF7B42'], [38, '#DD3F3A']];
+
+const temperatureColour = (celsius) => {
+  const stops = TEMPERATURE_COLOURS;
+  if (celsius <= stops[0][0]) return stops[0][1];
+  const upper = stops.findIndex(([t]) => t >= celsius);
+  if (upper === -1) return stops[stops.length - 1][1];
+  const [t0, c0] = stops[upper - 1];
+  const [t1, c1] = stops[upper];
+  const mix = (celsius - t0) / (t1 - t0);
+  const channel = (hex, at) => parseInt(hex.slice(at, at + 2), 16);
+  const rgb = [1, 3, 5].map(at => Math.round(channel(c0, at) + (channel(c1, at) - channel(c0, at)) * mix));
+  return `rgb(${rgb.join(', ')})`;
+};
+
+// A day's bar from its low to its high, coloured by temperature along the way.
+const temperatureGradient = (low, high) => {
+  if (!(high > low)) return temperatureColour(isNumber(low) ? low : high);
+  const inside = TEMPERATURE_COLOURS.map(([t]) => t).filter(t => t > low && t < high);
+  const stops = [low, ...inside, high].map(t => `${temperatureColour(t)} ${Math.round(((t - low) / (high - low)) * 100)}%`);
+  return `linear-gradient(90deg, ${stops.join(', ')})`;
+};
+
 const UV_LEVELS = [[3, 'low'], [6, 'moderate'], [8, 'high'], [11, 'very high'], [Infinity, 'extreme']];
 const uvText = (uv) => (isNumber(uv) ? `${uv.toFixed(1)}, ${UV_LEVELS.find(([below]) => uv < below)[1]}` : null);
 
@@ -209,13 +233,14 @@ const WeatherTab = ({ weatherData, forecastData, weeklyData, pressureData, error
       });
   }
 
-  // Each day's low-to-high bar sits on the week's scale.
+  // Each day's low-to-high bar sits on the week's scale, and today's marks the temperature now.
   let week = null;
   if (weeklyData?.rawDates && days.length) {
     const lows = days.map(({ index }) => weeklyData.temperature?.min?.[index]).filter(isNumber);
     const highs = days.map(({ index }) => weeklyData.temperature?.max?.[index]).filter(isNumber);
-    const scaleMin = Math.min(...lows, ...highs);
-    const scaleMax = Math.max(...lows, ...highs);
+    const nowTemperature = isNumber(weatherData?.temperature) ? weatherData.temperature : null;
+    const scaleMin = Math.min(...lows, ...highs, ...(nowTemperature === null ? [] : [nowTemperature]));
+    const scaleMax = Math.max(...lows, ...highs, ...(nowTemperature === null ? [] : [nowTemperature]));
     const span = scaleMax - scaleMin || 1;
     week = days.map(({ dateKey, index }) => {
       const low = weeklyData.temperature?.min?.[index];
@@ -234,6 +259,9 @@ const WeatherTab = ({ weatherData, forecastData, weeklyData, pressureData, error
         chance: isNumber(chance) && chance >= 20 ? `${chance}%` : null,
         from: isNumber(low) ? (low - scaleMin) / span : 0,
         to: isNumber(high) ? (high - scaleMin) / span : 1,
+        gradient: isNumber(low) || isNumber(high) ? temperatureGradient(low, high) : null,
+        now: dateKey === today && nowTemperature !== null ? (nowTemperature - scaleMin) / span : null,
+        nowLabel: dateKey === today && nowTemperature !== null ? degrees(nowTemperature) : null,
         details: [
           ['Sunrise', sun.sunrise?.[index]],
           ['Sunset', sun.sunset?.[index]],
