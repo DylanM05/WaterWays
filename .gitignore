@@ -35,3 +35,6 @@ yarn-error.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+# Xcode per-user state
+xcuserdata/

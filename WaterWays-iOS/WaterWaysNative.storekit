@@ -1,0 +1,78 @@
+{
+  "identifier": "A649A236-9E6E-47F8-93B1-B88697875C38",
+  "nonRenewingSubscriptions": [],
+  "products": [],
+  "settings": {
+    "_applicationInternalID": "",
+    "_developerTeamID": "",
+    "_failTransactionsEnabled": false,
+    "_billingGracePeriodEnabled": false,
+    "_lastSynchronizedDate": null,
+    "_lastTransactionID": null,
+    "_locale": "en_US",
+    "_renewalBillingIssuesEnabled": false,
+    "_storefront": "USA",
+    "_timeRate": 0
+  },
+  "subscriptionGroups": [
+    {
+      "id": "47272C58-6AE0-43DA-9B75-827A114785A8",
+      "localizations": [
+        {
+          "description": "WaterWays premium access",
+          "displayName": "WaterWays Premium",
+          "locale": "en_US"
+        }
+      ],
+      "name": "WaterWays Premium",
+      "subscriptions": [
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "4.00",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "387A9B09-D32A-46FC-84B3-0EEC42F00A16",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "WaterWays Premium billed monthly",
+              "displayName": "Monthly Premium",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "ca.waterways.native.premium.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "WaterWays Premium Monthly",
+          "subscriptionGroupID": "47272C58-6AE0-43DA-9B75-827A114785A8",
+          "type": "RecurringSubscription"
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "30.00",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "6BA11F8D-54E7-4695-BD06-11F719FCBFA5",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "WaterWays Premium billed annually",
+              "displayName": "Annual Premium",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "ca.waterways.native.premium.annual",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "WaterWays Premium Annual",
+          "subscriptionGroupID": "47272C58-6AE0-43DA-9B75-827A114785A8",
+          "type": "RecurringSubscription"
+        }
+      ]
+    }
+  ],
+  "version": {
+    "major": 2,
+    "minor": 0
+  }
+}
