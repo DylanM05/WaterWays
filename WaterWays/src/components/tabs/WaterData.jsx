@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
 import Spinner from '../spinners/Spinner';
-import StaffGauge from '../station/StaffGauge';
+import LevelRuler from '../station/LevelRuler';
 import ReadingsChart from '../station/ReadingsChart';
 import WeatherStrip from '../station/WeatherStrip';
 import { ChevronLeftIcon, ChevronRightIcon, TrendIcon } from '../icons/Icons';
@@ -180,7 +180,7 @@ const ReadingsTable = ({ readings, metrics }) => {
 };
 
 /**
- * The Water tab: the latest level and flow with a staff gauge, the readings chart, the 30-day conditions, every
+ * The Water tab: the latest level and flow with a ruler, the readings chart, the 30-day conditions, every
  * reading in a table, and a strip of weather.
  * readings are the past 30 days, oldest first, each with its time in ms.
  */
@@ -247,19 +247,26 @@ const WaterData = ({ readings, loading, error, onRetry, weatherData, forecastDat
               <div className="now-card__label">{lead.label}</div>
               <Reading value={leadSummary.latest} metric={lead} className="now-card__big" />
               <ChangePill summary={leadSummary} metric={lead} />
-              {level && flow && (
-                <div className="now-card__flowline muted">
-                  Flow <b className="num">{METRICS.discharge.format(flow.latest)}</b> {METRICS.discharge.unit}
+              {level && (
+                <div className="now-card__facts muted">
+                  {flow && (
+                    <div className="now-card__flowline">
+                      Flow <b className="num">{METRICS.discharge.format(flow.latest)}</b> {METRICS.discharge.unit}
+                    </div>
+                  )}
+                  <div>
+                    30-day range <b className="num">{METRICS.water_level.format(level.low)}–{METRICS.water_level.format(level.high)}</b> m
+                  </div>
                 </div>
               )}
             </div>
             {level && (
               <>
                 <div className="now-card__gauge now-card__gauge--wide">
-                  <StaffGauge value={level.latest} low={level.low} high={level.high} height={236} plate={36} fontSize={14} />
+                  <LevelRuler value={level.latest} low={level.low} high={level.high} height={210} rulerWidth={44} />
                 </div>
                 <div className="now-card__gauge now-card__gauge--phone">
-                  <StaffGauge value={level.latest} low={level.low} high={level.high} height={196} plate={30} fontSize={12} />
+                  <LevelRuler value={level.latest} low={level.low} high={level.high} height={168} />
                 </div>
               </>
             )}

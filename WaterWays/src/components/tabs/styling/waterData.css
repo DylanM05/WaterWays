@@ -1,4 +1,4 @@
-/* The station page's Water tab: the latest reading with the staff gauge, the chart, the conditions, the
+/* The station page's Water tab: the latest reading with the ruler, the chart, the conditions, the
    readings table, and a weather strip. */
 .water-tab {
   display: grid;
@@ -52,8 +52,9 @@
 
 .now-card__big { font-size: 60px; }
 .now-card__mid { font-size: 34px; }
-.now-card__flowline { display: none; font-size: 13px; }
-.now-card__flowline .num { font-size: 16px; color: var(--w-ink); }
+.now-card__facts { display: grid; gap: 4px; margin-top: 2px; font-size: 13px; }
+.now-card__facts .num { font-size: 15px; color: var(--w-ink); }
+.now-card__flowline { display: none; }
 .now-card__divider { height: 1px; background: var(--w-line); margin-bottom: 20px; }
 
 .now-card__flowrow {
