@@ -112,6 +112,7 @@ struct ReadingNumber: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: size * 0.08) {
             Text(value).font(.number(size)).tracking(-size * 0.02)
+                .minimumScaleFactor(0.5)
             Text(unit).font(.number(max(size * 0.42, 11), weight: 500)).foregroundStyle(Theme.ink2)
         }
         .foregroundStyle(Theme.ink)

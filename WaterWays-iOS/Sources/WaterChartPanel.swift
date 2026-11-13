@@ -339,7 +339,7 @@ private struct WaterMessage: View {
 }
 
 /// The latest reading: the level (or the flow, at stations that only measure flow) large, its change over 24
-/// hours, the flow beside it, and a staff gauge of the level against its 30-day range.
+/// hours, the flow and the level's 30-day range beside it, and a ruler showing where the level sits in that range.
 private struct NowCard: View {
     let level: WaterMetricSummary?
     let flow: WaterMetricSummary?
@@ -354,28 +354,45 @@ private struct NowCard: View {
                         .foregroundStyle(Theme.ink2)
                     ReadingNumber(value: metric.format(lead.latest), unit: metric.unit, size: 54)
                     ChangePill(change: lead.change24h, latest: lead.latest, metric: metric)
-                    if level != nil, let flow {
-                        HStack(alignment: .firstTextBaseline, spacing: 4) {
-                            Text("Flow")
-                            Text(WaterMetric.discharge.format(flow.latest))
-                                .font(.number(16))
-                                .foregroundStyle(Theme.ink)
-                            Text(WaterMetric.discharge.unit)
+                    VStack(alignment: .leading, spacing: 4) {
+                        if level != nil, let flow {
+                            figure("Flow", WaterMetric.discharge.format(flow.latest), unit: WaterMetric.discharge.unit)
                         }
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.ink2)
-                        .padding(.top, 4)
-                        .accessibilityElement(children: .combine)
+                        if let level {
+                            figure(
+                                "30-day range",
+                                "\(WaterMetric.waterLevel.format(level.low))–\(WaterMetric.waterLevel.format(level.high))",
+                                unit: WaterMetric.waterLevel.unit
+                            )
+                        }
                     }
+                    .padding(.top, 4)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
                 if let level {
-                    StaffGauge(value: level.latest, low: level.low, high: level.high)
+                    LevelRuler(value: level.latest, low: level.low, high: level.high)
                 }
             }
             .padding(18)
             .cardBackground()
         }
+    }
+}
+
+extension NowCard {
+    /// A smaller figure under the reading: "Flow 1,210 m³/s".
+    fileprivate func figure(_ title: String, _ value: String, unit: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 4) {
+            Text(title)
+            Text(value).font(.number(16)).foregroundStyle(Theme.ink)
+            Text(unit)
+        }
+        .font(.system(size: 13))
+        .foregroundStyle(Theme.ink2)
+        .lineLimit(1)
+        .minimumScaleFactor(0.8)
+        .accessibilityElement(children: .combine)
     }
 }
 
@@ -408,122 +425,94 @@ private struct ChangePill: View {
     }
 }
 
-/// A staff gauge like the enamel plates at gauging stations: E marks every 10 cm on alternating sides, red at
-/// each whole metre with that metre's numeral, water up to the current level, a tag on the left with the level
-/// now, and the 30-day range as a bar on the right with its two ends labelled. Ported from the website's
-/// StaffGauge.jsx; the scale runs about 0.1 m beyond the range.
-struct StaffGauge: View {
+/// The level on a ruler: ticks every centimetre (or as fine as fits), longer ones halfway, numbered ones, and
+/// whole metres in the gauge red. The water is shaded up to the level, a pointer marks it, and a bar beside the
+/// ruler spans the 30-day low to high. The scale runs a little beyond the range.
+struct LevelRuler: View {
     let value: Double
     let low: Double
     let high: Double
-    var height: CGFloat = 196
-    var plate: CGFloat = 30
-    var fontSize: CGFloat = 12
+    var height: CGFloat = 168
 
-    private var valueText: String { String(format: "%.2f", value) }
-    private var highText: String { String(format: "%.2f", high) }
-    private var lowText: String { String(format: "%.2f", low) }
-    private var tagWidth: CGFloat { max(44, CGFloat(valueText.count) * 7.2 + 14) }
-    private var labelWidth: CGFloat { max(60, CGFloat(5 + max(highText.count, lowText.count)) * 6.6 + 6) }
-    private var left: CGFloat { tagWidth + 7 }
-    private var barX: CGFloat { left + plate + 9 }
-    private var width: CGFloat { barX + 4 + 10 + labelWidth }
+    private let pointer: CGFloat = 7
+    private let rulerWidth: CGFloat = 40
+    private let barGap: CGFloat = 6
+    private var rulerX: CGFloat { pointer + 2 }
+    private var barX: CGFloat { rulerX + rulerWidth + barGap }
 
     var body: some View {
         Canvas { context, _ in draw(in: context) }
-            .frame(width: width, height: height)
+            .frame(width: barX + 4, height: height)
             .accessibilityElement()
-            .accessibilityLabel("Staff gauge: \(valueText) m now; 30-day high \(highText) m, low \(lowText) m")
+            .accessibilityLabel(String(format: "Level %.2f m, between the 30-day low of %.2f and high of %.2f", value, low, high))
+    }
+
+    /// The numbered step and how many ticks divide it: 1s and 10s in tenths, 2s in quarters, 5s in fifths,
+    /// coarser when the ticks would crowd.
+    private static func scale(metresPerPoint: Double) -> (major: Double, divisions: Int) {
+        let steps = [0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500]
+        let major = steps.first { $0 / metresPerPoint >= 24 } ?? steps.last!
+        let leading = Int((major / pow(10, floor(log10(major)))).rounded())
+        let options = leading == 1 ? [10, 5, 2, 1] : leading == 2 ? [4, 2, 1] : [5, 1]
+        let divisions = options.first { major / Double($0) / metresPerPoint >= 3.5 } ?? 1
+        return (major, divisions)
     }
 
     private func draw(in context: GraphicsContext) {
-        let pad = max(0.1, (high - low) * 0.08)
+        let pad = max(0.1, (high - low) * 0.12)
         let minimum = min(low, value) - pad
         let maximum = max(high, value) + pad
-        let top: CGFloat = 10
-        let plateHeight = height - 20
-        let half = plate / 2
-        func y(_ v: Double) -> CGFloat { top + plateHeight * CGFloat(1 - (v - minimum) / (maximum - minimum)) }
+        let top: CGFloat = 4
+        let rulerHeight = height - 8
+        func y(_ v: Double) -> CGFloat { top + rulerHeight * CGFloat(1 - (v - minimum) / (maximum - minimum)) }
 
-        let plateRect = CGRect(x: left, y: top, width: plate, height: plateHeight)
-        let platePath = Path(roundedRect: plateRect, cornerRadius: 2)
-        context.fill(platePath, with: .color(Theme.gaugePlate))
-        context.stroke(platePath, with: .color(Theme.line), lineWidth: 1)
+        let ruler = Path(roundedRect: CGRect(x: rulerX, y: top, width: rulerWidth, height: rulerHeight), cornerRadius: 4)
+        context.fill(ruler, with: .color(Theme.gaugePlate))
 
         var inside = context
-        inside.clip(to: platePath)
-        // Marks are drawn every decimetre while they stay readable; a tall range draws every half metre or metre.
-        let pxPerDm = plateHeight / CGFloat((maximum - minimum) * 10)
-        let step = pxPerDm >= 3 ? 1 : pxPerDm * 5 >= 3 ? 5 : 10
-        let pxPerCm = pxPerDm / 10
-        var d = Int(floor(minimum * 10))
-        while Double(d) < maximum * 10 {
-            defer { d += 1 }
-            guard d % step == 0 else { continue }
-            let v0 = Double(d) / 10
-            let onLeft = (d / step) % 2 == 0
-            let metre = d % 10 == 0
-            let colour = metre ? Theme.gauge : Theme.gaugeMark
-            let x0 = onLeft ? left + 3 : left + half + 1
-            let x1 = onLeft ? left + half - 1 : left + plate - 3
-            func bar(_ x: CGFloat, _ w: CGFloat, _ a: Double, _ b: Double) {
-                inside.fill(Path(CGRect(x: x, y: y(b), width: w, height: max(0.9, y(a) - y(b)))), with: .color(colour))
-            }
-            if step == 1 && pxPerCm >= 1.5 {
-                // An E: the spine, then three 1 cm bars.
-                let spine = max(1.6, (x1 - x0) * 0.24)
-                bar(onLeft ? x1 - spine : x0, spine, v0, v0 + 0.05)
-                bar(x0, x1 - x0, v0, v0 + 0.01)
-                bar(x0, x1 - x0, v0 + 0.02, v0 + 0.03)
-                bar(x0, x1 - x0, v0 + 0.04, v0 + 0.05)
-            } else {
-                bar(x0, x1 - x0, v0, v0 + min(0.05, Double(step) / 20))
-            }
-            if metre {
-                // Long numerals (lake levels above sea level, say) shrink to stay inside their half of the plate.
-                let numeral = "\(d / 10)"
-                let size = min(fontSize, (half - 3) / (0.62 * CGFloat(numeral.count)))
+        inside.clip(to: ruler)
+        let waterY = y(value)
+        inside.fill(Path(CGRect(x: rulerX, y: waterY, width: rulerWidth, height: top + rulerHeight - waterY)), with: .color(Theme.accent.opacity(0.2)))
+
+        let (major, divisions) = Self.scale(metresPerPoint: (maximum - minimum) / Double(rulerHeight))
+        let minor = major / Double(divisions)
+        let decimals = major >= 1 ? 0 : major >= 0.1 ? 1 : 2
+        for k in Int(ceil(minimum / minor))...Int(floor(maximum / minor)) {
+            let v = Double(k) * minor
+            let isMajor = k % divisions == 0
+            let isMid = !isMajor && divisions % 2 == 0 && divisions > 2 && k % (divisions / 2) == 0
+            let isMetre = isMajor && abs(v - v.rounded()) < 1e-9
+            let colour = isMetre ? Theme.gauge : Theme.gaugeMark
+            let length: CGFloat = isMajor ? 15 : isMid ? 10 : 6
+            let tickY = y(v)
+            inside.stroke(
+                Path { $0.move(to: CGPoint(x: rulerX, y: tickY)); $0.addLine(to: CGPoint(x: rulerX + length, y: tickY)) },
+                with: .color(colour),
+                lineWidth: isMajor ? 1.5 : 1
+            )
+            // Numbers stay clear of the ruler's ends and of the water line, where the pointer already marks the level.
+            if isMajor, tickY > top + 6, tickY < top + rulerHeight - 6, abs(tickY - waterY) > 7 {
                 inside.draw(
-                    Text(numeral).font(.display(size, weight: 800, relativeTo: .caption2)).foregroundStyle(Theme.gauge),
-                    at: CGPoint(x: onLeft ? left + half * 1.5 : left + half * 0.5, y: y(v0 + 0.025)),
-                    anchor: .center
+                    Text(String(format: "%.\(isMetre ? 0 : decimals)f", v))
+                        .font(.display(9, weight: 700, relativeTo: .caption2))
+                        .foregroundStyle(colour),
+                    at: CGPoint(x: rulerX + rulerWidth - 3, y: tickY),
+                    anchor: .trailing
                 )
             }
         }
-        let waterY = y(value)
-        inside.fill(Path(CGRect(x: left, y: waterY, width: plate, height: top + plateHeight - waterY)), with: .color(Theme.accent.opacity(0.22)))
-        inside.stroke(Path { $0.move(to: CGPoint(x: left, y: waterY)); $0.addLine(to: CGPoint(x: left + plate, y: waterY)) },
+        inside.stroke(Path { $0.move(to: CGPoint(x: rulerX, y: waterY)); $0.addLine(to: CGPoint(x: rulerX + rulerWidth, y: waterY)) },
                       with: .color(Theme.accent), lineWidth: 1.8)
+        context.stroke(ruler, with: .color(Theme.line), lineWidth: 1)
 
-        context.stroke(Path { $0.move(to: CGPoint(x: left + plate, y: waterY)); $0.addLine(to: CGPoint(x: barX - 1, y: waterY)) },
-                       with: .color(Theme.accent), style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
-        let tagY = min(max(waterY, 10.5), height - 10.5)
-        context.fill(Path(roundedRect: CGRect(x: 0, y: tagY - 10.5, width: tagWidth, height: 21), cornerRadius: 4), with: .color(Theme.accent))
         context.fill(Path { path in
-            path.addLines([CGPoint(x: tagWidth, y: tagY - 4), CGPoint(x: tagWidth + 5, y: tagY), CGPoint(x: tagWidth, y: tagY + 4)])
+            path.addLines([CGPoint(x: 0, y: waterY - 5), CGPoint(x: pointer, y: waterY), CGPoint(x: 0, y: waterY + 5)])
             path.closeSubpath()
         }, with: .color(Theme.accent))
-        context.draw(Text(valueText).font(.system(size: 12, weight: .bold)).monospacedDigit().foregroundStyle(Theme.accentInk),
-                     at: CGPoint(x: tagWidth / 2, y: tagY), anchor: .center)
 
         let highY = y(high), lowY = y(low)
         context.fill(Path(roundedRect: CGRect(x: barX, y: highY, width: 4, height: max(lowY - highY, 2)), cornerRadius: 2),
                      with: .color(Theme.ink3.opacity(0.45)))
-        // Range labels sit level with the bar's ends, pushed apart when the range is too narrow for both.
-        var highLabel = highY, lowLabel = lowY
-        if lowLabel - highLabel < 15 {
-            let middle = (highLabel + lowLabel) / 2
-            highLabel = middle - 7.5
-            lowLabel = middle + 7.5
-        }
-        highLabel = max(highLabel, 7)
-        lowLabel = min(max(lowLabel, highLabel + 15), height - 6)
-        func label(_ name: String, _ number: String) -> Text {
-            Text("\(Text(name).foregroundStyle(Theme.ink2)) \(Text(number).fontWeight(.bold).foregroundStyle(Theme.ink))")
-                .font(.system(size: 12, weight: .medium))
-        }
-        context.draw(label("High", highText).monospacedDigit(), at: CGPoint(x: barX + 12, y: highLabel), anchor: .leading)
-        context.draw(label("Low", lowText).monospacedDigit(), at: CGPoint(x: barX + 12, y: lowLabel), anchor: .leading)
     }
 }
 
