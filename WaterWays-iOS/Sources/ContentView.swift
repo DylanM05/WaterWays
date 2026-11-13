@@ -14,7 +14,7 @@ struct NativeTabShell: View {
             NavigationStack { AccountView() }
                 .tabItem { Label("Account", systemImage: "person.crop.circle") }
         }
-        .tint(brandColor)
+        .tint(Theme.accent)
         .environmentObject(appState)
         .task(id: clerk.user?.id) {
             appState.startStoreKitTransactionListener(clerk: clerk)

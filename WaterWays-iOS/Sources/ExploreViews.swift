@@ -22,7 +22,7 @@ struct ExploreView: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .themedList()
         .navigationTitle("WaterWays")
         .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search rivers or stations")
         .textInputAutocapitalization(.words)
@@ -101,7 +101,7 @@ struct IconBadge: View {
             .font(.system(.caption, design: .rounded, weight: .bold))
             .foregroundStyle(.white)
         .frame(width: 34, height: 34)
-        .background(brandColor.gradient, in: RoundedRectangle(cornerRadius: 9))
+        .background(Theme.accent.gradient, in: RoundedRectangle(cornerRadius: 9))
     }
 }
 
@@ -152,7 +152,7 @@ struct RiverListView: View {
                         }
                     }
                 }
-                .listStyle(.insetGrouped)
+                .themedList()
                 .overlay {
                     if riverNames.isEmpty {
                         ContentUnavailableView.search(text: filter)
@@ -217,7 +217,7 @@ struct RiverDetailView: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .themedList()
         .navigationTitle(name.displayTitle)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -334,7 +334,7 @@ struct CompactReading: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(9)
-        .background(brandColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 9))
+        .background(Theme.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 9))
     }
 }
 
@@ -460,14 +460,14 @@ struct TrendSparkline: View {
                     yEnd: .value("Value", point.value),
                     series: .value("Run", point.run)
                 )
-                .foregroundStyle(brandColor.opacity(0.12))
+                .foregroundStyle(Theme.accent.opacity(0.12))
                 LineMark(x: .value("Time", point.date), y: .value("Value", point.value), series: .value("Run", point.run))
                     .foregroundStyle(Color.secondary)
                     .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
             }
             if let newest = points.last {
                 PointMark(x: .value("Time", newest.date), y: .value("Value", newest.value))
-                    .foregroundStyle(brandColor)
+                    .foregroundStyle(Theme.accent)
                     .symbolSize(30)
             }
         }

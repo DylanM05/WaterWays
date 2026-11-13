@@ -90,7 +90,7 @@ struct AccountView: View {
                 }
             }
         }
-        .listStyle(.insetGrouped)
+        .themedList()
         .navigationTitle("Account")
         .sheet(isPresented: $isAuthPresented) {
             AuthView()
@@ -346,7 +346,7 @@ struct MembershipView: View {
                                 }
                                 .padding(16)
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+                                .cardBackground(cornerRadius: 14)
                             }
                             .buttonStyle(.plain)
                             .disabled(appState.isPurchasingAppleSubscription)
@@ -373,7 +373,7 @@ struct MembershipView: View {
             }
             .padding(20)
         }
-        .background(Color(uiColor: .systemGroupedBackground))
+        .background(Theme.bg)
         .navigationTitle("Membership")
         .navigationBarTitleDisplayMode(.inline)
         .task {
@@ -486,7 +486,7 @@ struct MembershipView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+        .cardBackground(cornerRadius: 14)
     }
 
     private func refreshStatus() async {
@@ -550,12 +550,12 @@ struct PlanRow: View {
             HStack {
                 Text(title).font(.headline)
                 Spacer()
-                Text(price).font(.subheadline.weight(.semibold)).foregroundStyle(brandColor)
+                Text(price).font(.subheadline.weight(.semibold)).foregroundStyle(Theme.accent)
             }
             Text(detail).font(.subheadline).foregroundStyle(.secondary)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+        .cardBackground(cornerRadius: 14)
     }
 }

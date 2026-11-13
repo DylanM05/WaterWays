@@ -6,7 +6,7 @@ enum WaterMetric: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var title: String { self == .waterLevel ? "Water level" : "Discharge" }
     var unit: String { self == .waterLevel ? "m" : "m³/s" }
-    var color: Color { self == .waterLevel ? brandColor : .pink }
+    var color: Color { self == .waterLevel ? Theme.accent : Theme.flow }
     func value(_ reading: WaterSeriesReading) -> Double? {
         self == .waterLevel ? reading.waterLevel : reading.discharge
     }
@@ -223,7 +223,7 @@ struct WaterChartPanel: View {
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(days == range ? .white : .primary)
                                 .padding(.horizontal, 12).padding(.vertical, 8)
-                                .background(days == range ? brandColor : Color(uiColor: .secondarySystemGroupedBackground), in: Capsule())
+                                .background(days == range ? Theme.accent : Theme.surface, in: Capsule())
                         }
                         .buttonStyle(.plain)
                     }
@@ -365,7 +365,7 @@ struct WaterLineChart: View {
         .frame(height: 245)
         .background {
             RoundedRectangle(cornerRadius: 14)
-                .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                .fill(Theme.surface)
         }
     }
 }
@@ -447,7 +447,7 @@ struct WaterSummarySection: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+        .cardBackground(cornerRadius: 12)
         .accessibilityElement(children: .combine)
         .accessibilityValue("Current \(formatted(summary.latest))")
     }
@@ -472,7 +472,7 @@ struct SummaryTile: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+        .cardBackground(cornerRadius: 12)
         .accessibilityElement(children: .combine)
     }
 }

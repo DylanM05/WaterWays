@@ -1,7 +1,5 @@
 import SwiftUI
 
-let brandColor = Color(red: 0.39, green: 0.42, blue: 1.0)
-
 struct MetricRow: View {
     let title: String
     let value: String
@@ -14,7 +12,7 @@ struct MetricRow: View {
         }
         .padding(15)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+        .cardBackground(cornerRadius: 14)
     }
 }
 

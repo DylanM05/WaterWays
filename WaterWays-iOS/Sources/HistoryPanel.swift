@@ -192,7 +192,7 @@ struct HistoryPanel: View {
         VStack(spacing: 14) {
             Image(systemName: "clock.arrow.circlepath")
                 .font(.system(size: 40, weight: .medium))
-                .foregroundStyle(brandColor)
+                .foregroundStyle(Theme.accent)
             Text("Historical data").font(.title3.weight(.bold))
             Text("See years of archived water levels and flows, averaged by day, week, month or year, and compare this year with a typical one.")
                 .font(.subheadline)
@@ -216,7 +216,7 @@ struct HistoryPanel: View {
         }
         .padding(24)
         .frame(maxWidth: .infinity)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+        .cardBackground(cornerRadius: 16)
     }
 
     private var controls: some View {
@@ -263,7 +263,7 @@ struct HistoryPanel: View {
                         .padding(.vertical, 6)
                 }
                 .padding(.horizontal, 12)
-                .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+                .cardBackground(cornerRadius: 12)
             }
         }
     }
@@ -285,7 +285,7 @@ struct HistoryPanel: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 9)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+        .cardBackground(cornerRadius: 12)
     }
 
     @ViewBuilder
@@ -352,7 +352,7 @@ struct HistoryPanel: View {
                     PointMark(x: .value("Date", point.date), y: .value("Average", point.average))
                         .symbol {
                             Circle().strokeBorder(metric.color, lineWidth: 1.5)
-                                .background(Circle().fill(Color(uiColor: .secondarySystemGroupedBackground)))
+                                .background(Circle().fill(Theme.surface))
                                 .frame(width: 8, height: 8)
                         }
                 } else if showsMarkers {
@@ -403,7 +403,7 @@ struct HistoryPanel: View {
         }
         .frame(height: 260)
         .padding(.top, 8)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+        .cardBackground(cornerRadius: 14)
         .onChange(of: history.points.count) { selectedPoint = nil }
 
         if let summary = history.summary {
@@ -502,7 +502,7 @@ struct HistoryPanel: View {
         }
         .frame(height: 260)
         .padding(.top, 8)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+        .cardBackground(cornerRadius: 14)
 
         HStack(spacing: 16) {
             legendItem(color: metric.color, title: "Typical")
@@ -611,7 +611,7 @@ struct HistoryPanel: View {
         .font(.subheadline)
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 14))
+        .cardBackground(cornerRadius: 14)
     }
 
     private func recordDate(_ date: String) -> String {

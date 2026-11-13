@@ -44,6 +44,7 @@ struct WaterWaysNativeApp: App {
     @AppStorage("nativeAppearance") private var appearance = NativeAppearance.system.rawValue
 
     init() {
+        applyThemeAppearance()
         if let publishableKey = Bundle.main.object(forInfoDictionaryKey: "ClerkPublishableKey") as? String {
             Clerk.configure(publishableKey: publishableKey)
         }

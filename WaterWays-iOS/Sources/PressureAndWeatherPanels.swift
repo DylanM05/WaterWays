@@ -93,7 +93,7 @@ struct PressureChartPanel: View {
                     Chart {
                         ForEach(points) { point in
                             LineMark(x: .value("Time", point.time), y: .value(metric.valuesLabel, point.value))
-                                .foregroundStyle(brandColor)
+                                .foregroundStyle(Theme.accent)
                                 .lineStyle(StrokeStyle(lineWidth: 2.5))
                         }
                         RuleMark(x: .value("Now", Date.now))
@@ -157,7 +157,7 @@ struct PressureChartPanel: View {
                     .padding(14)
                     .background {
                         RoundedRectangle(cornerRadius: 14)
-                            .fill(Color(uiColor: .secondarySystemGroupedBackground))
+                            .fill(Theme.surface)
                     }
                     if let pressure {
                         HStack(spacing: 12) {
@@ -215,7 +215,7 @@ struct CurrentWeatherPanel: View {
                     VStack(alignment: .leading, spacing: 16) {
                         VStack(spacing: 7) {
                             Image(systemName: weather.isDay == 1 ? "sun.max.fill" : "moon.stars.fill")
-                                .font(.system(size: 30)).foregroundStyle(brandColor)
+                                .font(.system(size: 30)).foregroundStyle(Theme.accent)
                             Text(temperature(weather.temperature))
                                 .font(.system(size: 54, weight: .medium, design: .rounded))
                             if let apparent = weather.apparentTemperature {
@@ -229,7 +229,7 @@ struct CurrentWeatherPanel: View {
                         }
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 22)
-                        .background(brandColor.opacity(0.08), in: RoundedRectangle(cornerRadius: 18))
+                        .background(Theme.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 18))
 
                         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                             if let humidity = weather.humidity {

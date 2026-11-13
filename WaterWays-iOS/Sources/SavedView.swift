@@ -131,7 +131,7 @@ struct FavoritesView: View {
                         }
                     }
                 }
-                .listStyle(.insetGrouped)
+                .themedList()
             }
         }
         .navigationTitle("Saved")
@@ -162,7 +162,7 @@ struct FavoritesView: View {
 
     private func savedRiverHeader(_ river: SavedRiver) -> some View {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Image(systemName: "water.waves").foregroundStyle(brandColor)
+            Image(systemName: "water.waves").foregroundStyle(Theme.accent)
             VStack(alignment: .leading, spacing: 2) {
                 Text(river.name.displayTitle)
                     .font(.headline)

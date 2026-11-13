@@ -34,7 +34,7 @@ struct StationDetailView: View {
                                 .font(.subheadline.weight(.semibold))
                                 .foregroundStyle(selectedTab == tab ? .white : .primary)
                                 .padding(.horizontal, 14).padding(.vertical, 9)
-                                .background(selectedTab == tab ? brandColor : Color(uiColor: .secondarySystemGroupedBackground), in: Capsule())
+                                .background(selectedTab == tab ? Theme.accent : Theme.surface, in: Capsule())
                         }
                         .buttonStyle(.plain)
                     }
@@ -47,7 +47,7 @@ struct StationDetailView: View {
                 StationDataPanel(station: station, tab: selectedTab)
             }
         }
-        .background(Color(uiColor: .systemGroupedBackground))
+        .background(Theme.bg)
         .navigationTitle(station.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
@@ -152,7 +152,7 @@ struct StationMetricCard: View {
         }
         .padding(13)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 13))
+        .cardBackground(cornerRadius: 13)
     }
 }
 

@@ -263,7 +263,7 @@ struct ForecastHero: View {
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            LinearGradient(colors: [brandColor.opacity(0.18), brandColor.opacity(0.05)], startPoint: .topLeading, endPoint: .bottomTrailing),
+            LinearGradient(colors: [Theme.accent.opacity(0.18), Theme.accent.opacity(0.05)], startPoint: .topLeading, endPoint: .bottomTrailing),
             in: RoundedRectangle(cornerRadius: 18)
         )
         .accessibilityElement(children: .combine)
@@ -285,7 +285,7 @@ struct ForecastCard<Content: View>: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(uiColor: .secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 16))
+        .cardBackground(cornerRadius: 16)
     }
 }
 
@@ -710,7 +710,7 @@ struct WeeklyForecastPanel: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color(uiColor: .tertiarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 12))
+        .background(Theme.sunk, in: RoundedRectangle(cornerRadius: 12))
     }
 
     private func uvLevel(_ uv: Double) -> String {
@@ -753,7 +753,7 @@ struct TemperatureRangeBar: View {
             let start = (low - rangeLow) / span * geometry.size.width
             let width = max((high - low) / span * geometry.size.width, 6)
             ZStack(alignment: .leading) {
-                Capsule().fill(Color(uiColor: .tertiarySystemFill))
+                Capsule().fill(Theme.sunk)
                 Capsule()
                     .fill(LinearGradient(colors: [.cyan, .green, .yellow, .orange], startPoint: .leading, endPoint: .trailing))
                     .frame(width: width)
