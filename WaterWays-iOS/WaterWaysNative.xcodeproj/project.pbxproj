@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		A10000000000000000000119 /* RiverSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000118 /* RiverSearch.swift */; };
+		A10000000000000000000117 /* RiverWater.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000116 /* RiverWater.swift */; };
 		A10000000000000000000011 /* WaterWaysNativeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000E /* WaterWaysNativeApp.swift */; };
 		A10000000000000000000012 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000F /* ContentView.swift */; };
 		A10000000000000000000101 /* SharedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000100 /* SharedViews.swift */; };
@@ -26,6 +28,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		A10000000000000000000118 /* RiverSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiverSearch.swift; sourceTree = "<group>"; };
+		A10000000000000000000116 /* RiverWater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiverWater.swift; sourceTree = "<group>"; };
 		A1000000000000000000000A /* WaterWaysNative.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WaterWaysNative.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1000000000000000000000E /* WaterWaysNativeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterWaysNativeApp.swift; sourceTree = "<group>"; };
 		A1000000000000000000000F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -91,6 +95,8 @@
 				A10000000000000000000110 /* AccountViews.swift */,
 				A10000000000000000000010 /* APIClient.swift */,
 				A10000000000000000000112 /* Theme.swift */,
+				A10000000000000000000118 /* RiverSearch.swift */,
+				A10000000000000000000116 /* RiverWater.swift */,
 				A10000000000000000000114 /* Archivo.ttf */,
 				A1000000000000000000001B /* Info.plist */,
 			);
@@ -185,6 +191,8 @@
 				A10000000000000000000111 /* AccountViews.swift in Sources */,
 				A10000000000000000000013 /* APIClient.swift in Sources */,
 				A10000000000000000000113 /* Theme.swift in Sources */,
+				A10000000000000000000119 /* RiverSearch.swift in Sources */,
+				A10000000000000000000117 /* RiverWater.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

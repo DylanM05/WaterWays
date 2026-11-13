@@ -90,6 +90,11 @@ struct SearchResult: Decodable, Identifiable {
     }
 }
 
+struct ProvinceCount: Decodable {
+    let rivers: Int
+    let stations: Int
+}
+
 struct FavoriteRecord: Decodable, Identifiable {
     let stationID: String
     let favoriteType: String?
@@ -621,11 +626,27 @@ enum APIClient {
         return try JSONDecoder().decode([String: [RiverStation]].self, from: data)
     }
 
-    static func search(query: String) async throws -> [SearchResult] {
-        var components = URLComponents(url: baseURL.appending(path: "search/search-all-rivers"), resolvingAgainstBaseURL: false)!
+    /// Rivers whose names match, one result per river and province; `stationName` is the river's name.
+    static func searchRivers(query: String) async throws -> [SearchResult] {
+        try await search(path: "search/search-all-rivers", query: query)
+    }
+
+    /// Stations whose names match.
+    static func searchStations(query: String) async throws -> [SearchResult] {
+        try await search(path: "search/search", query: query)
+    }
+
+    private static func search(path: String, query: String) async throws -> [SearchResult] {
+        var components = URLComponents(url: baseURL.appending(path: path), resolvingAgainstBaseURL: false)!
         components.queryItems = [URLQueryItem(name: "query", value: query)]
         let data = try await data(from: components.url!)
         return try JSONDecoder().decode([SearchResult].self, from: data)
+    }
+
+    /// Rivers and stations in each province, keyed by province code.
+    static func provinceCounts() async throws -> [String: ProvinceCount] {
+        let data = try await data(from: baseURL.appending(path: "details/province-counts"))
+        return try JSONDecoder().decode([String: ProvinceCount].self, from: data)
     }
 
     static func stationData(path: String) async throws -> JSONValue {

@@ -114,6 +114,15 @@ extension View {
     }
 }
 
+/// A row inside a card: the sunk colour shows while it's pressed.
+struct CardRowButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .contentShape(Rectangle())
+            .background(configuration.isPressed ? Theme.sunk : .clear)
+    }
+}
+
 /// App-wide UIKit styling that SwiftUI doesn't expose: large titles in Archivo.
 @MainActor
 func applyThemeAppearance() {

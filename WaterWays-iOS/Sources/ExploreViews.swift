@@ -4,104 +4,238 @@ import ClerkKitUI
 import SwiftUI
 
 struct ExploreView: View {
+    @Environment(Clerk.self) private var clerk
+    @EnvironmentObject private var appState: AppState
     @State private var query = ""
-    @State private var searchResults: [SearchResult] = []
-    @State private var searchError: String?
-    @State private var searching = false
+    @FocusState private var searchFocused: Bool
+    @State private var search = RiverSearchState()
+    @State private var counts: [String: ProvinceCount] = [:]
+    @State private var saved = LatestReadings(readings: [:], lastReported: [:])
+
+    private var searchText: String { query.trimmingCharacters(in: .whitespaces) }
+
+    /// Saving is a premium feature, so a lapsed member's old favourites aren't shown here.
+    private var savedStations: [RiverStation] {
+        clerk.user != nil && appState.isPremiumSubscriber ? appState.favorites : []
+    }
 
     var body: some View {
-        List {
-            if query.count >= 3 {
-                searchSection
-            } else {
-                Section("Provinces") {
-                    ForEach(Province.all.filter { !$0.isTerritory }) { regionLink(for: $0) }
+        ScrollView {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack {
+                    Text("Explore")
+                        .font(.display(34, relativeTo: .largeTitle))
+                        .tracking(-0.85)
+                        .foregroundStyle(Theme.ink)
+                        .accessibilityAddTraits(.isHeader)
+                    Spacer()
+                    AccountAvatar()
                 }
-                Section("Territories") {
-                    ForEach(Province.all.filter(\.isTerritory)) { regionLink(for: $0) }
+                .padding(.horizontal, 20)
+                .padding(.top, 6)
+
+                RiverSearchField(text: $query, focused: $searchFocused)
+                    .padding(.top, 10)
+                    .padding(.bottom, 2)
+
+                if searchText.count >= RiverSearchState.minimumLength {
+                    RiverSearchPanel(state: search, query: searchText)
+                        .padding(.horizontal, 12)
+                        .padding(.top, 6)
+                } else {
+                    if !savedStations.isEmpty { savedSection }
+                    places("Provinces", Province.all.filter { !$0.isTerritory })
+                    places("Territories", Province.all.filter(\.isTerritory))
                 }
+            }
+            .padding(.bottom, 24)
+        }
+        .scrollDismissesKeyboard(.immediately)
+        .background(Theme.bg)
+        .navigationTitle("Explore")
+        .toolbar(.hidden, for: .navigationBar)
+        .task(id: searchText) { search = await RiverSearchState.run(searchText, current: search) }
+        #if DEBUG
+        .onAppear { if let text = DebugLaunch.search { query = text } }
+        .navigationDestination(isPresented: .constant(DebugLaunch.stationID != nil)) {
+            if let stationID = DebugLaunch.stationID {
+                StationDetailView(station: RiverStation(stationName: stationID, stationID: stationID, province: "", latitude: nil, longitude: nil, section: nil))
             }
         }
-        .themedList()
-        .navigationTitle("WaterWays")
-        .searchable(text: $query, placement: .navigationBarDrawer(displayMode: .always), prompt: "Search rivers or stations")
-        .textInputAutocapitalization(.words)
-        .autocorrectionDisabled()
-        .task(id: query) { await search() }
-    }
-
-    private func regionLink(for province: Province) -> some View {
-        NavigationLink {
-            RiverListView(province: province)
-        } label: {
-            HStack(spacing: 14) {
-                IconBadge(text: province.code)
-                Text(province.name).font(.body.weight(.medium))
-            }
-            .padding(.vertical, 2)
+        #endif
+        .task { await loadCounts() }
+        .task(id: savedStations.map(\.stationID)) { await loadSavedReadings() }
+        .refreshable {
+            await loadCounts()
+            await loadSavedReadings()
         }
     }
 
-    @ViewBuilder
-    private var searchSection: some View {
-        if searching {
-            Section {
-                ProgressView().frame(maxWidth: .infinity).padding(.vertical, 22)
+    private var savedSection: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SectionHeading(title: "Saved") {
+                Button("See all") { appState.selectedTab = .saved }
+                    .font(.system(size: 15, weight: .semibold))
+                    .tint(Theme.accent)
             }
-        } else if let searchError {
-            ContentUnavailableView(searchError, systemImage: "exclamationmark.magnifyingglass")
-                .listRowBackground(Color.clear)
-        } else if searchResults.isEmpty {
-            ContentUnavailableView.search(text: query)
-                .listRowBackground(Color.clear)
-        } else {
-            Section("\(searchResults.count) matching stations") {
-                ForEach(searchResults) { result in
-                    NavigationLink {
-                        StationDetailView(station: result.station)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(result.stationName.displayTitle).font(.body.weight(.medium))
-                            Text("\(result.province) · Station \(result.stationID)")
-                                .font(.caption).foregroundStyle(.secondary)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(alignment: .top, spacing: 12) {
+                    ForEach(savedStations) { station in
+                        NavigationLink {
+                            StationDetailView(station: station)
+                        } label: {
+                            SavedMiniCard(
+                                station: station,
+                                reading: saved.readings[station.stationID],
+                                trend: saved.trends[station.stationID]
+                            )
                         }
-                        .padding(.vertical, 2)
+                        .buttonStyle(.plain)
                     }
                 }
+                .padding(.horizontal, 16)
             }
+        }
+    }
+
+    private func places(_ title: String, _ places: [Province]) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            SectionHeading(title)
+            VStack(spacing: 0) {
+                ForEach(Array(places.enumerated()), id: \.element.id) { index, province in
+                    if index > 0 { Rectangle().fill(Theme.line).frame(height: 1) }
+                    NavigationLink {
+                        RiverListView(province: province)
+                    } label: {
+                        ProvinceRow(province: province, stations: counts[province.code]?.stations)
+                    }
+                    .buttonStyle(CardRowButtonStyle())
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 18))
+            .cardBackground()
+            .padding(.horizontal, 16)
         }
     }
 
     @MainActor
-    private func search() async {
-        guard query.count >= 3 else {
-            searchResults = []
-            searching = false
-            return
+    private func loadCounts() async {
+        // The rows work without counts, so a failure just leaves them off.
+        if let result = try? await APIClient.provinceCounts() { counts = result }
+    }
+
+    @MainActor
+    private func loadSavedReadings() async {
+        let stationIDs = savedStations.map(\.stationID)
+        guard !stationIDs.isEmpty else { return }
+        if let result = try? await APIClient.latestWaterData(stationIDs: stationIDs), !Task.isCancelled {
+            saved = result
         }
-        try? await Task.sleep(for: .milliseconds(250))
-        guard !Task.isCancelled else { return }
-        searching = true
-        searchError = nil
-        do {
-            searchResults = try await APIClient.search(query: query)
-        } catch {
-            searchError = error.localizedDescription
-        }
-        searching = false
     }
 }
 
-/// Settings-style rounded square badge used for list rows.
-struct IconBadge: View {
-    let text: String
+/// The signed-in member's initials (or a person icon), opening the Account tab.
+private struct AccountAvatar: View {
+    @Environment(Clerk.self) private var clerk
+    @EnvironmentObject private var appState: AppState
+
+    private var initials: String? {
+        guard let user = clerk.user else { return nil }
+        let letters = [user.firstName, user.lastName].compactMap { $0?.first.map(String.init) }.joined()
+        if !letters.isEmpty { return letters.uppercased() }
+        return user.primaryEmailAddress?.emailAddress.first.map { String($0).uppercased() }
+    }
 
     var body: some View {
-        Text(text)
-            .font(.system(.caption, design: .rounded, weight: .bold))
-            .foregroundStyle(.white)
-        .frame(width: 34, height: 34)
-        .background(Theme.accent.gradient, in: RoundedRectangle(cornerRadius: 9))
+        Button {
+            appState.selectedTab = .account
+        } label: {
+            Group {
+                if let initials {
+                    Text(initials).font(.system(size: 13, weight: .bold))
+                } else {
+                    Image(systemName: "person.fill").font(.system(size: 14, weight: .semibold))
+                }
+            }
+            .foregroundStyle(Theme.accent)
+            .frame(width: 34, height: 34)
+            .background(Theme.accentSoft, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Account")
+    }
+}
+
+private struct ProvinceRow: View {
+    let province: Province
+    let stations: Int?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(province.code)
+                .font(.display(12.5, relativeTo: .caption1))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 34, height: 34)
+                .background(Theme.accentSoft, in: RoundedRectangle(cornerRadius: 10))
+                .accessibilityHidden(true)
+            Text(province.name)
+                .font(.system(size: 16))
+                .foregroundStyle(Theme.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if let stations {
+                Text(stations == 1 ? "1 station" : "\(stations.formatted()) stations")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.ink3)
+            }
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.ink3)
+        }
+        .padding(.horizontal, 14)
+        .frame(minHeight: 54)
+    }
+}
+
+/// A saved station on the Explore tab: its name, how old the reading is, the reading and its change, and the
+/// last day as a line.
+struct SavedMiniCard: View {
+    let station: RiverStation
+    let reading: LatestWaterReading?
+    let trend: WaterTrend?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(station.displayName)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
+                    .lineLimit(2, reservesSpace: true)
+                    .multilineTextAlignment(.leading)
+                Text(reading?.date.map { TimeAgo.label($0) } ?? " ")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(Theme.ink3)
+            }
+            if let reading, let lead = LeadReading(reading: reading, trend: trend) {
+                HStack(alignment: .firstTextBaseline) {
+                    ReadingNumber(value: lead.formatted, unit: lead.unit, size: 28)
+                    Spacer(minLength: 6)
+                    ChangeLabel(lead: lead)
+                }
+                TrendSparkline(
+                    points: TrendPoint.points(from: trend, level: !lead.isFlow),
+                    minSpan: lead.isFlow ? max(abs(lead.value) * 0.04, 0.05) : 0.05,
+                    label: "The past 24 hours"
+                )
+            } else {
+                Text(reading == nil ? " " : station.noReadingMessage)
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.ink2)
+                    .frame(height: 78, alignment: .topLeading)
+            }
+        }
+        .padding(14)
+        .frame(width: 236, alignment: .leading)
+        .cardBackground()
     }
 }
 
@@ -408,21 +542,8 @@ struct StationReadingSummary: View {
         }
     }
 
-    /// The line follows the level, or the flow at stations that only measure flow. A new run starts after a
-    /// gap of more than 90 minutes, so missing hours aren't drawn as a straight line.
     private var trendPoints: [TrendPoint] {
-        guard let trend else { return [] }
-        let utc = TimeZone(identifier: "UTC")!
-        let useLevel = reading.waterLevel != nil
-        var points: [TrendPoint] = []
-        var run = 0
-        for hour in trend.hourly {
-            guard let value = useLevel ? hour.waterLevel : hour.discharge,
-                  let date = StationDate.parse(hour.dateTime, format: "yyyy-MM-dd HH:mm:ss", timeZone: utc) else { continue }
-            if let previous = points.last, date.timeIntervalSince(previous.date) > 90 * 60 { run += 1 }
-            points.append(TrendPoint(date: date, value: value, run: run))
-        }
-        return points
+        TrendPoint.points(from: trend, level: reading.waterLevel != nil)
     }
 }
 
@@ -432,14 +553,31 @@ struct TrendPoint: Identifiable {
     let run: Int
 
     var id: Date { date }
+
+    /// The last day's hourly level, or flow when `level` is false. A new run starts after a gap of more than
+    /// 90 minutes, so missing hours aren't drawn as a straight line.
+    static func points(from trend: WaterTrend?, level: Bool) -> [TrendPoint] {
+        guard let trend else { return [] }
+        let utc = TimeZone(identifier: "UTC")!
+        var points: [TrendPoint] = []
+        var run = 0
+        for hour in trend.hourly {
+            guard let value = level ? hour.waterLevel : hour.discharge,
+                  let date = StationDate.parse(hour.dateTime, format: "yyyy-MM-dd HH:mm:ss", timeZone: utc) else { continue }
+            if let previous = points.last, date.timeIntervalSince(previous.date) > 90 * 60 { run += 1 }
+            points.append(TrendPoint(date: date, value: value, run: run))
+        }
+        return points
+    }
 }
 
-/// The last day as a small line, with the newest hour marked in the brand colour. minSpan is the smallest
-/// range the height stands for, so a nearly flat river looks flat.
+/// The last day as a small line over a tinted fill, with the newest hour marked. minSpan is the smallest range
+/// the height stands for, so a nearly flat river looks flat.
 struct TrendSparkline: View {
     let points: [TrendPoint]
     let minSpan: Double
     let label: String
+    var height: CGFloat = 34
 
     private var domain: ClosedRange<Double> {
         let values = points.map(\.value)
@@ -460,22 +598,22 @@ struct TrendSparkline: View {
                     yEnd: .value("Value", point.value),
                     series: .value("Run", point.run)
                 )
-                .foregroundStyle(Theme.accent.opacity(0.12))
+                .foregroundStyle(LinearGradient(colors: [Theme.accent.opacity(0.22), Theme.accent.opacity(0)], startPoint: .top, endPoint: .bottom))
                 LineMark(x: .value("Time", point.date), y: .value("Value", point.value), series: .value("Run", point.run))
-                    .foregroundStyle(Color.secondary)
-                    .lineStyle(StrokeStyle(lineWidth: 1.5, lineCap: .round, lineJoin: .round))
+                    .foregroundStyle(Theme.accent)
+                    .lineStyle(StrokeStyle(lineWidth: 1.75, lineCap: .round, lineJoin: .round))
             }
             if let newest = points.last {
                 PointMark(x: .value("Time", newest.date), y: .value("Value", newest.value))
                     .foregroundStyle(Theme.accent)
-                    .symbolSize(30)
+                    .symbolSize(28)
             }
         }
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
         .chartLegend(.hidden)
         .chartYScale(domain: domain)
-        .frame(height: 34)
+        .frame(height: height)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(label)
     }

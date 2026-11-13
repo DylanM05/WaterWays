@@ -38,6 +38,10 @@ enum NativeAppearance: String, CaseIterable {
     }
 }
 
+enum AppTab: Hashable {
+    case explore, saved, account
+}
+
 @main
 struct WaterWaysNativeApp: App {
     // Appearance is per device, so it isn't synced with server settings.
@@ -66,6 +70,7 @@ struct WaterWaysNativeApp: App {
 
 @MainActor
 final class AppState: ObservableObject {
+    @Published var selectedTab = AppTab.explore
     @Published private(set) var favorites: [RiverStation] = []
     @Published private(set) var favoriteRivers: [SavedRiver] = []
     @Published private(set) var isPremiumSubscriber = false
