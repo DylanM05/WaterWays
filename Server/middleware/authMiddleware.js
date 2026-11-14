@@ -1,9 +1,13 @@
 const { clerkMiddleware, getAuth } = require('@clerk/express');
 require('dotenv').config();
+const { webOrigins } = require('../utilities/origins');
 
 const clerk = clerkMiddleware({
   publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
   secretKey: process.env.CLERK_SECRET_KEY,
+  // Web session tokens must come from our own sites (their azp claim). Clerk skips the check for tokens
+  // without azp, such as the iOS app's, which sends no Origin.
+  authorizedParties: webOrigins,
 });
 
 // Verifies the session token without blocking signed-out requests. Signed-in requests get

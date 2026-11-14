@@ -1,4 +1,21 @@
 const Favorite = require('../models/Favorite');
+const { PROVINCES, normalizeStationId } = require('../utilities/stationIds');
+
+// Limits far above real use, so only junk is turned away.
+const MAX_NAME_LENGTH = 200;
+const MAX_COORDINATE_LENGTH = 32;
+const MAX_FAVORITES_PER_USER = 200;
+const MAX_RIVER_STATIONS = 500;
+exports.MAX_FAVORITES_PER_USER = MAX_FAVORITES_PER_USER;
+
+const tooLong = (value, max = MAX_NAME_LENGTH) => typeof value === 'string' && value.length > max;
+
+// True when adding a new favourite would take the user past the cap; re-saving one they have is fine.
+async function overFavoriteLimit(userId, stationId) {
+  if (await Favorite.exists({ userId, stationId })) return false;
+  return await Favorite.countDocuments({ userId }) >= MAX_FAVORITES_PER_USER;
+}
+const limitError = { error: `You can save up to ${MAX_FAVORITES_PER_USER} favourites. Remove one to add another.` };
 
 // One saved river per user, province and (case-insensitive) river name.
 function riverFavoriteId(province, riverName) {
@@ -8,19 +25,31 @@ exports.riverFavoriteId = riverFavoriteId;
 
 exports.addFavorite = async (req, res) => {
   try {
-    const { stationId, stationName, province } = req.body;
+    const { stationName } = req.body;
     const userId = req.userId;
     if (!userId) {
       return res.status(401).json({ error: 'Authentication required' });
     }
-    if (!stationId || typeof stationId !== 'string' || stationId.startsWith('river:')) {
+    const stationId = typeof req.body.stationId === 'string' ? normalizeStationId(req.body.stationId.trim()) : null;
+    if (!stationId) {
       return res.status(400).json({ error: 'Valid station ID string is required' });
     }
     if (stationName && typeof stationName !== 'string') {
       return res.status(400).json({ error: 'Station name must be a string' });
     }
-    if (province && typeof province !== 'string') {
+    if (tooLong(stationName)) {
+      return res.status(400).json({ error: `Station name must be at most ${MAX_NAME_LENGTH} characters` });
+    }
+    if (req.body.province && typeof req.body.province !== 'string') {
       return res.status(400).json({ error: 'Province must be a string' });
+    }
+    // The web app sends 'Unknown' when it doesn't know the station's province.
+    const province = req.body.province ? req.body.province.trim().toUpperCase() : '';
+    if (province && province !== 'UNKNOWN' && !PROVINCES.has(province)) {
+      return res.status(400).json({ error: 'Invalid province' });
+    }
+    if (await overFavoriteLimit(userId.toString(), stationId)) {
+      return res.status(409).json(limitError);
     }
     const favorite = await Favorite.findOneAndUpdate(
       { userId: userId.toString(), stationId },
@@ -30,7 +59,7 @@ exports.addFavorite = async (req, res) => {
           stationId,
           favoriteType: 'station',
           stationName: stationName || `Station ${stationId}`,
-          province: province || 'Unknown'
+          province: PROVINCES.has(province) ? province : 'Unknown'
         }
       },
       { upsert: true, new: true, runValidators: true }
@@ -51,25 +80,41 @@ exports.addRiverFavorite = async (req, res) => {
     if (typeof riverName !== 'string' || !riverName.trim() || typeof province !== 'string' || !province.trim()) {
       return res.status(400).json({ error: 'River name and province are required' });
     }
-    if (!Array.isArray(stations) || stations.length === 0 || stations.length > 500) {
-      return res.status(400).json({ error: 'River must include between 1 and 500 stations' });
+    const cleanRiverName = riverName.trim();
+    const cleanProvince = province.trim().toUpperCase();
+    if (cleanRiverName.length > MAX_NAME_LENGTH) {
+      return res.status(400).json({ error: `River name must be at most ${MAX_NAME_LENGTH} characters` });
+    }
+    if (!PROVINCES.has(cleanProvince)) return res.status(400).json({ error: 'Invalid province' });
+    if (!Array.isArray(stations) || stations.length === 0 || stations.length > MAX_RIVER_STATIONS) {
+      return res.status(400).json({ error: `River must include between 1 and ${MAX_RIVER_STATIONS} stations` });
+    }
+    if (stations.some(station => station && (tooLong(station.stationName) || tooLong(station.section)
+      || tooLong(station.latitude, MAX_COORDINATE_LENGTH) || tooLong(station.longitude, MAX_COORDINATE_LENGTH)))) {
+      return res.status(400).json({ error: 'Station details are too long' });
     }
 
+    const stationProvince = value => {
+      const code = typeof value === 'string' ? value.trim().toUpperCase() : '';
+      return PROVINCES.has(code) ? code : cleanProvince;
+    };
     const normalizedStations = [...new Map(stations
-      .filter(station => station && typeof station.stationId === 'string' && station.stationId.trim())
-      .map(station => [station.stationId.trim(), {
-        stationId: station.stationId.trim(),
-        stationName: typeof station.stationName === 'string' ? station.stationName : `Station ${station.stationId.trim()}`,
-        province: typeof station.province === 'string' ? station.province : province.trim().toUpperCase(),
+      .map(station => [station, station && typeof station.stationId === 'string' ? normalizeStationId(station.stationId.trim()) : null])
+      .filter(([, id]) => id)
+      .map(([station, id]) => [id, {
+        stationId: id,
+        stationName: typeof station.stationName === 'string' ? station.stationName : `Station ${id}`,
+        province: stationProvince(station.province),
         latitude: typeof station.latitude === 'string' ? station.latitude : null,
         longitude: typeof station.longitude === 'string' ? station.longitude : null,
         section: typeof station.section === 'string' ? station.section : null
       }])).values()];
     if (normalizedStations.length === 0) return res.status(400).json({ error: 'River contains no valid station IDs' });
 
-    const cleanRiverName = riverName.trim();
-    const cleanProvince = province.trim().toUpperCase();
     const stationId = riverFavoriteId(cleanProvince, cleanRiverName);
+    if (await overFavoriteLimit(userId.toString(), stationId)) {
+      return res.status(409).json(limitError);
+    }
     const favorite = await Favorite.findOneAndUpdate(
       { userId: userId.toString(), stationId, favoriteType: 'river' },
       {

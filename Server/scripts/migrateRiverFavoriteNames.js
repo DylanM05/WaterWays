@@ -5,6 +5,7 @@ const Favorite = require('../models/Favorite');
 const StationCoordinates = require('../models/StationCoordinates');
 const { splitStationName } = require('../utilities/riverNames');
 const { riverFavoriteId } = require('../controllers/favoritesController');
+const { logMongoTarget } = require('../utilities/mongoTarget');
 
 // River lists used to group stations by their first two words ("LITTLE QUALICUM"); they now use the
 // waterbody name ("LITTLE QUALICUM RIVER"). This renames saved rivers to match, so apps still recognise them.
@@ -55,6 +56,7 @@ async function main() {
     const apply = process.argv.includes('--apply');
     const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
     if (!mongoUri) throw new Error('MONGO_URI is not set');
+    logMongoTarget(mongoUri, { apply });
     await mongoose.connect(mongoUri);
 
     const changes = await migrateRiverFavorites({ apply });

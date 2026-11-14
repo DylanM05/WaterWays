@@ -1,4 +1,5 @@
 require('dotenv').config();
+const crypto = require('crypto');
 
 const requireApiKey = (req, res, next) => {
   const apiKey = req.headers['x-api-key'];
@@ -13,7 +14,9 @@ const requireApiKey = (req, res, next) => {
     return res.status(500).json({ error: 'Server configuration error' });
   }
 
-  if (apiKey !== expectedApiKey) {
+  // Compared in constant time; hashing first makes the lengths equal, as timingSafeEqual needs.
+  const digest = value => crypto.createHash('sha256').update(String(value)).digest();
+  if (!crypto.timingSafeEqual(digest(apiKey), digest(expectedApiKey))) {
     return res.status(403).json({ error: 'Invalid API Key' });
   }
 

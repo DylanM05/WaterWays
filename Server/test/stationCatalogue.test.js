@@ -5,7 +5,7 @@ const StationCoordinates = require('../models/StationCoordinates');
 const axios = require('axios');
 const StationArchive = require('../models/StationArchive');
 const StationData = require('../models/StationData');
-const { addStations, applyCorrections, compareWithCatalogue, distanceKm, fetchReportingStations, findDeadStations, removeDiscontinued, removeStations, stationsToAdd } = require('../scripts/syncStationCatalogue');
+const { addStations, applyCorrections, compareWithCatalogue, distanceKm, fetchReportingStations, findDeadStations, parseOptions, removeDiscontinued, removeStations, stationsToAdd } = require('../scripts/syncStationCatalogue');
 const { fakeModel } = require('./helpers');
 
 const feature = (stationId, name, latitude, longitude, { status = 'Active', realtime = 1, province = 'AB' } = {}) => ({
@@ -129,4 +129,16 @@ test('finds uncatalogued stations that never had data, and removes only those', 
   assert.equal(await removeStations(dead), 1);
   assert.equal(stored.some(({ station_id }) => station_id === '10LC022'), false);
   assert.equal(stored.length, listed.length - 1);
+});
+
+test('the sync writes nothing without --apply, whichever other options are passed', () => {
+  const dryRun = parseOptions(['--remove-dead', '--remove-discontinued', '--add-reporting']);
+  assert.equal(dryRun.apply, false);
+  assert.deepEqual([dryRun.removeDead, dryRun.removeDiscontinued, dryRun.addReporting], [false, false, false]);
+  assert.deepEqual(dryRun.requested, { removeDiscontinued: true, removeDead: true, addReporting: true });
+  assert.deepEqual(parseOptions([]).requested, { removeDiscontinued: false, removeDead: false, addReporting: false });
+
+  const applied = parseOptions(['--apply', '--remove-dead']);
+  assert.deepEqual([applied.apply, applied.removeDead, applied.removeDiscontinued, applied.addReporting], [true, true, false, false]);
+  assert.throws(() => parseOptions(['--dry-run']), /Usage/);
 });

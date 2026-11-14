@@ -19,6 +19,16 @@ const strictLimiter = rateLimit({
   message: 'Too many requests for this sensitive endpoint, please try again after 15 minutes',
 });
 
+// The website's visit log - as strict, but counted on its own so page loads don't use up the checkout and
+// invite allowance above. The site logs one visit per page load.
+const visitLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 30,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many requests for this sensitive endpoint, please try again after 15 minutes',
+});
+
 // Very lenient limiter for common public endpoints - 500 requests per 15 minutes
 const lenientLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -28,8 +38,19 @@ const lenientLimiter = rateLimit({
   message: 'Too many requests from this IP, please try again after 15 minutes',
 });
 
+// Webhooks (Stripe, Clerk) - 600 requests per minute, enough for a burst of retries after an outage
+const webhookLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 600,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: 'Too many webhook requests, please try again later',
+});
+
 module.exports = {
   defaultLimiter,
   strictLimiter,
-  lenientLimiter
+  visitLimiter,
+  lenientLimiter,
+  webhookLimiter
 };

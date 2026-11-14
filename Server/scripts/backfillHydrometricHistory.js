@@ -4,6 +4,7 @@ const axios = require('axios');
 const mongoose = require('mongoose');
 const StationCoordinates = require('../models/StationCoordinates');
 const StationArchive = require('../models/StationArchive');
+const { logMongoTarget } = require('../utilities/mongoTarget');
 
 const COLLECTION_URL = 'https://api.weather.gc.ca/collections/hydrometric-monthly-mean/items';
 const PAGE_SIZE = 1000;
@@ -79,6 +80,7 @@ async function main() {
     const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
     if (!mongoUri) throw new Error('Set MONGO_URI or MONGODB_URI before running the backfill.');
 
+    logMongoTarget(mongoUri);
     await mongoose.connect(mongoUri);
     const cutoff = startOfMonth(new Date());
     cutoff.setUTCMonth(cutoff.getUTCMonth() - 12);

@@ -23,6 +23,9 @@ class ErrorReportingTransport extends winston.Transport {
   }
 }
 
+// Each file rolls over at 5 MB and keeps 5 files; tailable keeps the newest in error.log / combined.log.
+const rotation = { maxsize: 5 * 1024 * 1024, maxFiles: 5, tailable: true };
+
 const logger = winston.createLogger({
   level: 'info',
   format: logFormat,
@@ -30,11 +33,13 @@ const logger = winston.createLogger({
     // Write all errors to error.log
     new winston.transports.File({ 
       filename: path.join(logsDir, 'error.log'), 
-      level: 'error' 
+      level: 'error',
+      ...rotation
     }),
     // Write all logs to combined.log
     new winston.transports.File({ 
-      filename: path.join(logsDir, 'combined.log') 
+      filename: path.join(logsDir, 'combined.log'),
+      ...rotation
     }),
     // Also log to console in development
     new winston.transports.Console({

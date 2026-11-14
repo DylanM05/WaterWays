@@ -4,6 +4,10 @@ let stripeSubscriptions = [];
 let stripeDown = false;
 let createdCustomers = [];
 let checkoutSessions = [];
+let stripeCustomers = {};
+let charges = {};
+let updates = [];
+let cancelled = [];
 const stripePath = require.resolve('stripe');
 require.cache[stripePath] = {
   id: stripePath,
@@ -14,13 +18,27 @@ require.cache[stripePath] = {
       list: async ({ customer }) => {
         if (stripeDown) throw new Error('Stripe is unavailable');
         return { data: stripeSubscriptions.filter(subscription => subscription.customer === customer) };
+      },
+      update: async (id, params) => {
+        updates.push({ id, ...params });
+        return { id, ...params };
+      },
+      cancel: async (id) => {
+        cancelled.push(id);
+        const found = stripeSubscriptions.find(subscription => subscription.id === id);
+        found.status = 'canceled';
+        return found;
       }
+    },
+    charges: {
+      retrieve: async (id) => charges[id]
     },
     customers: {
       create: async (params) => {
         createdCustomers.push(params);
         return { id: `cus_created_${createdCustomers.length}` };
-      }
+      },
+      retrieve: async (id) => stripeCustomers[id] || { id, deleted: true }
     },
     checkout: {
       sessions: {
@@ -57,10 +75,17 @@ let customers;
 beforeEach(() => {
   console.log = () => {};
   console.error = () => {};
+  console.warn = () => {};
   stripeDown = false;
   stripeSubscriptions = [];
   createdCustomers = [];
   checkoutSessions = [];
+  stripeCustomers = {};
+  charges = {};
+  updates = [];
+  cancelled = [];
+  delete process.env.STRIPE_PRICE_ID;
+  delete process.env.STRIPE_ANUAL_PRICE_ID;
   clerkClient.users.getUser = async (userId) => ({ primaryEmailAddress: { emailAddress: `${userId}@example.com` } });
   fakeModel(LifetimePremium);
   fakeModel(AppleSubscription);
@@ -70,9 +95,9 @@ beforeEach(() => {
   }]);
 });
 
-const call = (handler, userId) => new Promise(resolve => {
+const call = (handler, userId, body) => new Promise(resolve => {
   const res = { statusCode: 200, status(code) { this.statusCode = code; return this; }, json(body) { resolve({ status: this.statusCode, body }); } };
-  handler({ userId }, res);
+  handler({ userId, body }, res);
 });
 const status = (userId) => call(controller.checkSubscriptionStatus, userId);
 
@@ -131,6 +156,7 @@ test('a subscription-deleted webhook updates the membership straight away', asyn
 
 test('a completed checkout links the Stripe customer to the user', async () => {
   stripeSubscriptions = [subscription({ customer: 'cus_new', id: 'sub_new' })];
+  stripeCustomers.cus_new = { id: 'cus_new', metadata: { userId: 'user_new' } };
   const handled = await controller.processWebhookEvent({
     type: 'checkout.session.completed',
     data: { object: { customer: 'cus_new', client_reference_id: 'user_new' } }
@@ -186,4 +212,131 @@ test('checkout reuses an existing Stripe customer', async () => {
   await call(controller.createMonthlyCheckoutSession, 'user_a');
   assert.equal(createdCustomers.length, 0);
   assert.equal(checkoutSessions[0].customer, 'cus_1');
+});
+
+test('a checkout naming someone else\'s user id cannot take over their mapping', async () => {
+  // A Payment Link lets the buyer set client_reference_id; their customer carries their own user id.
+  stripeCustomers.cus_evil = { id: 'cus_evil', metadata: { userId: 'user_evil' } };
+  stripeSubscriptions = [subscription({ customer: 'cus_evil', id: 'sub_evil' })];
+  const handled = await controller.processWebhookEvent({
+    id: 'evt_evil', type: 'checkout.session.completed',
+    data: { object: { id: 'cs_evil', customer: 'cus_evil', client_reference_id: 'user_a' } }
+  });
+  assert.equal(handled, true, 'acknowledged, not retried');
+  assert.equal(customers.find(customer => customer.userId === 'user_a').stripeCustomerId, 'cus_1');
+  assert.equal(customers.some(customer => customer.stripeCustomerId === 'cus_evil'), false);
+});
+
+test('a checkout for the customer already stored for the user is accepted', async () => {
+  stripeSubscriptions = [subscription()];
+  // cus_1 has no metadata in Stripe (an older customer), but the stored mapping already points at it.
+  const handled = await controller.processWebhookEvent({
+    type: 'checkout.session.completed', data: { object: { customer: 'cus_1', client_reference_id: 'user_a' } }
+  });
+  assert.equal(handled, true);
+  assert.equal(customers[0].stripeCustomerId, 'cus_1');
+  assert.equal(customers[0].subscriptionStatus, 'active');
+});
+
+test('only the configured Premium prices grant premium', async () => {
+  process.env.STRIPE_PRICE_ID = 'price_monthly';
+  process.env.STRIPE_ANUAL_PRICE_ID = 'price_annual';
+  stripeSubscriptions = [subscription({ items: { data: [{ current_period_end: inDays(20), price: { id: 'price_other' } }] } })];
+  assert.equal((await status('user_a')).body.subscribed, false);
+  assert.equal(await hasPremiumAccess('user_a'), false);
+
+  stripeSubscriptions = [subscription({ items: { data: [{ current_period_end: inDays(300), price: { id: 'price_annual', nickname: 'annual' } }] } })];
+  const { body } = await status('user_a');
+  assert.equal(body.subscribed, true);
+  assert.equal(body.plan, 'annual');
+});
+
+test('without the price settings, any active subscription still counts', async () => {
+  stripeSubscriptions = [subscription({ items: { data: [{ current_period_end: inDays(20), price: { id: 'price_other' } }] } })];
+  assert.equal((await status('user_a')).body.subscribed, true);
+});
+
+test('a newer abandoned checkout does not hide an older active subscription', async () => {
+  stripeSubscriptions = [
+    subscription({ id: 'sub_new', status: 'incomplete', created: inDays(0) }),
+    subscription({ id: 'sub_old', status: 'active', created: inDays(-40) })
+  ];
+  assert.equal((await status('user_a')).body.subscribed, true);
+  assert.equal(customers[0].subscriptionId, 'sub_old');
+
+  await call(controller.cancelSubscription, 'user_a', {});
+  assert.equal(updates[0].id, 'sub_old', 'cancel acts on the subscription that grants premium');
+  await call(controller.reactivateSubscription, 'user_a');
+  assert.equal(updates[1].id, 'sub_old', 'so does reactivate');
+});
+
+test('past_due is preferred over a newer cancelled subscription, and the newest wins a tie', async () => {
+  stripeSubscriptions = [
+    subscription({ id: 'sub_cancelled', status: 'canceled', created: inDays(0) }),
+    subscription({ id: 'sub_due', status: 'past_due', created: inDays(-40) })
+  ];
+  await controller.syncStripeDataToDB('cus_1');
+  assert.equal(customers[0].subscriptionId, 'sub_due');
+
+  stripeSubscriptions = [
+    subscription({ id: 'sub_a', status: 'canceled', created: inDays(-40) }),
+    subscription({ id: 'sub_b', status: 'canceled', created: inDays(-1) })
+  ];
+  await controller.syncStripeDataToDB('cus_1');
+  assert.equal(customers[0].subscriptionId, 'sub_b');
+});
+
+test('a second checkout is refused while a subscription is active', async () => {
+  stripeSubscriptions = [subscription({ cancel_at_period_end: true })];
+  const { status: code, body } = await call(controller.createMonthlyCheckoutSession, 'user_a');
+  assert.equal(code, 409);
+  assert.equal(body.code, 'already_subscribed');
+  assert.equal(checkoutSessions.length, 0);
+
+  stripeSubscriptions = [subscription({ status: 'canceled' })];
+  assert.equal((await call(controller.createAnnualCheckoutSession, 'user_a')).status, 200, 'a lapsed member can subscribe again');
+});
+
+test('a chargeback cancels the subscription straight away', async () => {
+  stripeSubscriptions = [subscription()];
+  charges.ch_1 = { id: 'ch_1', customer: 'cus_1' };
+  const handled = await controller.processWebhookEvent({
+    id: 'evt_dispute', type: 'charge.dispute.created',
+    data: { object: { id: 'dp_1', charge: 'ch_1', status: 'needs_response' } }
+  });
+  assert.equal(handled, true);
+  assert.deepEqual(cancelled, ['sub_1']);
+  assert.equal(customers[0].subscriptionStatus, 'canceled');
+  assert.equal(await hasPremiumAccess('user_a'), false);
+});
+
+test('a dispute inquiry and a refund leave the subscription running', async () => {
+  stripeSubscriptions = [subscription()];
+  charges.ch_1 = { id: 'ch_1', customer: 'cus_1' };
+  assert.equal(await controller.processWebhookEvent({
+    type: 'charge.dispute.created', data: { object: { id: 'dp_1', charge: 'ch_1', status: 'warning_needs_response' } }
+  }), true);
+  assert.equal(await controller.processWebhookEvent({
+    type: 'charge.refunded', data: { object: { id: 'ch_1', customer: 'cus_1' } }
+  }), true);
+  assert.deepEqual(cancelled, []);
+  assert.equal(customers[0].subscriptionStatus, 'active');
+});
+
+test('a long or non-text cancellation reason still cancels', async () => {
+  stripeSubscriptions = [subscription()];
+  assert.equal((await call(controller.cancelSubscription, 'user_a', { reason: 'x'.repeat(600) })).status, 200);
+  assert.equal(updates[0].metadata.cancellation_reason.length, 500);
+  assert.equal((await call(controller.cancelSubscription, 'user_a', { reason: 42 })).status, 200);
+  assert.equal(updates[1].metadata.cancellation_reason, '42');
+  assert.equal((await call(controller.cancelSubscription, 'user_a', undefined)).status, 200);
+  assert.equal(updates[2].metadata.cancellation_reason, 'Not provided');
+});
+
+test('a Stripe error during cancellation is logged, not sent to the client', async () => {
+  stripeDown = true;
+  const { status: code, body } = await call(controller.cancelSubscription, 'user_a', {});
+  assert.equal(code, 500);
+  assert.equal('details' in body, false);
+  assert.equal(JSON.stringify(body).includes('unavailable'), false);
 });

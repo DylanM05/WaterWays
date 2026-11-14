@@ -7,6 +7,8 @@ const appleSubscriptionSchema = new mongoose.Schema({
   productId: { type: String, required: true },
   // Purchase date of the stored transaction; the newest purchase for an original transaction decides access.
   purchaseDate: { type: Date, default: null },
+  // When Apple signed the stored payload; older payloads for the same transaction are ignored.
+  signedDate: { type: Date, default: null },
   appAccountToken: { type: String, required: true },
   expiresAt: { type: Date, default: null },
   revocationDate: { type: Date, default: null },

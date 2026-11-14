@@ -6,6 +6,16 @@ const VISITOR_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-
 // Local date, matching the day boundaries the stats below use.
 const localDay = (date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
+// Unique visitors counted in the database; distinct() returns every ID and fails past 16 MB.
+const countVisitors = async (match = {}) => {
+  const [result] = await UserVisit.aggregate([
+    { $match: match },
+    { $group: { _id: '$userId' } },
+    { $count: 'visitors' }
+  ], { allowDiskUse: true });
+  return result?.visitors || 0;
+};
+
 exports.logUserVisit = async (req, res) => {
   const { userId } = req.body;
 
@@ -36,11 +46,11 @@ exports.getUniqueVisitorsToday = async (req, res) => {
       const endOfDay = new Date();
       endOfDay.setHours(23, 59, 59, 999);
 
-      const uniqueUserIds = await UserVisit.distinct('userId', {
+      const uniqueVisitors = await countVisitors({
         timestamp: { $gte: startOfDay, $lte: endOfDay }
       });
 
-      res.status(200).json({ uniqueVisitorsToday: uniqueUserIds.length });
+      res.status(200).json({ uniqueVisitorsToday: uniqueVisitors });
 
     } catch (error) {
       console.error('Error getting unique visitors count (today):', error);
@@ -55,11 +65,11 @@ exports.getUniqueVisitorsWeekly = async (req, res) => {
         sevenDaysAgo.setDate(now.getDate() - 7);
         sevenDaysAgo.setHours(0, 0, 0, 0); // Start of the day 7 days ago
 
-        const uniqueUserIds = await UserVisit.distinct('userId', {
+        const uniqueVisitors = await countVisitors({
             timestamp: { $gte: sevenDaysAgo, $lte: now } // From 7 days ago until now
         });
 
-        res.status(200).json({ uniqueVisitorsLast7Days: uniqueUserIds.length });
+        res.status(200).json({ uniqueVisitorsLast7Days: uniqueVisitors });
 
     } catch (error) {
         console.error('Error getting unique visitors count (weekly):', error);
@@ -69,9 +79,9 @@ exports.getUniqueVisitorsWeekly = async (req, res) => {
 
 exports.getUniqueVisitorsAllTime = async (req, res) => {
     try {
-        const uniqueUserIds = await UserVisit.distinct('userId');
+        const uniqueVisitors = await countVisitors();
 
-        res.status(200).json({ uniqueVisitorsAllTime: uniqueUserIds.length });
+        res.status(200).json({ uniqueVisitorsAllTime: uniqueVisitors });
 
     } catch (error) {
         console.error('Error getting unique visitors count (all-time):', error);
@@ -85,7 +95,7 @@ exports.getAllVisitorStats = async (req, res) => {
         startOfDay.setHours(0, 0, 0, 0);
         const endOfDay = new Date();
         endOfDay.setHours(23, 59, 59, 999);
-        const uniqueDailyIds = await UserVisit.distinct('userId', {
+        const uniqueDaily = await countVisitors({
             timestamp: { $gte: startOfDay, $lte: endOfDay }
         });
 
@@ -93,16 +103,16 @@ exports.getAllVisitorStats = async (req, res) => {
         const sevenDaysAgo = new Date(now);
         sevenDaysAgo.setDate(now.getDate() - 7);
         sevenDaysAgo.setHours(0, 0, 0, 0);
-        const uniqueWeeklyIds = await UserVisit.distinct('userId', {
+        const uniqueWeekly = await countVisitors({
             timestamp: { $gte: sevenDaysAgo, $lte: now }
         });
 
-        const uniqueAllTimeIds = await UserVisit.distinct('userId');
+        const uniqueAllTime = await countVisitors();
 
         res.status(200).json({
-            uniqueVisitorsToday: uniqueDailyIds.length,
-            uniqueVisitorsLast7Days: uniqueWeeklyIds.length,
-            uniqueVisitorsAllTime: uniqueAllTimeIds.length
+            uniqueVisitorsToday: uniqueDaily,
+            uniqueVisitorsLast7Days: uniqueWeekly,
+            uniqueVisitorsAllTime: uniqueAllTime
         });
 
     } catch (error) {

@@ -19,8 +19,6 @@ services:
       context: ./WaterWays
     ports:
       - "5173:5173"
-    env_file:
-      - ./WaterWays/.env
     environment:
       - VITE_API_URL=http://192.168.50.166:42069
     depends_on:

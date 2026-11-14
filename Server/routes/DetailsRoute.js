@@ -5,7 +5,10 @@ const HistoryController = require('../controllers/historyController');
 const { requireAuth } = require('../middleware/authMiddleware');
 const { requirePremium } = require('../middleware/premiumMiddleware');
 const { cacheFor } = require('../middleware/cacheControl');
+const { stationIdParam } = require('../utilities/stationIds');
 
+// Every :id is checked (and upper-cased) before any cache, database or upstream lookup.
+router.param('id', stationIdParam);
 
 // Client cache lifetimes; readings sync every 10 minutes and forecasts are cached for 15 on the server.
 const STATION_INFO = cacheFor(24 * 60 * 60);

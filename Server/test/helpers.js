@@ -60,7 +60,7 @@ function query(getDocs, { single = false } = {}) {
 /**
  * Replaces a model's static query methods with an in-memory store and returns the store's documents.
  * Supports the filters and updates the controllers use: equality, $gt/$lt/$ne/$in/$nin/$exists, $set and
- * $setOnInsert, upserts, and deleteMany.
+ * $setOnInsert, upserts, deleteMany, and a few aggregation stages.
  */
 function fakeModel(Model, documents = []) {
   // Stored documents get a save() like Mongoose documents; changes are already in place, so it just resolves.
@@ -86,6 +86,16 @@ function fakeModel(Model, documents = []) {
     distinct: async (field, filter) => [...new Set(docs.filter(doc => matches(doc, filter)).map(doc => doc[field]))],
     exists: async (filter) => (docs.some(doc => matches(doc, filter)) ? { _id: 'exists' } : null),
     countDocuments: async (filter) => docs.filter(doc => matches(doc, filter)).length,
+    // Only the stages the visitor counts use: $match, $group on one field ('$field') and $count.
+    aggregate: async (pipeline) => pipeline.reduce((rows, stage) => {
+      if (stage.$match) return rows.filter(doc => matches(doc, stage.$match));
+      if (stage.$group) {
+        const field = stage.$group._id.slice(1);
+        return [...new Set(rows.map(doc => doc[field]))].map(_id => ({ _id }));
+      }
+      if (stage.$count) return rows.length ? [{ [stage.$count]: rows.length }] : [];
+      throw new Error(`fakeModel does not support ${Object.keys(stage)[0]}`);
+    }, docs),
     insertMany: async (newDocs) => {
       docs.push(...newDocs.map(doc => ({ ...doc })));
       return newDocs;

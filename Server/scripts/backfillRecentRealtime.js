@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const StationCoordinates = require('../models/StationCoordinates');
 const StationData = require('../models/StationData');
 const { fillRecentGaps, syncStationRealtime } = require('../utilities/hydrometricData');
+const { logMongoTarget } = require('../utilities/mongoTarget');
 
 // The API keeps 30 days; readings older than a week are rolled into hourly figures each night.
 const DEFAULT_HOURS = 7 * 24;
@@ -34,6 +35,7 @@ async function main() {
     const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
     if (!mongoUri) throw new Error('Set MONGO_URI or MONGODB_URI before running the backfill.');
 
+    logMongoTarget(mongoUri, { apply: !dryRun });
     await mongoose.connect(mongoUri);
     await StationData.init();
 

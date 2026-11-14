@@ -6,20 +6,22 @@ const Favorite = require('../models/Favorite');
 const StationArchive = require('../models/StationArchive');
 const StationCoordinates = require('../models/StationCoordinates');
 const StationData = require('../models/StationData');
+const { logMongoTarget } = require('../utilities/mongoTarget');
+// The catalogue also has stations located in US states; the apps list Canadian provinces and territories.
+const { PROVINCES } = require('../utilities/stationIds');
 
-// Compares StationCoordinates with Environment Canada's official station catalogue. Prints the differences;
-// with --apply, corrects station names and coordinates and records each station's real-time flag and status
-// (the apps say "No live readings" for stations without a feed). Stations are never added or removed, since
-// that changes river lists and saved favourites; those are listed for a manual decision, and two options act
-// on them: --remove-discontinued deletes discontinued stations, --add-reporting adds active real-time
-// stations that aren't listed but sent readings in the last few hours, and --remove-dead deletes stations
-// that aren't in the catalogue, aren't reporting and have never had any data stored.
+// Compares StationCoordinates with Environment Canada's official station catalogue. Prints the differences
+// and writes nothing without --apply. With --apply, corrects station names and coordinates and records each
+// station's real-time flag and status (the apps say "No live readings" for stations without a feed).
+// Stations are never added or removed by default, since that changes river lists and saved favourites;
+// those are listed for a manual decision, and three options act on them with --apply: --remove-discontinued
+// deletes discontinued stations, --add-reporting adds active real-time stations that aren't listed but sent
+// readings in the last few hours, and --remove-dead deletes stations that aren't in the catalogue, aren't
+// reporting and have never had any data stored. Without --apply they only say what they would do.
 const CATALOGUE_URL = 'https://api.weather.gc.ca/collections/hydrometric-stations/items';
 const REALTIME_URL = 'https://api.weather.gc.ca/collections/hydrometric-realtime/items';
 const COORDINATE_TOLERANCE_KM = 1;
 const REPORTING_WINDOW_HOURS = 3;
-// The catalogue also has stations located in US states; the apps list Canadian provinces and territories.
-const PROVINCES = new Set(['AB', 'BC', 'MB', 'NB', 'NL', 'NS', 'NT', 'NU', 'ON', 'PE', 'QC', 'SK', 'YT']);
 const OPTIONS = ['--apply', '--remove-discontinued', '--add-reporting', '--remove-dead'];
 const USAGE = `Usage: node scripts/syncStationCatalogue.js [${OPTIONS.join('] [')}]`;
 
@@ -166,13 +168,30 @@ async function removeDiscontinued(findings) {
 
 const describe = station => `${station.station_id} ${station.stationName} (${station.province})`;
 
-async function main() {
-    const args = process.argv.slice(2);
+/** The command-line options. Nothing is written without --apply; the other options only choose what is. */
+function parseOptions(args) {
     if (args.some(arg => !OPTIONS.includes(arg))) throw new Error(USAGE);
     const apply = args.includes('--apply');
+    return {
+        apply,
+        requested: {
+            removeDiscontinued: args.includes('--remove-discontinued'),
+            removeDead: args.includes('--remove-dead'),
+            addReporting: args.includes('--add-reporting')
+        },
+        removeDiscontinued: apply && args.includes('--remove-discontinued'),
+        removeDead: apply && args.includes('--remove-dead'),
+        addReporting: apply && args.includes('--add-reporting')
+    };
+}
+
+async function main() {
+    const options = parseOptions(process.argv.slice(2));
+    const { apply, requested } = options;
 
     const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
     if (!mongoUri) throw new Error('Set MONGO_URI or MONGODB_URI before running the catalogue sync.');
+    logMongoTarget(mongoUri, { apply });
     await mongoose.connect(mongoUri);
 
     const [stations, features, reporting] = await Promise.all([StationCoordinates.find().lean(), fetchCatalogue(), fetchReportingStations()]);
@@ -197,26 +216,30 @@ async function main() {
     additions.forEach(station => console.log(`  ${describe(station)}`));
     console.log(`\nReal-time flags and statuses to record: ${findings.flags.length}`);
 
-    if (args.includes('--remove-discontinued') && findings.discontinued.length) {
+    if (requested.removeDiscontinued && findings.discontinued.length) {
         const ids = findings.discontinued.map(({ station }) => station.station_id);
         const saved = await Favorite.countDocuments({ $or: [{ stationId: { $in: ids } }, { 'stations.stationId': { $in: ids } }] });
         if (saved) console.log(`\nNote: ${saved} saved favourite(s) include a discontinued station; they keep their snapshot.`);
-        console.log(`Removed ${await removeDiscontinued(findings)} discontinued station(s).`);
+        console.log(options.removeDiscontinued
+            ? `Removed ${await removeDiscontinued(findings)} discontinued station(s).`
+            : `\nWould remove ${findings.discontinued.length} discontinued station(s).`);
     }
-    if (args.includes('--remove-dead')) {
-        console.log(`\nRemoved ${await removeStations(dead)} station(s) that never had data.`);
+    if (requested.removeDead) {
+        console.log(options.removeDead
+            ? `\nRemoved ${await removeStations(dead)} station(s) that never had data.`
+            : `\nWould remove ${dead.length} station(s) that never had data.`);
     }
-    if (args.includes('--add-reporting')) {
-        console.log(`\nAdded ${await addStations(additions)} station(s); the next sync starts collecting their readings.`);
+    if (requested.addReporting) {
+        console.log(options.addReporting
+            ? `\nAdded ${await addStations(additions)} station(s); the next sync starts collecting their readings.`
+            : `\nWould add ${additions.length} station(s).`);
     }
     if (apply) {
         const updated = await applyCorrections(findings);
         console.log(`\nUpdated ${updated} station(s).`);
-    }
-    if (args.length) {
         console.log('\nRestart the server (or deploy) to refresh cached river lists.');
     } else {
-        console.log('\nDry run. --apply corrects names and coordinates and records the real-time flags; --remove-discontinued, --add-reporting and --remove-dead act on the lists above.');
+        console.log('\nDry run; nothing was written. --apply corrects names and coordinates and records the real-time flags; add --remove-discontinued, --add-reporting or --remove-dead to --apply to act on the lists above.');
     }
 }
 
@@ -229,4 +252,4 @@ if (require.main === module) {
         .finally(() => mongoose.disconnect());
 }
 
-module.exports = { addStations, applyCorrections, compareWithCatalogue, distanceKm, fetchReportingStations, findDeadStations, removeDiscontinued, removeStations, stationsToAdd };
+module.exports = { addStations, applyCorrections, compareWithCatalogue, distanceKm, fetchReportingStations, findDeadStations, parseOptions, removeDiscontinued, removeStations, stationsToAdd };

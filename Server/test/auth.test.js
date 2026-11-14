@@ -54,6 +54,14 @@ test('protected routes answer 401 without a valid token', async () => {
   }
 });
 
+test('web tokens must come from our own sites; tokens without azp (the iOS app) still work', async () => {
+  const userId = async headers => (await api.request('/optional', { headers })).body.userId;
+  assert.equal(await userId(bearer(sessionToken())), 'user_a', 'no azp');
+  assert.equal(await userId(bearer(sessionToken({ azp: 'https://water-ways.ca' }))), 'user_a');
+  assert.equal(await userId(bearer(sessionToken({ azp: 'https://beta.water-ways.ca' }))), 'user_a');
+  assert.equal(await userId(bearer(sessionToken({ azp: 'https://evil.example' }))), null);
+});
+
 test('users can read their own settings but not anyone else\'s', async () => {
   const own = await api.request('/s/user_a', { headers: bearer(sessionToken()) });
   assert.equal(own.status, 200);

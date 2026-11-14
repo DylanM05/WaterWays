@@ -1,4 +1,4 @@
-const Admin = require('../models/Admin');
+const { isAdmin } = require('../middleware/adminMiddleware');
 
 exports.checkAdminStatus = async (req, res) => {
     try {
@@ -8,9 +8,7 @@ exports.checkAdminStatus = async (req, res) => {
             return res.status(401).json({ isAdmin: false, message: 'Authentication required' });
         }
         
-        const adminUser = await Admin.findOne({ userId, status: true });
-        
-        if (adminUser) {
+        if (await isAdmin(userId)) {
             return res.json({ isAdmin: true });
         } else {
             return res.json({ isAdmin: false });

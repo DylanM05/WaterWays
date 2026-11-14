@@ -114,6 +114,118 @@ test('batch readings reject empty and oversized requests', async () => {
   assert.equal((await api.request(`/details/latest-water-data?ids=${ids}`)).status, 400);
 });
 
+test('station IDs that aren\'t station numbers are rejected before any lookup', async () => {
+  const axios = require('axios');
+  const originalGet = axios.get;
+  let upstreamCalls = 0;
+  axios.get = async () => { upstreamCalls++; return { data: { features: [] } }; };
+  try {
+    for (const path of [
+      '/details/water-data/abc/7',
+      `/details/water-data/${'A'.repeat(11)}/7`,
+      '/details/water-data/08MF005%20OR%201/7',
+      '/details/weather/08-MF-005',
+      '/details/weather/hourly/x',
+      '/details/coordinates/%24where',
+      '/details/latest-water-data/1234',
+      '/details/latest-water-data?ids=08MF005,not-a-station',
+      '/details/water-history/abc'
+    ]) {
+      const response = await api.request(path);
+      assert.equal(response.status, 400, path);
+      assert.equal(response.body.error, 'Invalid station ID', path);
+    }
+    assert.equal(upstreamCalls, 0);
+
+    // Lower case is accepted and looked up as the upper-case station number.
+    assert.equal((await api.request('/details/latest-water-data/08mf005')).body.water_level, 3.61);
+    assert.deepEqual(Object.keys((await api.request('/details/latest-water-data?ids=08mf005,08MF005')).body), ['08MF005']);
+  } finally {
+    axios.get = originalGet;
+  }
+});
+
+test('the Environment Canada fallback only runs for listed stations', async () => {
+  const axios = require('axios');
+  const originalGet = axios.get;
+  fakeModel(require('../models/StationArchive'));
+  const fetched = [];
+  axios.get = async (url, { params }) => { fetched.push(params.STATION_NUMBER); return { data: { features: [] } }; };
+  try {
+    const unknown = await api.request('/details/water-data/09ZZ999/7');
+    assert.equal(unknown.status, 200);
+    assert.deepEqual(unknown.body, []);
+    assert.deepEqual(fetched, [], 'no upstream call for a station that isn\'t listed');
+
+    // A listed station with no stored readings is still filled from the API, once per cooldown.
+    await api.request('/details/water-data/08MC018/7');
+    await api.request('/details/water-data/08MC018/8');
+    assert.deepEqual(fetched, ['08MC018']);
+  } finally {
+    axios.get = originalGet;
+  }
+});
+
+test('river lists only answer for real provinces, without a database lookup otherwise', async () => {
+  const originalFind = StationCoordinates.find;
+  let lookups = 0;
+  StationCoordinates.find = (...args) => { lookups++; return originalFind(...args); };
+  try {
+    for (const province of ['zz', 'bc%20', 'constructor', 'x'.repeat(200)]) {
+      const response = await api.request(`/details/rivers/${province}`);
+      assert.equal(response.status, 400, province);
+      assert.equal(response.headers['cache-control'], undefined, 'errors are not cacheable');
+    }
+    assert.equal(lookups, 0);
+    assert.equal((await api.request('/details/rivers/mb')).status, 200);
+    assert.equal(lookups, 1);
+  } finally {
+    StationCoordinates.find = originalFind;
+  }
+});
+
+test('archived figures leave out database bookkeeping', async () => {
+  const StationArchive = require('../models/StationArchive');
+  const { getArchivedWaterData } = require('../controllers/detailsController');
+  fakeModel(StationArchive, [{
+    _id: 'abc', __v: 0, source: 'hydat', createdAt: new Date(), updatedAt: new Date(),
+    station_id: '08MF005', period: 'daily', date_time: new Date('2026-09-30T00:00:00Z'),
+    water_level: 3.2, water_level_min: 3.1, water_level_max: 3.3, sample_count: 288
+  }]);
+  let sent;
+  await getArchivedWaterData({ params: { id: '08MF005', period: 'daily' }, query: {} }, { json: body => { sent = body; } });
+  assert.deepEqual(sent, [{
+    station_id: '08MF005', period: 'daily', date_time: '2026-09-30 00:00:00',
+    water_level: 3.2, water_level_min: 3.1, water_level_max: 3.3, sample_count: 288
+  }]);
+});
+
+test('visitor stats count unique visitors with an aggregation, behind the API key', async () => {
+  const UserVisit = require('../models/UserVisits');
+  const now = new Date();
+  const longAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  fakeModel(UserVisit, [
+    { userId: 'a', timestamp: now }, { userId: 'a', timestamp: longAgo },
+    { userId: 'b', timestamp: now }, { userId: 'c', timestamp: longAgo }
+  ]);
+  UserVisit.distinct = async () => { throw new Error('distinct should not be used'); };
+  process.env.LOGGING_API_KEY = 'test-logging-key';
+  const app = express();
+  app.use('/l', require('../routes/LoggingRoute'));
+  const logging = await serve(app);
+  try {
+    const stats = await logging.request('/l/stats', { headers: { 'x-api-key': 'test-logging-key' } });
+    assert.equal(stats.status, 200);
+    assert.deepEqual(stats.body, { uniqueVisitorsToday: 2, uniqueVisitorsLast7Days: 2, uniqueVisitorsAllTime: 3 });
+    assert.deepEqual((await logging.request('/l/all', { headers: { 'x-api-key': 'test-logging-key' } })).body, { uniqueVisitorsAllTime: 3 });
+    assert.equal((await logging.request('/l/all', { headers: { 'x-api-key': 'test-logging-ke' } })).status, 403);
+    assert.equal((await logging.request('/l/all', { headers: { 'x-api-key': 'test-logging-keyy' } })).status, 403);
+    assert.equal((await logging.request('/l/all')).status, 401);
+  } finally {
+    await logging.close();
+  }
+});
+
 test('visits are logged once per device per day, and only for real visitor IDs', async () => {
   const UserVisit = require('../models/UserVisits');
   const visits = fakeModel(UserVisit);
@@ -158,7 +270,8 @@ test('alerts for a station are public and briefly cacheable', async () => {
   assert.equal(response.status, 200);
   assert.deepEqual(response.body.alerts.map(alert => alert.name), ['rainfall warning']);
   assert.equal(response.headers['cache-control'], 'public, max-age=300');
-  assert.equal((await api.request('/details/alerts/NOPE')).status, 404);
+  assert.equal((await api.request('/details/alerts/09ZZ999')).status, 404);
+  assert.equal((await api.request('/details/alerts/NOPE')).status, 400, 'not a station number');
 });
 
 test('batch readings can include when silent stations last reported', async () => {

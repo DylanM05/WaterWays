@@ -142,6 +142,58 @@ test('applies a refund to the buyer\'s own subscription even without an app acco
   assert.ok(subscriptions[0].revocationDate instanceof Date);
 });
 
+test('replaying the pre-refund transaction after a refund keeps it revoked', async () => {
+  const purchase = { transactionId: 't1', originalTransactionId: 'o1', appAccountToken: TOKEN_A, signedDate: Date.now() - DAY };
+  assert.equal((await verify('user_a', purchase)).status, 200);
+  const refunded = await verify('user_a', { ...purchase, signedDate: Date.now(), revocationDate: Date.now() });
+  assert.equal(refunded.status, 200);
+  const revokedAt = subscriptions[0].revocationDate;
+  assert.ok(revokedAt instanceof Date);
+
+  const replay = await verify('user_a', purchase);
+  assert.equal(replay.status, 200);
+  assert.equal(subscriptions[0].revocationDate, revokedAt);
+});
+
+test('a same-transaction update never clears a refund, even when signed later', async () => {
+  const revokedAt = new Date(Date.now() - DAY);
+  subscriptions.push({
+    userId: 'user_a', originalTransactionId: 'o1', transactionId: 't1', revocationDate: revokedAt,
+    signedDate: new Date(Date.now() - DAY)
+  });
+  const response = await verify('user_a', { transactionId: 't1', originalTransactionId: 'o1', appAccountToken: TOKEN_A });
+  assert.equal(response.status, 200);
+  assert.equal(subscriptions[0].revocationDate, revokedAt);
+});
+
+test('an older payload for the stored transaction does not overwrite a newer one', async () => {
+  const newer = new Date(Date.now() - DAY);
+  const expiresAt = new Date(Date.now() + 60 * DAY);
+  subscriptions.push({
+    userId: 'user_a', originalTransactionId: 'o1', transactionId: 't1', signedDate: newer, expiresAt, revocationDate: null
+  });
+  const response = await verify('user_a', {
+    transactionId: 't1', originalTransactionId: 'o1', appAccountToken: TOKEN_A,
+    signedDate: Date.now() - 2 * DAY, expiresDate: Date.now() + 5 * DAY
+  });
+  assert.equal(response.status, 200);
+  assert.equal(subscriptions[0].signedDate, newer);
+  assert.equal(subscriptions[0].expiresAt, expiresAt);
+});
+
+test('a new purchase after a refund grants premium again', async () => {
+  subscriptions.push({
+    userId: 'user_a', originalTransactionId: 'o1', transactionId: 't1', purchaseDate: new Date(Date.now() - 40 * DAY),
+    signedDate: new Date(Date.now() - 10 * DAY), revocationDate: new Date(Date.now() - 10 * DAY), environment: 'Xcode',
+    expiresAt: new Date(Date.now() - 10 * DAY)
+  });
+  const response = await verify('user_a', { transactionId: 't2', originalTransactionId: 'o1', appAccountToken: TOKEN_A });
+  assert.equal(response.status, 200);
+  assert.equal(subscriptions[0].transactionId, 't2');
+  assert.equal(subscriptions[0].revocationDate, null);
+  assert.equal(await AppleSubscription.countDocuments(AppleSubscription.activeFilter('user_a')), 1);
+});
+
 test('a refund cannot touch another account\'s subscription', async () => {
   subscriptions.push({ userId: 'user_b', originalTransactionId: 'o1', transactionId: 't1', revocationDate: null });
   const response = await verify('user_a', { transactionId: 't1', originalTransactionId: 'o1', revocationDate: Date.now() });
