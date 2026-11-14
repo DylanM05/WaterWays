@@ -1,16 +1,6 @@
 .wt-weekly { padding: 16px 10px 4px; }
 
-/* The title, then Low and High over their columns. */
-.week__head {
-  display: grid;
-  grid-template-columns: 52px 56px 34px minmax(40px, 1fr) 34px 16px;
-  gap: 6px 10px;
-  padding: 0 8px 2px;
-}
-
-.week__head .wt-card-title { grid-column: 1 / -1; }
-.week__col { grid-column: 5; font-size: 12px; font-weight: 600; color: var(--w-ink3); }
-.week__col--low { grid-column: 3; text-align: right; }
+.week__title { padding: 0 8px 4px; }
 
 .week {
   margin: 0;
@@ -22,7 +12,7 @@
 
 .week__day {
   display: grid;
-  grid-template-columns: 52px 56px 34px minmax(40px, 1fr) 34px 16px;
+  grid-template-columns: 52px 56px minmax(0, 1fr) 16px;
   align-items: center;
   gap: 10px;
   width: 100%;
@@ -56,14 +46,25 @@
 
 .week__sky .ic { width: 22px; height: 22px; }
 .week__sky i { font-style: normal; font-size: 12px; font-weight: 600; color: var(--w-accent); }
-.week__low { text-align: right; color: var(--w-ink2); }
-.week__high { text-align: left; font-weight: 600; }
+/* The week's scale, with room either side for the numbers at the ends of the bars. */
+.week__scale { padding: 0 36px; }
+
+.week__low,
+.week__high {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.week__low { color: var(--w-ink2); }
+.week__high { font-weight: 600; }
 
 .week__range {
   position: relative;
+  display: block;
   height: 6px;
-  border-radius: 3px;
-  background: var(--w-sunk);
 }
 
 .week__now {
@@ -77,7 +78,7 @@
   background: var(--w-ink);
 }
 
-.week__range span {
+.week__bar {
   position: absolute;
   top: 0;
   bottom: 0;
@@ -119,5 +120,7 @@
 }
 
 @media (max-width: 420px) {
+  .week__day { grid-template-columns: 44px 52px minmax(0, 1fr) 14px; gap: 8px; padding: 0 6px; }
+  .week__scale { padding: 0 32px; }
   .week__more { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
