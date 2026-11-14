@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@apple/app-store-server-library": "^3.1.0",
-    "@clerk/express": "^1.7.84",
+    "@clerk/express": "^2.1.90",
     "@sentry/node": "^10.78.0",
     "axios": "^1.8.3",
     "compression": "^1.8.2",

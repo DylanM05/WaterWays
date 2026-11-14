@@ -2,13 +2,15 @@ const { clerkMiddleware, getAuth } = require('@clerk/express');
 require('dotenv').config();
 const { webOrigins } = require('../utilities/origins');
 
+// No authorizedParties here: since @clerk/express 2 Clerk rejects tokens without an azp claim, such as
+// the iOS app's (it sends no Origin). The azp check is done below instead.
 const clerk = clerkMiddleware({
   publishableKey: process.env.CLERK_PUBLISHABLE_KEY,
   secretKey: process.env.CLERK_SECRET_KEY,
-  // Web session tokens must come from our own sites (their azp claim). Clerk skips the check for tokens
-  // without azp, such as the iOS app's, which sends no Origin.
-  authorizedParties: webOrigins,
 });
+
+// Web session tokens must come from our own sites (their azp claim); tokens without azp are accepted.
+const fromAuthorizedParty = claims => !claims?.azp || webOrigins.includes(claims.azp);
 
 // Verifies the session token without blocking signed-out requests. Signed-in requests get
 // req.userId and req.sessionClaims; controllers read those rather than Clerk's req.auth.
@@ -20,7 +22,7 @@ const verifyAuth = (req, res, next) => {
       return next();
     }
     const auth = getAuth(req);
-    if (auth.userId) {
+    if (auth.userId && fromAuthorizedParty(auth.sessionClaims)) {
       req.userId = auth.userId;
       req.sessionClaims = auth.sessionClaims;
     }
