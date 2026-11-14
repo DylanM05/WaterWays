@@ -10,7 +10,6 @@ import { SUPPORT_EMAIL } from '../components/utility/contact';
 import './styling/settings.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const ADMIN_PATH = '/admin/5jN!^2pw&Bi4a0y26M^H';
 
 const formatDate = (value) => (value
   ? new Date(value).toLocaleDateString('en-CA', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -205,7 +204,7 @@ const Settings = () => {
         )}
         <div className="settings-actions">
           <button type="button" className="ww-btn" onClick={() => setShowProfile(true)}>Manage profile</button>
-          {isAdmin && <button type="button" className="ww-btn" onClick={() => navigate(ADMIN_PATH)}>Invites</button>}
+          {isAdmin && <button type="button" className="ww-btn" onClick={() => navigate('/admin')}>Invites</button>}
           <button type="button" className="ww-btn settings-signout" onClick={handleSignOut}>Sign out</button>
         </div>
       </section>

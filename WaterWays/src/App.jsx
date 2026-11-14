@@ -49,7 +49,8 @@ function App() {
                 <Favorites />
               </ProtectedRoute>
             )} />
-            <Route path="/admin/5jN!^2pw&Bi4a0y26M^H" element={page(
+            {/* The server checks admin access on every invite request; the page only hides itself from others. */}
+            <Route path="/admin" element={page(
               <ProtectedRoute requireAdmin={true}>
                 <AdminInvites />
               </ProtectedRoute>
