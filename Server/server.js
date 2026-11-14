@@ -13,7 +13,6 @@ const settingsRoute = require('./routes/settingsRoutes');
 const { lenientLimiter, webhookLimiter } = require('./utilities/ratelimiter');
 const { corsOptions } = require('./utilities/origins');
 const { errorHandler } = require('./middleware/errorHandler');
-const loggingRoute = require('./routes/LoggingRoute');
 const favoritesRoutes = require('./routes/favoritesRoutes');
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const inviteRoutes = require('./routes/inviteRoutes');
@@ -62,7 +61,6 @@ app.use(lenientLimiter);
 app.use('/details', detailsRoute);
 app.use('/search', searchRoute);
 app.use('/s', settingsRoute);
-app.use('/l', loggingRoute);
 app.use('/u/favorites', favoritesRoutes);
 app.use('/sub', subscriptionRoutes);
 app.use('/inv', inviteRoutes)

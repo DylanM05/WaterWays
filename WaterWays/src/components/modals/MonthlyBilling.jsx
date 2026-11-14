@@ -35,7 +35,11 @@ export const CheckoutModal = ({ show, handleClose, endpoint, title, price }) => 
 
     } catch (err) {
       console.error('Error initiating checkout:', err);
-      setError('Couldn’t start checkout. Please try again.');
+      // The server refuses a second subscription and says where to manage the current one.
+      const alreadySubscribed = err.response?.status === 409 && err.response.data?.code === 'already_subscribed';
+      setError(alreadySubscribed && err.response.data.error
+        ? err.response.data.error
+        : 'Couldn’t start checkout. Please try again.');
       setLoading(false);
     }
   };

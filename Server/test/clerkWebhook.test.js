@@ -28,7 +28,7 @@ const express = require('express');
 const { fakeModel, serve } = require('./helpers');
 const { handleClerkWebhook } = require('../controllers/clerkWebhookController');
 
-const MODELS = ['Admin', 'AppleSubscription', 'AppleSubscriptionAccount', 'CustomerMap', 'Favorite', 'LifetimePremium', 'UserSettings', 'UserVisits'];
+const MODELS = ['Admin', 'AppleSubscription', 'AppleSubscriptionAccount', 'CustomerMap', 'Favorite', 'LifetimePremium', 'UserSettings'];
 let stores;
 let invites;
 let api;

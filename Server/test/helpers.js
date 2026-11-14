@@ -86,16 +86,6 @@ function fakeModel(Model, documents = []) {
     distinct: async (field, filter) => [...new Set(docs.filter(doc => matches(doc, filter)).map(doc => doc[field]))],
     exists: async (filter) => (docs.some(doc => matches(doc, filter)) ? { _id: 'exists' } : null),
     countDocuments: async (filter) => docs.filter(doc => matches(doc, filter)).length,
-    // Only the stages the visitor counts use: $match, $group on one field ('$field') and $count.
-    aggregate: async (pipeline) => pipeline.reduce((rows, stage) => {
-      if (stage.$match) return rows.filter(doc => matches(doc, stage.$match));
-      if (stage.$group) {
-        const field = stage.$group._id.slice(1);
-        return [...new Set(rows.map(doc => doc[field]))].map(_id => ({ _id }));
-      }
-      if (stage.$count) return rows.length ? [{ [stage.$count]: rows.length }] : [];
-      throw new Error(`fakeModel does not support ${Object.keys(stage)[0]}`);
-    }, docs),
     insertMany: async (newDocs) => {
       docs.push(...newDocs.map(doc => ({ ...doc })));
       return newDocs;

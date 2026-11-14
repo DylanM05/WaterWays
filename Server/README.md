@@ -30,7 +30,6 @@ In production these come from the Forgejo secrets `SERVER_ENV_FILE` and `MONGO_U
 | `OPEN_METEO_API_KEY` | before charging | Switches weather to Open-Meteo's paid (commercial) API. The free API is non-commercial only. |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | no | Error reporting (`utilities/monitoring.js`). Nothing is sent without a DSN. |
 | `OPEN_METEO_CALLS_PER_HOUR` | no | Budget for Open-Meteo calls across the server (default 300). Past it, or for a minute after a failed call, the last forecast (up to 6 hours old) is served instead. |
-| `LOGGING_API_KEY` | for visitor stats | Protects `GET /l/daily`, `/weekly`, `/all` and `/stats`. Visits are kept for 400 days, so `/all` counts roughly the last year. |
 | `NODE_ENV` | `production` in production (set by the Dockerfile) | `production` stops accepting the localhost web origins (CORS and Clerk's `azp` check) and ignores `APPLE_ALLOW_UNSIGNED_TESTING`. |
 | `EXTRA_CORS_ORIGINS` | no | More web origins, comma separated (for example a preview build). |
 | `ENABLE_SCHEDULER` | no | `false` turns off the background jobs (water sync, roll-ups, Stripe sync). |
