@@ -1,5 +1,5 @@
 const express = require('express');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const { stripe } = require('../utilities/stripe');
 const subscriptionController = require('./subscriptionController');
 
 // Stripe signs the exact request body, so it is read raw (as a Buffer), capped at 1 MB; larger bodies get 413.

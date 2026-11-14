@@ -1,5 +1,5 @@
 const { verifyWebhook } = require('@clerk/express/webhooks');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const { stripe } = require('../utilities/stripe');
 const Admin = require('../models/Admin');
 const AppleSubscription = require('../models/AppleSubscription');
 const AppleSubscriptionAccount = require('../models/AppleSubscriptionAccount');

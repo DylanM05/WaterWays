@@ -10,7 +10,8 @@ process.env.CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY || 'sk_test_unused';
 const { test, before, after } = require('node:test');
 const assert = require('node:assert/strict');
 const express = require('express');
-const stripe = require('stripe')('sk_test_unused');
+const Stripe = require('stripe');
+const stripe = new Stripe('sk_test_unused');
 const subscriptionController = require('../controllers/subscriptionController');
 const { readBody, handleStripeWebhook } = require('../controllers/stripeWebhookController');
 const { errorHandler } = require('../middleware/errorHandler');
@@ -61,6 +62,29 @@ test('an error thrown while processing also answers 500', async () => {
 test('a delivery with a bad signature answers 400', async () => {
   const otherSecret = `whsec_${crypto.randomBytes(24).toString('hex')}`;
   assert.equal((await deliver({ id: 'evt_4', type: 'customer.created', data: { object: {} } }, { secret: otherSecret })).status, 400);
+});
+
+test('the server\'s Stripe client sends the pinned API version, not the package default', async () => {
+  const { stripe: client, STRIPE_API_VERSION } = require('../utilities/stripe');
+  assert.equal(STRIPE_API_VERSION, '2025-04-30.basil');
+  assert.equal(client.getApiField('version'), STRIPE_API_VERSION);
+  assert.notEqual(Stripe.API_VERSION, STRIPE_API_VERSION, 'the package default differs, so the pin matters');
+
+  // The same configuration with a local HTTP client, to see the header that would go to Stripe.
+  let sent;
+  class CaptureClient extends Stripe.HttpClient {
+    getClientName() { return 'capture'; }
+    async makeRequest(host, port, path, method, headers) {
+      sent = headers;
+      const response = new Stripe.HttpClientResponse(200, {});
+      response.toJSON = async () => ({ object: 'list', data: [], has_more: false });
+      response.getRawResponse = () => ({});
+      return response;
+    }
+  }
+  const local = new Stripe('sk_test_unused', { apiVersion: STRIPE_API_VERSION, httpClient: new CaptureClient(), maxNetworkRetries: 0 });
+  await local.subscriptions.list({ limit: 1 });
+  assert.equal(sent['Stripe-Version'], '2025-04-30.basil');
 });
 
 test('a body over 1 MB is rejected with 413 before the signature is checked', async () => {

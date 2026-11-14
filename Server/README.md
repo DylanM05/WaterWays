@@ -87,6 +87,8 @@ Successful public responses are cacheable for a short time (`middleware/cacheCon
 
 **Webhooks:** `POST /subscription/webhook` (Stripe), `POST /clerk/webhook` (Clerk), `POST /sub/apple/notifications` (App Store). Stripe only sends the events selected for the endpoint in its dashboard. Select `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed` and `charge.dispute.created`. Anything missed is picked up by the 6-hourly sync, except disputes: a chargeback cancels the subscription straight away only if `charge.dispute.created` is selected (inquiries and refunds don't cancel). A Stripe event that fails to process answers 500, so Stripe retries it; event types the server doesn't track answer 200.
 
+**Stripe API version:** every request uses `2025-04-30.basil`, pinned in `utilities/stripe.js` so that upgrading the `stripe` package doesn't change what Stripe returns. Change it only together with the code that reads Stripe objects. Webhook payloads use the version set on the endpoint in the Stripe dashboard instead; the handler reads only the event's `customer` (and, for checkouts, `client_reference_id` and `metadata.userId`; for disputes, `charge` and `status`), then fetches the subscription through the pinned client, so the endpoint's version doesn't change what's stored.
+
 ## Environment Canada API notes
 
 These are behaviours of `api.weather.gc.ca` the code relies on (checked October 2026):

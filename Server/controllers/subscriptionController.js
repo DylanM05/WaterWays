@@ -1,4 +1,4 @@
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const { stripe } = require('../utilities/stripe');
 const CustomerMap = require('../models/CustomerMap');
 const LifetimePremium = require('../models/LifetimePremium');
 const AppleSubscription = require('../models/AppleSubscription');
@@ -47,6 +47,16 @@ async function bestSubscription(customerId) {
   });
   premium.sort((a, b) => statusRank(a.status) - statusRank(b.status) || (b.created || 0) - (a.created || 0));
   return premium[0] || null;
+}
+
+// When the paid period ends, in Unix seconds, or null. Since API version 2025-03-31.basil it is on each
+// subscription item; older versions (a webhook endpoint pinned to one, say) put it on the subscription.
+function periodEnd(subscription) {
+  const itemEnd = subscription?.items?.data?.[0]?.current_period_end;
+  if (typeof itemEnd === 'number' && itemEnd) return itemEnd;
+  const subscriptionEnd = subscription?.current_period_end;
+  if (typeof subscriptionEnd === 'number' && subscriptionEnd) return subscriptionEnd;
+  return null;
 }
 
 // Stripe rejects metadata values over 500 characters, which would make cancelling fail.
@@ -357,23 +367,9 @@ exports.syncStripeDataToDB = async (customerId) => {
       customerMap.subscriptionId = subscription.id;
       customerMap.subscriptionStatus = subscription.status;
       
-      // First check for the correct location of current_period_end
-      let periodEnd;
-      
-      // Check in subscription.items.data[0].current_period_end (where it actually is)
-      if (subscription.items?.data?.[0]?.current_period_end && 
-          typeof subscription.items.data[0].current_period_end === 'number') {
-        periodEnd = subscription.items.data[0].current_period_end;
-      } 
-      // Also check in subscription.current_period_end as fallback
-      else if (subscription.current_period_end && 
-               typeof subscription.current_period_end === 'number') {
-        periodEnd = subscription.current_period_end;
-      }
-      
-      // If we found a period end time, convert it to a Date object
-      if (periodEnd) {
-        customerMap.currentPeriodEnd = new Date(periodEnd * 1000);
+      const end = periodEnd(subscription);
+      if (end) {
+        customerMap.currentPeriodEnd = new Date(end * 1000);
         console.log(`Setting current period end: ${customerMap.currentPeriodEnd}`);
       } else {
         console.log('No valid current_period_end found in subscription data');
@@ -511,8 +507,9 @@ exports.cancelSubscription = async (req, res) => {
       let periodEndDate;
       try {
         // Safely convert the Unix timestamp to a JavaScript Date
-        if (subscription.current_period_end && typeof subscription.current_period_end === 'number') {
-          periodEndDate = new Date(subscription.current_period_end * 1000).toISOString();
+        const end = periodEnd(subscription);
+        if (end) {
+          periodEndDate = new Date(end * 1000).toISOString();
         } else {
           periodEndDate = null;
         }

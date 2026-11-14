@@ -8,47 +8,53 @@ let stripeCustomers = {};
 let charges = {};
 let updates = [];
 let cancelled = [];
+let stripeConfig = null;
+const fakeStripe = {
+  subscriptions: {
+    list: async ({ customer }) => {
+      if (stripeDown) throw new Error('Stripe is unavailable');
+      return { data: stripeSubscriptions.filter(subscription => subscription.customer === customer) };
+    },
+    update: async (id, params) => {
+      updates.push({ id, ...params });
+      return { id, ...params };
+    },
+    cancel: async (id) => {
+      cancelled.push(id);
+      const found = stripeSubscriptions.find(subscription => subscription.id === id);
+      found.status = 'canceled';
+      return found;
+    }
+  },
+  charges: {
+    retrieve: async (id) => charges[id]
+  },
+  customers: {
+    create: async (params) => {
+      createdCustomers.push(params);
+      return { id: `cus_created_${createdCustomers.length}` };
+    },
+    retrieve: async (id) => stripeCustomers[id] || { id, deleted: true }
+  },
+  checkout: {
+    sessions: {
+      create: async (params) => {
+        checkoutSessions.push(params);
+        return { url: 'https://checkout.stripe.test/session' };
+      }
+    }
+  }
+};
 const stripePath = require.resolve('stripe');
 require.cache[stripePath] = {
   id: stripePath,
   filename: stripePath,
   loaded: true,
-  exports: () => ({
-    subscriptions: {
-      list: async ({ customer }) => {
-        if (stripeDown) throw new Error('Stripe is unavailable');
-        return { data: stripeSubscriptions.filter(subscription => subscription.customer === customer) };
-      },
-      update: async (id, params) => {
-        updates.push({ id, ...params });
-        return { id, ...params };
-      },
-      cancel: async (id) => {
-        cancelled.push(id);
-        const found = stripeSubscriptions.find(subscription => subscription.id === id);
-        found.status = 'canceled';
-        return found;
-      }
-    },
-    charges: {
-      retrieve: async (id) => charges[id]
-    },
-    customers: {
-      create: async (params) => {
-        createdCustomers.push(params);
-        return { id: `cus_created_${createdCustomers.length}` };
-      },
-      retrieve: async (id) => stripeCustomers[id] || { id, deleted: true }
-    },
-    checkout: {
-      sessions: {
-        create: async (params) => {
-          checkoutSessions.push(params);
-          return { url: 'https://checkout.stripe.test/session' };
-        }
-      }
-    }
-  })
+  // A constructor, like the real package (`new Stripe(key, config)`).
+  exports: function FakeStripe(key, config) {
+    stripeConfig = config;
+    return fakeStripe;
+  }
 };
 // Clerk's client keeps a stubbed method only once it has a key.
 process.env.CLERK_SECRET_KEY = process.env.CLERK_SECRET_KEY || 'sk_test_unused';
@@ -65,9 +71,13 @@ const { clerkClient } = require('@clerk/express');
 
 const DAY = 24 * 60 * 60;
 const inDays = days => Math.floor(Date.now() / 1000) + days * DAY;
+// The shape API version 2025-04-30.basil returns: the billing period is on the item, not the subscription.
 const subscription = (fields) => ({
-  id: 'sub_1', customer: 'cus_1', status: 'active', cancel_at_period_end: false,
-  items: { data: [{ current_period_end: inDays(20), price: { id: 'price_1', nickname: 'monthly' } }] },
+  id: 'sub_1', object: 'subscription', customer: 'cus_1', status: 'active', cancel_at_period_end: false,
+  items: { object: 'list', data: [{
+    id: 'si_1', object: 'subscription_item', current_period_start: inDays(-10), current_period_end: inDays(20),
+    price: { id: 'price_1', nickname: 'monthly' }
+  }] },
   ...fields
 });
 
@@ -331,6 +341,32 @@ test('a long or non-text cancellation reason still cancels', async () => {
   assert.equal(updates[1].metadata.cancellation_reason, '42');
   assert.equal((await call(controller.cancelSubscription, 'user_a', undefined)).status, 200);
   assert.equal(updates[2].metadata.cancellation_reason, 'Not provided');
+});
+
+test('the Stripe client is pinned to the API version the code reads', () => {
+  assert.equal(stripeConfig.apiVersion, '2025-04-30.basil');
+});
+
+test('cancelling reports the period end from the subscription item', async () => {
+  const end = inDays(12);
+  stripeSubscriptions = [subscription({ items: { data: [{ current_period_end: end, price: { id: 'price_1' } }] } })];
+  const { status: code, body } = await call(controller.cancelSubscription, 'user_a', {});
+  assert.equal(code, 200);
+  assert.equal(body.currentPeriodEnd, new Date(end * 1000).toISOString());
+  assert.equal(customers[0].currentPeriodEnd.getTime(), end * 1000);
+});
+
+test('a period end on the subscription itself (API versions before basil) is still read', async () => {
+  const end = inDays(15);
+  stripeSubscriptions = [subscription({ current_period_end: end, items: { data: [{ price: { id: 'price_1' } }] } })];
+  await controller.syncStripeDataToDB('cus_1');
+  assert.equal(customers[0].currentPeriodEnd.getTime(), end * 1000);
+  assert.equal((await status('user_a')).body.subscribed, true);
+
+  // When both are present, the item's wins.
+  stripeSubscriptions = [subscription({ current_period_end: inDays(-5) })];
+  await controller.syncStripeDataToDB('cus_1');
+  assert.ok(customers[0].currentPeriodEnd.getTime() > Date.now());
 });
 
 test('a Stripe error during cancellation is logged, not sent to the client', async () => {
