@@ -120,6 +120,10 @@ function fakeModel(Model, documents = []) {
       if (index !== -1) docs.splice(index, 1);
       return { deletedCount: index === -1 ? 0 : 1 };
     },
+    findOneAndDelete: async (filter) => {
+      const index = docs.findIndex(doc => matches(doc, filter));
+      return index === -1 ? null : docs.splice(index, 1)[0];
+    },
     // Supports the updateOne operations the sync and backfill scripts send.
     bulkWrite: async (operations) => {
       let upsertedCount = 0;

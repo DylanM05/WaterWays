@@ -21,7 +21,7 @@ In production these come from the Forgejo secrets `SERVER_ENV_FILE` and `MONGO_U
 | `MONGO_URI` (or `MONGODB_URI`) | yes | The database. Without it the server starts but logs that it has no database. |
 | `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY` | yes | Sign-in (`@clerk/express`). |
 | `STRIPE_SECRET_KEY` | yes | Website memberships. The server won't start without it. |
-| `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID`, `STRIPE_ANUAL_PRICE_ID` | for Stripe | Checkout and Stripe webhooks. Only subscriptions on these two prices grant premium; if either price is unset, any subscription does. |
+| `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID`, `STRIPE_ANUAL_PRICE_ID` | for Stripe | Checkout and Stripe webhooks. Subscriptions on these prices, or on other prices of the same product (a replaced price, say), grant premium; if either price is unset, or Stripe can't be asked which product they belong to, any subscription does. |
 | `FRONTEND_URL` | for Stripe and invites | Links back to the website. |
 | `CLERK_WEBHOOK_SIGNING_SECRET` | for account deletion | Verifies Clerk's `user.deleted` webhook (`POST /clerk/webhook`). |
 | `APPLE_APP_ID` | for App Store purchases | Numeric app ID; without it only sandbox purchases verify. |
@@ -29,7 +29,7 @@ In production these come from the Forgejo secrets `SERVER_ENV_FILE` and `MONGO_U
 | `APPLE_ALLOW_UNSIGNED_TESTING` | never in production | Accepts unsigned Xcode StoreKit purchases on a local server (ignored when `NODE_ENV=production`). |
 | `OPEN_METEO_API_KEY` | before charging | Switches weather to Open-Meteo's paid (commercial) API. The free API is non-commercial only. |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | no | Error reporting (`utilities/monitoring.js`). Nothing is sent without a DSN. |
-| `OPEN_METEO_CALLS_PER_HOUR` | no | Budget for Open-Meteo calls across the server (default 300). Past it, or for a minute after a failed call, the last forecast (up to 6 hours old) is served instead. |
+| `OPEN_METEO_CALLS_PER_HOUR`, `OPEN_METEO_CALLS_PER_DAY` | no | Budgets for Open-Meteo calls across the server (defaults 4,000 an hour and 9,000 a day, just under the free tier's limits). Past either, or for a minute after a failed call, the last forecast (up to 6 hours old) is served instead. |
 | `NODE_ENV` | `production` in production (set by the Dockerfile) | `production` stops accepting the localhost web origins (CORS and Clerk's `azp` check) and ignores `APPLE_ALLOW_UNSIGNED_TESTING`. |
 | `EXTRA_CORS_ORIGINS` | no | More web origins, comma separated (for example a preview build). |
 | `ENABLE_SCHEDULER` | no | `false` turns off the background jobs (water sync, roll-ups, Stripe sync). |

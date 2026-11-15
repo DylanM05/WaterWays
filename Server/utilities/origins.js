@@ -1,3 +1,5 @@
+const cors = require('cors');
+
 // Web origins that may call the API with credentials (CORS) and whose Clerk session tokens are accepted (azp).
 const production = process.env.NODE_ENV === 'production';
 
@@ -25,4 +27,12 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization']
 };
 
-module.exports = { webOrigins, corsOptions };
+// Responses differ by Origin (listed sites get CORS headers, others don't), so every response says so and a
+// shared cache never hands one site's version to another.
+const varyOrigin = (req, res, next) => {
+  res.vary('Origin');
+  next();
+};
+const corsMiddleware = [varyOrigin, cors(corsOptions)];
+
+module.exports = { webOrigins, corsOptions, corsMiddleware };

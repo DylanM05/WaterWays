@@ -30,8 +30,10 @@ jobs:
           docker-compose version
 
       - name: Set environment variables
+        env:
+          VITE_PUBLIC_CLERK_PUBLISHABLE_KEY_SECRET: ${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}
         run: |
-          echo "VITE_PUBLIC_CLERK_PUBLISHABLE_KEY=${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}" >> $GITHUB_ENV
+          printf 'VITE_PUBLIC_CLERK_PUBLISHABLE_KEY=%s\n' "$VITE_PUBLIC_CLERK_PUBLISHABLE_KEY_SECRET" >> $GITHUB_ENV
 
       - name: Create .env files
         env:
@@ -84,7 +86,6 @@ jobs:
 
       - name: Deploy
         run: |
-          VITE_PUBLIC_CLERK_PUBLISHABLE_KEY="${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}"
           docker-compose up -d
 
       - name: Show logs

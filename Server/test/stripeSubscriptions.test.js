@@ -9,7 +9,15 @@ let charges = {};
 let updates = [];
 let cancelled = [];
 let stripeConfig = null;
+let stripePrices = {};
 const fakeStripe = {
+  prices: {
+    retrieve: async (id) => {
+      if (stripeDown) throw new Error('Stripe is unavailable');
+      if (!stripePrices[id]) throw new Error(`No such price: ${id}`);
+      return stripePrices[id];
+    }
+  },
   subscriptions: {
     list: async ({ customer }) => {
       if (stripeDown) throw new Error('Stripe is unavailable');
@@ -94,6 +102,10 @@ beforeEach(() => {
   charges = {};
   updates = [];
   cancelled = [];
+  stripePrices = {
+    price_monthly: { id: 'price_monthly', product: 'prod_premium' },
+    price_annual: { id: 'price_annual', product: 'prod_premium' }
+  };
   delete process.env.STRIPE_PRICE_ID;
   delete process.env.STRIPE_ANUAL_PRICE_ID;
   clerkClient.users.getUser = async (userId) => ({ primaryEmailAddress: { emailAddress: `${userId}@example.com` } });
@@ -259,6 +271,45 @@ test('only the configured Premium prices grant premium', async () => {
   const { body } = await status('user_a');
   assert.equal(body.subscribed, true);
   assert.equal(body.plan, 'annual');
+});
+
+test('a replaced price of the Premium product still grants premium', async () => {
+  process.env.STRIPE_PRICE_ID = 'price_monthly';
+  process.env.STRIPE_ANUAL_PRICE_ID = 'price_annual';
+  stripeSubscriptions = [subscription({ items: { data: [{ current_period_end: inDays(20), price: { id: 'price_2024', product: 'prod_premium' } }] } })];
+  assert.equal((await status('user_a')).body.subscribed, true);
+
+  // Expanded products are objects; another product still doesn't count.
+  stripeSubscriptions = [subscription({ items: { data: [{ current_period_end: inDays(20), price: { id: 'price_x', product: { id: 'prod_other' } } }] } })];
+  assert.equal((await status('user_a')).body.subscribed, false);
+});
+
+test('a subscriber on an older Premium price can\'t check out a second time', async () => {
+  process.env.STRIPE_PRICE_ID = 'price_monthly';
+  process.env.STRIPE_ANUAL_PRICE_ID = 'price_annual';
+  stripeSubscriptions = [subscription({ items: { data: [{ current_period_end: inDays(20), price: { id: 'price_2024', product: 'prod_premium' } }] } })];
+  const { status: code, body } = await call(controller.createMonthlyCheckoutSession, 'user_a');
+  assert.equal(code, 409);
+  assert.equal(body.code, 'already_subscribed');
+  assert.equal(checkoutSessions.length, 0);
+});
+
+test('if the Premium products can\'t be looked up, every subscription counts until they can', async () => {
+  process.env.STRIPE_PRICE_ID = 'price_new_monthly';
+  process.env.STRIPE_ANUAL_PRICE_ID = 'price_new_annual';
+  stripeSubscriptions = [subscription({ items: { data: [{ current_period_end: inDays(20), price: { id: 'price_other', product: 'prod_other' } }] } })];
+  assert.equal((await status('user_a')).body.subscribed, true, 'unknown prices: not locked out');
+
+  stripePrices.price_new_monthly = { id: 'price_new_monthly', product: 'prod_premium' };
+  stripePrices.price_new_annual = { id: 'price_new_annual', product: 'prod_premium' };
+  assert.equal((await status('user_a')).body.subscribed, false, 'asked again, and now the rule applies');
+});
+
+test('a webhook event without a customer is acknowledged, not retried', async () => {
+  const handled = await controller.processWebhookEvent({
+    id: 'evt_guest', type: 'payment_intent.succeeded', data: { object: { id: 'pi_1', customer: null } }
+  });
+  assert.equal(handled, true);
 });
 
 test('without the price settings, any active subscription still counts', async () => {

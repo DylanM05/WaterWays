@@ -9,4 +9,7 @@ const errorHandler = (err, req, res, next) => {
   res.status(status).json({ error: http.STATUS_CODES[status] });
 };
 
-module.exports = { errorHandler };
+// After every route: an unknown address gets a JSON 404 like the rest of the API, not Express's HTML page.
+const notFound = (req, res) => res.status(404).json({ error: http.STATUS_CODES[404] });
+
+module.exports = { errorHandler, notFound };

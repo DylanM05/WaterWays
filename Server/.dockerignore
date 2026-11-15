@@ -9,3 +9,4 @@ logs
 *-report.txt
 test
 *.md
+.DS_Store

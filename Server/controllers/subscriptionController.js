@@ -23,12 +23,35 @@ async function primaryEmail(userId) {
 const LIVE_STATUSES = ['active', 'trialing', 'past_due'];
 const statusRank = status => (['active', 'trialing'].includes(status) ? 0 : status === 'past_due' ? 1 : 2);
 
-// Only the two Premium prices grant premium. If either price setting is missing, every subscription
-// counts, as before, rather than locking out subscribers on a misconfigured server.
-function isPremiumSubscription(subscription) {
+const productId = product => (product && typeof product === 'object' ? product.id : product);
+
+// The Premium products, found from the two configured prices and kept per pair of price settings.
+let premiumProducts = { key: null, products: null };
+
+// What counts as Premium: a subscription on one of the configured prices, or on any price of the same
+// product, so subscribers keep Premium when a price is replaced. null means every subscription counts:
+// either price setting is missing, or Stripe couldn't be asked (it is asked again next time). Neither
+// should lock subscribers out.
+async function premiumRule() {
   const prices = [process.env.STRIPE_PRICE_ID, process.env.STRIPE_ANUAL_PRICE_ID];
-  if (!prices.every(Boolean)) return true;
-  return (subscription.items?.data || []).some(item => prices.includes(item.price?.id));
+  if (!prices.every(Boolean)) return null;
+  const key = prices.join(',');
+  if (premiumProducts.key !== key) {
+    try {
+      const found = await Promise.all(prices.map(price => stripe.prices.retrieve(price)));
+      premiumProducts = { key, products: new Set(found.map(price => productId(price.product)).filter(Boolean)) };
+    } catch (error) {
+      console.warn('Could not look up the Premium products in Stripe, so every subscription counts for now:', error.message);
+      return null;
+    }
+  }
+  return { prices, products: premiumProducts.products };
+}
+
+function isPremiumSubscription(subscription, rule) {
+  if (!rule) return true;
+  return (subscription.items?.data || []).some(item =>
+    rule.prices.includes(item.price?.id) || rule.products.has(productId(item.price?.product)));
 }
 
 // The customer's Premium subscription that decides membership, or null. A newer incomplete subscription
@@ -40,8 +63,9 @@ async function bestSubscription(customerId) {
     status: 'all',
     expand: ['data.default_payment_method'],
   });
+  const rule = await premiumRule();
   const premium = (subscriptions?.data || []).filter(subscription => {
-    if (isPremiumSubscription(subscription)) return true;
+    if (isPremiumSubscription(subscription, rule)) return true;
     console.warn(`Ignoring subscription ${subscription.id} (${subscription.status}): not a Premium price`);
     return false;
   });
@@ -278,9 +302,10 @@ exports.processWebhookEvent = async (event) => {
     const { customer: customerId } = event.data.object;
 
     if (!customerId || typeof customerId !== 'string') {
-      // Only the event's id and type: the object can hold emails and billing details.
-      console.error(`❌ Missing or invalid customer ID in webhook event ${event.id} (${event.type})`);
-      return false;
+      // Nothing to sync (a payment without a customer, say), and a retry can't change that, so it counts as
+      // handled. Only the event's id and type: the object can hold emails and billing details.
+      console.warn(`⏭️ No customer in webhook event ${event.id} (${event.type}); nothing to sync`);
+      return true;
     }
 
     // For checkout.session.completed events, create customer mapping if it doesn't exist

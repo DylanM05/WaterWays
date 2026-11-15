@@ -128,7 +128,6 @@ test('station IDs that aren\'t station numbers are rejected before any lookup', 
       '/details/weather/hourly/x',
       '/details/coordinates/%24where',
       '/details/latest-water-data/1234',
-      '/details/latest-water-data?ids=08MF005,not-a-station',
       '/details/water-history/abc'
     ]) {
       const response = await api.request(path);
@@ -140,6 +139,13 @@ test('station IDs that aren\'t station numbers are rejected before any lookup', 
     // Lower case is accepted and looked up as the upper-case station number.
     assert.equal((await api.request('/details/latest-water-data/08mf005')).body.water_level, 3.61);
     assert.deepEqual(Object.keys((await api.request('/details/latest-water-data?ids=08mf005,08MF005')).body), ['08MF005']);
+
+    // In a batch, an id that can't be a station number is skipped, so one odd saved id can't empty the list.
+    const batch = await api.request('/details/latest-water-data?ids=08MF005,not-a-station,%24ne');
+    assert.equal(batch.status, 200);
+    assert.deepEqual(Object.keys(batch.body), ['08MF005']);
+    assert.deepEqual((await api.request('/details/latest-water-data?ids=not-a-station')).body, {});
+    assert.equal((await api.request(`/details/latest-water-data?ids=${Array(101).fill('08MF005').join(',')}`)).status, 400);
   } finally {
     axios.get = originalGet;
   }
@@ -289,5 +295,26 @@ test('a trend that fails leaves out only that trend, not the readings', async ()
     assert.deepEqual(response.body.trends, {}, 'no trend for the station that failed');
   } finally {
     StationData.find = originalFind;
+  }
+});
+
+test('per-station results are cached for listed stations only, so made-up ids can\'t fill the cache', async () => {
+  const StationArchive = require('../models/StationArchive');
+  fakeModel(StationArchive, []);
+  let lookups = 0;
+  const originalFindOne = StationArchive.findOne;
+  StationArchive.findOne = (...args) => { lookups++; return originalFindOne(...args); };
+  try {
+    const lastReported = id => api.request(`/details/latest-water-data?ids=${id}&includeLastReported=true`);
+    await lastReported('09ZZ999');
+    await lastReported('09ZZ999');
+    assert.equal(lookups, 6, 'an unlisted id is looked up each time (three tiers, twice)');
+
+    lookups = 0;
+    await lastReported('02DD999');
+    await lastReported('02DD999');
+    assert.equal(lookups, 3, 'a listed, silent station is cached after the first look');
+  } finally {
+    StationArchive.findOne = originalFindOne;
   }
 });

@@ -100,3 +100,18 @@ test('each user can save up to the cap; re-saving an existing favourite still wo
   assert.equal((await post('/u/favorites', { stationId: '08MF005', province: 'BC' }, 'user_two')).status, 201);
   assert.equal(favorites.length, MAX_FAVORITES_PER_USER + 1);
 });
+
+test('a station saved from a lower-case address can be checked and removed the same way', async () => {
+  assert.equal((await post('/u/favorites', { stationId: '08mf005', stationName: 'FRASER RIVER AT HOPE', province: 'BC' })).status, 201);
+  assert.equal(favorites[0].stationId, '08MF005');
+  const check = await api.request('/u/favorites/check/08mf005', { headers: as('user_one') });
+  assert.equal(check.body.isFavorite, true);
+  assert.equal((await api.request('/u/favorites/08mf005', { method: 'DELETE', headers: as('user_one') })).status, 200);
+  assert.equal(favorites.length, 0);
+});
+
+test('an older favourite stored with an odd id can still be removed', async () => {
+  favorites.push({ userId: 'user_one', stationId: 'legacy-id', stationName: 'Old' });
+  assert.equal((await api.request('/u/favorites/legacy-id', { method: 'DELETE', headers: as('user_one') })).status, 200);
+  assert.equal(favorites.length, 0);
+});

@@ -159,6 +159,9 @@ exports.removeRiverFavorite = async (req, res) => {
   }
 };
 
+// Station favourites are saved upper case; older ones may be stored just as they were sent.
+const savedStationIds = stationId => [...new Set([normalizeStationId(stationId), stationId].filter(Boolean))];
+
 exports.removeFavorite = async (req, res) => {
   try {
     const { stationId } = req.params;
@@ -172,7 +175,7 @@ exports.removeFavorite = async (req, res) => {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const result = await Favorite.findOneAndDelete({ userId, stationId });
+    const result = await Favorite.findOneAndDelete({ userId, stationId: { $in: savedStationIds(stationId) } });
     
     if (!result) {
       return res.status(404).json({ error: 'Favorite not found' });
@@ -218,7 +221,7 @@ exports.checkFavorite = async (req, res) => {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    const favorite = await Favorite.findOne({ userId, stationId });
+    const favorite = await Favorite.findOne({ userId, stationId: { $in: savedStationIds(stationId) } });
     
     res.json({ isFavorite: !!favorite });
   } catch (error) {

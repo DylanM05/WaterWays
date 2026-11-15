@@ -13,8 +13,28 @@ const { PROVINCES, normalizeStationId } = require('../utilities/stationIds');
 require('dotenv').config();
 // River lists, and latest readings, trends and last-reported dates for ~2,200 stations.
 const waterDataCache = boundedCache({ stdTTL: 900, maxKeys: 20000 }); // 15 minutes cache TTL
-// Chart series are large (up to a few hundred KB for 30 days), so fewer are kept.
-const waterSeriesCache = boundedCache({ stdTTL: 900, maxKeys: 2500 });
+// Chart series are large (up to a few hundred KB for 30 days), so they're also capped at 64 MB in all.
+const waterSeriesCache = boundedCache({ stdTTL: 900, maxKeys: 2500, maxBytes: 64 * 1024 * 1024 });
+
+// Listed station numbers, read from the catalogue when first needed and again every 30 minutes. Results
+// for other well-formed ids aren't cached, so made-up ids can't fill the caches.
+const LISTED_STATIONS_REFRESH_MS = 30 * 60 * 1000;
+let listedStations = { ids: null, loadedAt: 0, loading: null };
+
+async function isListedStation(stationId) {
+  if (!listedStations.ids || Date.now() - listedStations.loadedAt > LISTED_STATIONS_REFRESH_MS) {
+    listedStations.loading = listedStations.loading || StationCoordinates.distinct('station_id')
+      .then(ids => { listedStations = { ids: new Set(ids), loadedAt: Date.now(), loading: null }; })
+      .catch(error => {
+        listedStations.loading = null;
+        // An older list is still good enough; without one there's nothing to go on.
+        if (!listedStations.ids) throw error;
+        console.error('Could not refresh the listed stations:', error.message);
+      });
+    await listedStations.loading;
+  }
+  return listedStations.ids.has(stationId);
+}
 
 
 exports.getCoordinates = async (req, res) => {
@@ -79,17 +99,22 @@ const weatherCache = boundedCache({ stdTTL: 6 * 60 * 60, maxKeys: 10000 });
 const weatherFailures = boundedCache({ stdTTL: 60, maxKeys: 10000 });
 const weatherRequests = new Map();
 
-// A budget on Open-Meteo calls for the whole server (a token bucket refilled evenly over the hour), so one
-// client asking for many stations can't use up the API quota.
-const OPEN_METEO_CALLS_PER_HOUR = Number.parseInt(process.env.OPEN_METEO_CALLS_PER_HOUR, 10) || 300;
-const openMeteoBudget = { tokens: OPEN_METEO_CALLS_PER_HOUR, updatedAt: Date.now() };
+// Budgets on Open-Meteo calls for the whole server, so one client asking for many stations can't use up the
+// API quota: token buckets refilled evenly over an hour and over a day. The defaults sit just under the free
+// tier's 5,000 calls an hour and 10,000 a day.
+const callBudget = (calls, periodMs) => ({ calls, periodMs, tokens: calls, updatedAt: Date.now() });
+const openMeteoBudgets = [
+  callBudget(Number.parseInt(process.env.OPEN_METEO_CALLS_PER_HOUR, 10) || 4000, HOUR_MS),
+  callBudget(Number.parseInt(process.env.OPEN_METEO_CALLS_PER_DAY, 10) || 9000, 24 * HOUR_MS)
+];
 
 function takeOpenMeteoCall(now = Date.now()) {
-  const refill = ((now - openMeteoBudget.updatedAt) / HOUR_MS) * OPEN_METEO_CALLS_PER_HOUR;
-  openMeteoBudget.tokens = Math.min(OPEN_METEO_CALLS_PER_HOUR, openMeteoBudget.tokens + refill);
-  openMeteoBudget.updatedAt = now;
-  if (openMeteoBudget.tokens < 1) return false;
-  openMeteoBudget.tokens -= 1;
+  for (const budget of openMeteoBudgets) {
+    budget.tokens = Math.min(budget.calls, budget.tokens + ((now - budget.updatedAt) / budget.periodMs) * budget.calls);
+    budget.updatedAt = now;
+  }
+  if (openMeteoBudgets.some(budget => budget.tokens < 1)) return false;
+  for (const budget of openMeteoBudgets) budget.tokens -= 1;
   return true;
 }
 
@@ -499,7 +524,7 @@ async function lastReportedDate(stationId) {
       break;
     }
   }
-  waterDataCache.set(cacheKey, date, LAST_REPORTED_CACHE_TTL_SECONDS);
+  if (date || await isListedStation(stationId)) waterDataCache.set(cacheKey, date, LAST_REPORTED_CACHE_TTL_SECONDS);
   return date;
 }
 
@@ -561,23 +586,22 @@ async function findTrend(stationId) {
   return trend;
 }
 
-// GET /details/latest-water-data?ids=A,B,C returns { stationId: reading }; stations without data are left out.
+// GET /details/latest-water-data?ids=A,B,C returns { stationId: reading }; stations without data, and ids that
+// can't be station numbers, are left out.
 // With includeLastReported=true or includeTrend=true it returns { readings, lastReported, trends? }:
 // - lastReported (with includeLastReported) gives the date ("2026-09-30"), or just the month ("2024-08") when
 //   only monthly means remain, of the newest stored figure for each station without a recent reading.
 // - trends (with includeTrend) gives each station with readings its last day, as findTrend describes.
 exports.getLatestWaterDataBatch = async (req, res) => {
   const requested = String(req.query.ids || '').split(',').map(id => id.trim()).filter(Boolean);
-  const ids = [...new Set(requested.map(normalizeStationId))];
-  if (!ids.length) {
+  if (!requested.length) {
     return res.status(400).json({ error: 'ids is required' });
   }
-  if (ids.length > MAX_BATCH_STATIONS) {
+  if (requested.length > MAX_BATCH_STATIONS) {
     return res.status(400).json({ error: `At most ${MAX_BATCH_STATIONS} stations per request` });
   }
-  if (ids.includes(null)) {
-    return res.status(400).json({ error: 'Invalid station ID' });
-  }
+  // One odd saved id shouldn't empty a whole Saved screen, so it's just skipped.
+  const ids = [...new Set(requested.map(normalizeStationId).filter(Boolean))];
 
   try {
     const readings = await Promise.all(ids.map(findLatestReading));
@@ -663,8 +687,8 @@ exports.getWaterData = async (req, res) => {
     const firstStored = records[0]?.date_time;
     const missingHistory = !firstStored || firstStored - startDate > COVERAGE_TOLERANCE_MS;
     // Only for listed stations, so unknown IDs never reach Environment Canada or get readings stored.
-    if (missingHistory && !apiFallbackAttempts.has(stationId)
-      && await StationCoordinates.exists({ station_id: stationId })) {
+    const listed = await isListedStation(stationId);
+    if (missingHistory && listed && !apiFallbackAttempts.has(stationId)) {
       apiFallbackAttempts.set(stationId, true);
       try {
         // Only the stretch before the earliest stored reading; what's stored (including hourly figures) is kept.
@@ -696,7 +720,7 @@ exports.getWaterData = async (req, res) => {
         discharge_max: record.discharge_max
       })
     })));
-    waterSeriesCache.set(cacheKey, body, WATER_DATA_CACHE_TTL_SECONDS);
+    if (listed || records.length) waterSeriesCache.set(cacheKey, body, WATER_DATA_CACHE_TTL_SECONDS);
 
     res.type('application/json');
     return res.send(body);

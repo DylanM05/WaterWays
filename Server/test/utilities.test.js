@@ -3,6 +3,7 @@ const assert = require('node:assert/strict');
 const { splitStationName } = require('../utilities/riverNames');
 const { formatDate, formatDateTime, formatTime } = require('../utilities/dateFormat');
 const { cleanReadings } = require('../utilities/waterQuality');
+const { boundedCache } = require('../utilities/boundedCache');
 
 test('splits station names into the waterbody and the station\'s place on it', () => {
   const cases = {
@@ -66,4 +67,25 @@ test('removes sentinel values and isolated spikes from readings', () => {
   assert.equal(cleaned[10].water_level, null);
   assert.equal(cleaned[20].water_level, null);
   assert.equal(cleaned[15].water_level, readings[15].water_level);
+});
+
+test('a bounded cache keeps its entries under maxKeys and its strings under maxBytes', () => {
+  const byCount = boundedCache({ maxKeys: 2 });
+  byCount.set('a', 1);
+  byCount.set('b', 2);
+  assert.equal(byCount.set('c', 3), false, 'full: not stored, no error');
+  assert.equal(byCount.set('a', 10), true, 'an existing key is still replaced');
+  assert.equal(byCount.get('a'), 10);
+
+  const bySize = boundedCache({ maxKeys: 100, maxBytes: 10 });
+  assert.equal(bySize.set('a', 'x'.repeat(6)), true);
+  assert.equal(bySize.set('b', 'x'.repeat(6)), false, 'would go past 10 characters');
+  assert.equal(bySize.set('a', 'x'.repeat(9)), true, 'replacing counts only the new value');
+  assert.equal(bySize.set('a', 'x'.repeat(11)), false);
+  assert.equal(bySize.has('a'), false, 'the older value is dropped rather than served in its place');
+  bySize.set('c', 'x'.repeat(10));
+  bySize.del('c');
+  assert.equal(bySize.set('d', 'x'.repeat(10)), true, 'deleting gives the space back');
+  bySize.close();
+  byCount.close();
 });

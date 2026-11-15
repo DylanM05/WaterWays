@@ -3,7 +3,7 @@ require('dotenv').config();
 const { Sentry, enabled: monitoringEnabled } = require('./utilities/monitoring');
 
 const express = require('express');
-const cors = require('cors');
+const mongoose = require('mongoose');
 const helmet = require('helmet');
 const compression = require('compression');
 const { connectWithRetry, databaseState } = require('./utilities/database');
@@ -11,8 +11,8 @@ const detailsRoute = require('./routes/DetailsRoute');
 const searchRoute = require('./routes/SearchRoute');
 const settingsRoute = require('./routes/settingsRoutes');
 const { lenientLimiter, webhookLimiter } = require('./utilities/ratelimiter');
-const { corsOptions } = require('./utilities/origins');
-const { errorHandler } = require('./middleware/errorHandler');
+const { corsMiddleware } = require('./utilities/origins');
+const { errorHandler, notFound } = require('./middleware/errorHandler');
 const favoritesRoutes = require('./routes/favoritesRoutes');
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const inviteRoutes = require('./routes/inviteRoutes');
@@ -53,11 +53,11 @@ if (!mongoUri) {
   });
 }
 
-app.use(express.json());
-
-app.use(cors(corsOptions));
+// CORS first, so even a 429 or a 400 for malformed JSON reaches the website's code instead of a CORS error.
+app.use(corsMiddleware);
 // The one general limit for every route below; routes add stricter limiters where needed.
 app.use(lenientLimiter);
+app.use(express.json());
 app.use('/details', detailsRoute);
 app.use('/search', searchRoute);
 app.use('/s', settingsRoute);
@@ -72,6 +72,8 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', database: mongoUri ? databaseState() : 'not configured' });
 });
 
+app.use(notFound);
+
 // Reports errors that reach Express without being handled by a route.
 if (monitoringEnabled) Sentry.setupExpressErrorHandler(app);
 
@@ -79,6 +81,16 @@ if (monitoringEnabled) Sentry.setupExpressErrorHandler(app);
 app.use(errorHandler);
 
 const port = 42069;
-app.listen(port, '0.0.0.0', () => {
+const server = app.listen(port, '0.0.0.0', () => {
   console.log(`Server is running on http://0.0.0.0:${port}`);
 });
+
+// docker stop sends SIGTERM: stop taking requests, let the ones in progress finish, close the database
+// connection, then exit. If that takes more than 10 seconds, exit anyway.
+function shutdown(signal) {
+  console.log(`${signal} received; shutting down`);
+  setTimeout(() => process.exit(1), 10000).unref();
+  server.close(() => mongoose.connection.close().finally(() => process.exit(0)));
+}
+process.once('SIGTERM', shutdown);
+process.once('SIGINT', shutdown);

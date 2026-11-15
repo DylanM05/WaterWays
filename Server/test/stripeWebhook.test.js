@@ -42,11 +42,20 @@ test('an event type the server does not track is acknowledged with 200', async (
   assert.deepEqual(response.body, { received: true });
 });
 
+test('a tracked event without a customer answers 200: a retry couldn\'t change anything', async () => {
+  assert.equal((await deliver({ id: 'evt_2', type: 'invoice.paid', data: { object: {} } })).status, 200);
+});
+
 test('a tracked event that fails to process answers 500, so Stripe retries', async () => {
-  // No customer ID, so processWebhookEvent reports failure before touching the database.
-  const response = await deliver({ id: 'evt_2', type: 'invoice.paid', data: { object: {} } });
-  assert.equal(response.status, 500);
-  assert.equal(response.text.includes('at '), false, 'no stack trace');
+  const original = subscriptionController.processWebhookEvent;
+  subscriptionController.processWebhookEvent = async () => false;
+  try {
+    const response = await deliver({ id: 'evt_2b', type: 'invoice.paid', data: { object: { customer: 'cus_1' } } });
+    assert.equal(response.status, 500);
+    assert.equal(response.text.includes('at '), false, 'no stack trace');
+  } finally {
+    subscriptionController.processWebhookEvent = original;
+  }
 });
 
 test('an error thrown while processing also answers 500', async () => {
