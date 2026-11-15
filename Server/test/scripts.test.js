@@ -43,3 +43,61 @@ test('the implausible-readings cleanup only counts unless told to apply', async 
     console.log = log;
   }
 });
+
+// A stand-in for the driver's Db with just what the storage cleanup calls.
+function fakeDb(collections) {
+  const calls = [];
+  const db = {
+    listCollections: () => ({ toArray: async () => Object.keys(collections).map(name => ({ name })) }),
+    collection: name => {
+      const state = collections[name];
+      return {
+        indexes: async () => state.indexes.map(index => ({ name: index })),
+        findOne: async () => state.timestamped ? { _id: 'reading' } : null,
+        aggregate: () => ({ toArray: async () => [{ storageStats: { indexSizes: { date_time_1: 41 * 1024 * 1024 } } }] }),
+        estimatedDocumentCount: async () => state.documents || 0,
+        dropIndex: async index => { calls.push(`dropIndex ${name}.${index}`); state.indexes = state.indexes.filter(i => i !== index); },
+        drop: async () => { calls.push(`drop ${name}`); delete collections[name]; }
+      };
+    }
+  };
+  return { db, calls };
+}
+
+const productionLayout = () => ({
+  stationdatas: { indexes: ['_id_', 'station_id_1_date_time_1', 'timestamp_ttl', 'date_time_1'] },
+  stationarchives: { indexes: ['_id_', 'station_id_1_period_1_date_time_1', 'period_1_date_time_1'] },
+  stationdatas_archive_daily: { indexes: ['_id_'] },
+  uservisits: { indexes: ['_id_'], documents: 6075 }
+});
+
+test('the storage cleanup only lists what it would drop unless told to apply', async () => {
+  const { dropUnusedStorage } = require('../scripts/dropUnusedStorage');
+  const { db, calls } = fakeDb(productionLayout());
+  const found = await dropUnusedStorage(db);
+  assert.deepEqual(calls, [], 'a dry run writes nothing');
+  assert.deepEqual(found.map(item => item.index || item.collection),
+    ['timestamp_ttl', 'date_time_1', 'period_1_date_time_1', 'stationdatas_archive_daily', 'uservisits']);
+});
+
+test('the storage cleanup drops the unused indexes and collections, keeps the ones in use, and can run again', async () => {
+  const { dropUnusedStorage } = require('../scripts/dropUnusedStorage');
+  const layout = productionLayout();
+  const { db, calls } = fakeDb(layout);
+  await dropUnusedStorage(db, { apply: true });
+  assert.deepEqual(calls, [
+    'dropIndex stationdatas.timestamp_ttl', 'dropIndex stationdatas.date_time_1',
+    'dropIndex stationarchives.period_1_date_time_1', 'drop stationdatas_archive_daily', 'drop uservisits'
+  ]);
+  assert.deepEqual(layout.stationdatas.indexes, ['_id_', 'station_id_1_date_time_1'], 'the indexes in use stay');
+  assert.deepEqual(await dropUnusedStorage(db, { apply: true }), [], 'a second run finds nothing');
+
+  // A reading with a timestamp keeps the TTL index; an archive collection with data is kept.
+  const guarded = productionLayout();
+  guarded.stationdatas.timestamped = true;
+  guarded.stationdatas_archive_daily.documents = 3;
+  const second = fakeDb(guarded);
+  await dropUnusedStorage(second.db, { apply: true });
+  assert.equal(second.calls.includes('dropIndex stationdatas.timestamp_ttl'), false);
+  assert.equal(second.calls.includes('drop stationdatas_archive_daily'), false);
+});

@@ -126,44 +126,62 @@ function insertFigures(figures, stationId, period, source) {
     })), { ordered: false });
 }
 
+// Each roll-up goes station by station, from the station ids alone, so every query uses an index that
+// starts with the station; a network-wide date query would need a date index kept just for these jobs.
+
 /** Rolls each station's five-minute readings before the cutoff into hourly figures, then deletes them. */
 async function rollupRawToHourly(rawCutoff) {
     const olderThanCutoff = { date_time: { $type: 'date', $lt: rawCutoff } };
-    const stationIds = await StationData.distinct('station_id', olderThanCutoff);
+    const stationIds = await StationData.distinct('station_id');
+    let stations = 0;
     let written = 0;
     await processInBatches(stationIds, ROLLUP_CONCURRENCY, async stationId => {
         const readings = await StationData.find({ station_id: stationId, ...olderThanCutoff })
             .sort({ date_time: 1 })
             .select('-_id date_time water_level discharge')
             .lean();
+        if (!readings.length) return;
+        stations++;
         // Spikes are dropped first, as they are when charts read raw readings, so they can't skew an hour's max.
         const result = await insertFigures(hourlyFromReadings(cleanReadings(readings)), stationId, 'hourly', 'realtime-rollup');
         written += result.upsertedCount || 0;
         // Only after this station's hours are stored.
         await StationData.deleteMany({ station_id: stationId, ...olderThanCutoff });
     });
-    return { stations: stationIds.length, written };
+    return { stations, written };
 }
 
 /** Rolls each station's hourly figures before the cutoff into daily ones, then deletes them. */
 async function rollupHourlyToDaily(hourlyCutoff) {
     const olderThanCutoff = { period: 'hourly', date_time: { $lt: hourlyCutoff } };
-    const stationIds = await StationArchive.distinct('station_id', olderThanCutoff);
+    const stationIds = await StationArchive.distinct('station_id');
+    let stations = 0;
     let written = 0;
     await processInBatches(stationIds, ROLLUP_CONCURRENCY, async stationId => {
         const hours = await StationArchive.find({ station_id: stationId, ...olderThanCutoff })
             .sort({ date_time: 1 })
             .lean();
+        if (!hours.length) return;
+        stations++;
         const result = await insertFigures(dailyFromHourly(hours), stationId, 'daily', 'hourly-rollup');
         written += result.upsertedCount || 0;
         await StationArchive.deleteMany({ station_id: stationId, ...olderThanCutoff });
     });
-    return { stations: stationIds.length, written };
+    return { stations, written };
 }
 
+/** Rolls each station's daily figures before the cutoff into monthly ones, then deletes them. */
 async function rollupDailyToMonthly(monthCutoff) {
+    const olderThanCutoff = { period: 'daily', date_time: { $lt: monthCutoff } };
+    const stationIds = await StationArchive.distinct('station_id');
+    await processInBatches(stationIds, ROLLUP_CONCURRENCY, async stationId => {
+        await rollupStationDailyToMonthly(stationId, olderThanCutoff);
+    });
+}
+
+async function rollupStationDailyToMonthly(stationId, olderThanCutoff) {
     const cursor = StationArchive.aggregate([
-        { $match: { period: 'daily', date_time: { $lt: monthCutoff } } },
+        { $match: { station_id: stationId, ...olderThanCutoff } },
         {
             $group: {
                 _id: {
@@ -179,10 +197,11 @@ async function rollupDailyToMonthly(monthCutoff) {
                 sample_count: { $sum: '$sample_count' }
             }
         }
-    ], { allowDiskUse: true }).cursor({ batchSize: BULK_SIZE });
+    ]).cursor({ batchSize: BULK_SIZE });
 
     await writeArchiveGroups(cursor, 'monthly', 'daily-rollup');
-    await StationArchive.deleteMany({ period: 'daily', date_time: { $lt: monthCutoff } });
+    // Only after this station's months are stored.
+    await StationArchive.deleteMany({ station_id: stationId, ...olderThanCutoff });
 }
 
 async function runArchiveMaintenance() {
@@ -228,4 +247,4 @@ async function startScheduler() {
     runArchiveMaintenance();
 }
 
-module.exports = { rollupHourlyToDaily, rollupRawToHourly, runArchiveMaintenance, runRealtimeSync, startScheduler };
+module.exports = { rollupDailyToMonthly, rollupHourlyToDaily, rollupRawToHourly, runArchiveMaintenance, runRealtimeSync, startScheduler };
