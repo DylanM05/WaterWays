@@ -60,6 +60,11 @@ jobs:
           fetch-depth: 0
       - name: Install verified scanners
         run: bash .forgejo/scripts/install-tools.sh
+      - name: Validate workflow and shell syntax
+        run: |
+          # actionlint understands GitHub syntax; normalize Forgejo action URLs only.
+          sed 's#https://github.com/actions/#actions/#g' .forgejo/workflows/ci-cd.yml | actionlint -shellcheck= -
+          for script in .forgejo/scripts/*.sh; do bash -n "$script"; done
       - name: Scan tracked files and new commit history for secrets
         env:
           BEFORE_SHA: ${{ github.event.before }}
