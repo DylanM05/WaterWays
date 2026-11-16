@@ -405,7 +405,6 @@ exports.syncStripeDataToDB = async (customerId) => {
       customerMap.cancelAtPeriodEnd = subscription.cancel_at_period_end || false;
       
       // Safely get plan name
-      const priceId = subscription.items?.data[0]?.price?.id;
       const priceName = subscription.items?.data[0]?.price?.nickname;
       customerMap.plan = priceName || 'standard';
       

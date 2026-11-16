@@ -9,7 +9,7 @@ services:
       - waterways-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://192.168.50.166:42069/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:42069/health"]
       interval: 10s
       timeout: 5s
       retries: 10
@@ -21,6 +21,11 @@ services:
       - "5173:5173"
     environment:
       - VITE_API_URL=http://192.168.50.166:42069
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:5173/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
     depends_on:
       server:
         condition: service_healthy
