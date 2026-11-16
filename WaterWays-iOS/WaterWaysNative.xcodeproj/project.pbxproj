@@ -7,10 +7,11 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		A10000000000000000000119 /* RiverSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000118 /* RiverSearch.swift */; };
-		A10000000000000000000117 /* RiverWater.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000116 /* RiverWater.swift */; };
 		A10000000000000000000011 /* WaterWaysNativeApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000E /* WaterWaysNativeApp.swift */; };
 		A10000000000000000000012 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000000F /* ContentView.swift */; };
+		A10000000000000000000013 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* APIClient.swift */; };
+		A10000000000000000000019 /* ClerkKit in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000017 /* ClerkKit */; };
+		A1000000000000000000001A /* ClerkKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000018 /* ClerkKitUI */; };
 		A10000000000000000000101 /* SharedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000100 /* SharedViews.swift */; };
 		A10000000000000000000103 /* ExploreViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000102 /* ExploreViews.swift */; };
 		A10000000000000000000105 /* StationDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000104 /* StationDetailView.swift */; };
@@ -20,19 +21,19 @@
 		A1000000000000000000010D /* ForecastPanels.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000010C /* ForecastPanels.swift */; };
 		A1000000000000000000010F /* SavedView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000010E /* SavedView.swift */; };
 		A10000000000000000000111 /* AccountViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000110 /* AccountViews.swift */; };
-		A10000000000000000000013 /* APIClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000010 /* APIClient.swift */; };
 		A10000000000000000000113 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000112 /* Theme.swift */; };
-		A10000000000000000000115 /* Archivo.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000114 /* Archivo.ttf */; };
-		A10000000000000000000019 /* ClerkKit in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000017 /* ClerkKit */; };
-		A1000000000000000000001A /* ClerkKitUI in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000018 /* ClerkKitUI */; };
+		A10000000000000000000115 /* Fonts/Archivo.ttf in Resources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000114 /* Fonts/Archivo.ttf */; };
+		A10000000000000000000117 /* RiverWater.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000116 /* RiverWater.swift */; };
+		A10000000000000000000119 /* RiverSearch.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000118 /* RiverSearch.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		A10000000000000000000118 /* RiverSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiverSearch.swift; sourceTree = "<group>"; };
-		A10000000000000000000116 /* RiverWater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiverWater.swift; sourceTree = "<group>"; };
 		A1000000000000000000000A /* WaterWaysNative.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WaterWaysNative.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1000000000000000000000E /* WaterWaysNativeApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WaterWaysNativeApp.swift; sourceTree = "<group>"; };
 		A1000000000000000000000F /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		A10000000000000000000010 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
+		A1000000000000000000001B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A1000000000000000000001C /* WaterWaysNative.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = WaterWaysNative.storekit; sourceTree = "<group>"; };
 		A10000000000000000000100 /* SharedViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedViews.swift; sourceTree = "<group>"; };
 		A10000000000000000000102 /* ExploreViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExploreViews.swift; sourceTree = "<group>"; };
 		A10000000000000000000104 /* StationDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StationDetailView.swift; sourceTree = "<group>"; };
@@ -43,10 +44,9 @@
 		A1000000000000000000010E /* SavedView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SavedView.swift; sourceTree = "<group>"; };
 		A10000000000000000000110 /* AccountViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccountViews.swift; sourceTree = "<group>"; };
 		A10000000000000000000112 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
-		A10000000000000000000114 /* Archivo.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Fonts/Archivo.ttf; sourceTree = "<group>"; };
-		A10000000000000000000010 /* APIClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = APIClient.swift; sourceTree = "<group>"; };
-		A1000000000000000000001B /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		A1000000000000000000001C /* WaterWaysNative.storekit */ = {isa = PBXFileReference; lastKnownFileType = text; path = WaterWaysNative.storekit; sourceTree = "<group>"; };
+		A10000000000000000000114 /* Fonts/Archivo.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = Fonts/Archivo.ttf; sourceTree = "<group>"; };
+		A10000000000000000000116 /* RiverWater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiverWater.swift; sourceTree = "<group>"; };
+		A10000000000000000000118 /* RiverSearch.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RiverSearch.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -97,7 +97,7 @@
 				A10000000000000000000112 /* Theme.swift */,
 				A10000000000000000000118 /* RiverSearch.swift */,
 				A10000000000000000000116 /* RiverWater.swift */,
-				A10000000000000000000114 /* Archivo.ttf */,
+				A10000000000000000000114 /* Fonts/Archivo.ttf */,
 				A1000000000000000000001B /* Info.plist */,
 			);
 			path = Sources;
@@ -167,7 +167,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A10000000000000000000115 /* Archivo.ttf in Resources */,
+				A10000000000000000000115 /* Fonts/Archivo.ttf in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -221,6 +221,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = NH5UGV2FAF;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Sources/Info.plist;
@@ -240,6 +241,7 @@
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = NH5UGV2FAF;
 				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = Sources/Info.plist;

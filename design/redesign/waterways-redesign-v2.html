@@ -1,0 +1,1041 @@
+<title>WaterWays Redesign v2</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+:root{
+  /* Layout: design canvas. Short intro, system sheet, website at 1280px, iPhone at 390px; artboards scale to fit. */
+  --bg:#ECEFF0; --fg:#172024; --muted:#5D696D; --panel:#FFFFFF; --edge:#D6DCDE; --hl:#0F6E7C;
+  --bezel:#101618; --bezel-edge:#3B4649; --island:#000000;
+  /* WaterWays product tokens */
+  --w-bg:#F4F6F6; --w-surface:#FFFFFF; --w-fill:#ECF0F1; --w-line:#E0E5E6; --w-line2:#CAD2D4;
+  --w-ink:#172024; --w-ink2:#58656A; --w-ink3:#8A959A;
+  --w-accent:#0F6E7C; --w-on-accent:#FFFFFF;
+  --w-flow:#A65F1C; --w-flow-weak:#F1E6D8;
+  --w-gauge:#C4362D; --w-plate:#FFFFFF; --w-mark:#172024;
+  --w-warn:#C2550F; --w-warn-bg:#FFF4EA; --w-warn-line:#F1D5BD; --w-warn-ink:#5C2A08;
+  --w-glass:rgba(255,255,255,.8);
+  --f-ui:"IBM Plex Sans",-apple-system,"Segoe UI",system-ui,sans-serif;
+  --f-ios:-apple-system,BlinkMacSystemFont,"SF Pro Text","IBM Plex Sans",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){--bg:#080C0D;--fg:#E2E8E9;--muted:#8C989C;--panel:#111719;--edge:#222C2F;--hl:#5BBFCB;color-scheme:dark}
+  :root:not([data-theme="light"]) .canvas:not([data-mock="light"]){
+    --w-bg:#0C1113; --w-surface:#161D20; --w-fill:#212A2D; --w-line:#263033; --w-line2:#364346;
+    --w-ink:#E7ECED; --w-ink2:#A2AEB2; --w-ink3:#6F7C80;
+    --w-accent:#5BBFCB; --w-on-accent:#06262B;
+    --w-flow:#DDA063; --w-flow-weak:#33261A;
+    --w-gauge:#E0493C; --w-plate:#D8DFE0; --w-mark:#101719;
+    --w-warn:#F0904A; --w-warn-bg:#271A10; --w-warn-line:#46301E; --w-warn-ink:#F7C9A3;
+    --w-glass:rgba(28,36,39,.8);
+  }
+}
+:root[data-theme="dark"]{--bg:#080C0D;--fg:#E2E8E9;--muted:#8C989C;--panel:#111719;--edge:#222C2F;--hl:#5BBFCB;color-scheme:dark}
+:root[data-theme="dark"] .canvas:not([data-mock="light"]), .canvas[data-mock="dark"]{
+  --w-bg:#0C1113; --w-surface:#161D20; --w-fill:#212A2D; --w-line:#263033; --w-line2:#364346;
+  --w-ink:#E7ECED; --w-ink2:#A2AEB2; --w-ink3:#6F7C80;
+  --w-accent:#5BBFCB; --w-on-accent:#06262B;
+  --w-flow:#DDA063; --w-flow-weak:#33261A;
+  --w-gauge:#E0493C; --w-plate:#D8DFE0; --w-mark:#101719;
+  --w-warn:#F0904A; --w-warn-bg:#271A10; --w-warn-line:#46301E; --w-warn-ink:#F7C9A3;
+  --w-glass:rgba(28,36,39,.8);
+}
+
+/* ---------- canvas chrome ---------- */
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-ui);font-size:15px;line-height:1.5}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
+a{color:var(--hl)}
+.tb{position:sticky;top:env(safe-area-inset-top,0px);z-index:9;background:var(--panel);border-bottom:1px solid var(--edge);--w-accent:var(--hl);--w-on-accent:var(--panel)}
+.tb-in{max-width:1440px;margin:0 auto;display:flex;align-items:center;gap:10px 24px;flex-wrap:wrap;padding-block:10px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.tb-id{display:flex;align-items:center;gap:10px}
+.tb-id svg{width:24px;height:24px;flex:none}
+.tb-id strong{font-weight:600;font-size:15px}
+.tb-nav{display:flex;gap:2px}
+.tb-nav a{color:var(--fg);text-decoration:none;font-weight:500;font-size:14px;padding:6px 10px;border-radius:7px}
+.tb-nav a:hover{background:color-mix(in srgb,var(--fg) 7%,transparent)}
+.tb-ctl{margin-left:auto;display:flex;gap:10px;flex-wrap:wrap}
+.cv-seg{display:inline-flex;align-items:center;padding:2px;border-radius:8px;background:color-mix(in srgb,var(--fg) 7%,transparent);gap:2px}
+.cv-seg span{font-size:12.5px;color:var(--muted);padding:0 6px 0 8px}
+.cv-seg button{font:500 13px var(--f-ui);color:var(--muted);background:none;border:0;padding:4px 10px;border-radius:6px;cursor:pointer}
+.cv-seg button[aria-pressed="true"]{background:var(--panel);color:var(--fg);box-shadow:0 0 0 1px var(--edge)}
+.cv-seg button:focus-visible,.tb-nav a:focus-visible,a:focus-visible{outline:2px solid var(--hl);outline-offset:2px}
+
+.wrap{max-width:1440px;margin:0 auto;padding-block:0 80px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.intro{padding-block:48px 8px;display:grid;gap:14px;max-width:760px}
+.intro h1{font-size:clamp(28px,4vw,40px);font-weight:600;letter-spacing:-.02em;line-height:1.1;margin:0;text-wrap:balance}
+.intro p{margin:0;color:var(--muted);font-size:16px}
+.changes{margin:6px 0 0;padding-left:20px;display:grid;gap:6px;color:var(--muted);font-size:15px}
+.changes li::marker{color:var(--hl)}
+.sec{padding-block:56px 0;scroll-margin-top:64px}
+.sec > h2{font-size:clamp(22px,2.6vw,28px);font-weight:600;letter-spacing:-.015em;margin:0 0 24px}
+.ab{display:grid;gap:12px;margin-block:0 56px;min-width:0}
+.ab-lab{display:flex;gap:10px;align-items:baseline;font-size:15px}
+.ab-lab code{font:500 12px var(--f-mono);color:var(--muted)}
+.ab-lab b{font-weight:600}
+.webfit{overflow-x:auto;min-width:0}
+.phones{display:flex;flex-wrap:wrap;gap:40px 32px}
+.pcol{flex:0 1 418px;min-width:0;display:grid;gap:10px;align-content:start}
+.pfit{min-width:0;overflow:hidden}
+.slot{width:418px;padding:14px 14px 40px}
+
+/* ---------- product: shared ---------- */
+.mock{font-family:var(--f-ui);color:var(--w-ink);background:var(--w-bg);font-size:15px;line-height:1.45;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased}
+.mock p,.mock h1,.mock h2,.mock h3,.mock h4,.mock h5{margin:0}
+.mock h1,.mock h2,.mock h3,.mock h4{font-weight:600;letter-spacing:-.015em;text-wrap:balance}
+.ic{width:1em;height:1em;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.m2{color:var(--w-ink2)}
+.m3{color:var(--w-ink3)}
+.mono{font-family:var(--f-mono);font-size:12px}
+.acc{color:var(--w-accent)}
+.u{color:var(--w-ink2);font-weight:400}
+.big{font-size:60px;font-weight:500;letter-spacing:-.035em;line-height:1}
+.big .u{font-size:24px;letter-spacing:0;margin-left:4px}
+.chg{display:inline-flex;align-items:center;gap:3px;color:var(--w-ink2);white-space:nowrap}
+.chg .ic{width:.95em;height:.95em;stroke-width:2.2}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:36px;padding:0 14px;border-radius:8px;border:1px solid var(--w-line2);background:var(--w-surface);color:var(--w-ink);font-size:14px;font-weight:500;white-space:nowrap}
+.btn .ic{width:16px;height:16px}
+.btn.icon{width:36px;padding:0}
+.btn.pri{background:var(--w-accent);border-color:var(--w-accent);color:var(--w-on-accent)}
+.seg{display:inline-flex;padding:2px;border-radius:8px;background:var(--w-fill)}
+.seg > span{padding:4px 11px;border-radius:6px;font-size:13px;color:var(--w-ink2);text-align:center}
+.seg > .on{background:var(--w-surface);color:var(--w-ink);font-weight:500;box-shadow:0 0 0 1px var(--w-line),0 1px 2px rgba(0,0,0,.06)}
+.alert{display:flex;align-items:center;gap:10px;padding:10px 14px;border-radius:8px;background:var(--w-warn-bg);border:1px solid var(--w-warn-line);color:var(--w-warn-ink);font-size:14px}
+.alert > .ic{width:18px;height:18px;color:var(--w-warn);stroke-width:2}
+.alert b{font-weight:600}
+.alert .go{margin-left:auto;font-weight:500;display:inline-flex;align-items:center;gap:2px}
+.alert .go .ic{width:14px;height:14px}
+.ch{display:block;line-height:0}
+.ch svg{display:block;overflow:visible}
+.c-grid{stroke:var(--w-line);stroke-width:1}
+.c-ax{fill:var(--w-ink3);font-size:11px}
+.c-avg{stroke:var(--w-ink3);stroke-width:1;stroke-dasharray:3 4}
+.c-dot{stroke:var(--w-surface);stroke-width:2}
+.c-typ{stroke:var(--w-ink3);stroke-width:1.4;stroke-dasharray:4 4;fill:none}
+.c-band{fill:var(--w-flow-weak)}
+.c-now{stroke:var(--w-ink3);stroke-width:1;stroke-dasharray:2 3}
+.c-fc{stroke:var(--w-ink3);stroke-width:1.6;stroke-dasharray:4 4;fill:none}
+.g-plate{fill:var(--w-plate);stroke:var(--w-line2)}
+.g-mk{fill:var(--w-mark)}
+.g-mr{fill:var(--w-gauge)}
+.g-m{fill:var(--w-gauge);font-weight:600}
+.g-water{fill:var(--w-accent);opacity:.16}
+.g-surf{stroke:var(--w-accent);stroke-width:1.6}
+.g-lead{stroke:var(--w-accent);stroke-width:1;stroke-dasharray:2 2}
+.g-tag{fill:var(--w-accent)}
+.g-tagt{fill:var(--w-on-accent);font-weight:600}
+.g-bar{fill:var(--w-ink3);opacity:.45}
+.g-lab{fill:var(--w-ink2);font-size:12px}
+.g-labv{fill:var(--w-ink);font-weight:500}
+.legend{display:flex;gap:18px;font-size:12.5px;color:var(--w-ink2);flex-wrap:wrap}
+.legend span{display:inline-flex;align-items:center;gap:7px}
+.legend i{display:inline-block;width:16px;border-top:2px solid var(--w-accent)}
+.legend i.f{border-top-color:var(--w-flow)}
+.legend i.d{border-top:1.5px dashed var(--w-ink3)}
+.legend i.b{height:9px;border:0;border-radius:2px;background:var(--w-flow-weak)}
+
+/* ---------- design system board ---------- */
+.board{border:1px solid var(--edge);border-radius:14px;padding:clamp(18px,3vw,32px);display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:32px 40px}
+.sysb{display:grid;gap:12px;align-content:start;min-width:0}
+.sysb > h3{font-size:14px;font-weight:500;color:var(--w-ink2);letter-spacing:0}
+.sws{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:12px}
+.sw{display:grid;gap:3px;font-size:13px}
+.sw i{height:48px;border-radius:8px;border:1px solid var(--w-line)}
+.sw b{font-weight:500}
+.sw span{color:var(--w-ink3);font-size:12px}
+.spec{display:grid;gap:4px;padding-bottom:12px;border-bottom:1px solid var(--w-line);min-width:0}
+.spec:last-child{border-bottom:0}
+.spec span{font-size:12.5px;color:var(--w-ink3)}
+.gbox{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+.gbox p{font-size:14px;color:var(--w-ink2);max-width:30ch}
+
+/* ---------- website ---------- */
+.browser{width:1280px;border:1px solid var(--edge);border-radius:10px;overflow:hidden}
+.bbar{display:flex;align-items:center;gap:7px;height:38px;padding:0 14px;background:var(--w-fill);border-bottom:1px solid var(--w-line)}
+.bbar i{width:10px;height:10px;border-radius:50%;background:var(--w-line2)}
+.url{margin:0 auto;transform:translateX(-20px);display:flex;align-items:center;justify-content:center;height:24px;min-width:340px;padding:0 12px;border-radius:6px;background:var(--w-surface);color:var(--w-ink2);font-size:12px}
+.nav{display:flex;align-items:center;gap:36px;height:60px;padding:0 48px;background:var(--w-surface);border-bottom:1px solid var(--w-line)}
+.wm{display:flex;align-items:center;gap:9px;font-weight:600;font-size:17px;letter-spacing:-.01em}
+.wm svg{width:24px;height:24px}
+.links{display:flex;gap:26px;align-self:stretch;font-size:14.5px;color:var(--w-ink2)}
+.links span{display:flex;align-items:center;position:relative}
+.links .on{color:var(--w-ink);font-weight:500}
+.links .on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--w-ink)}
+.nsearch{margin-left:auto;display:flex;align-items:center;gap:8px;width:300px;height:36px;padding:0 12px;border-radius:8px;background:var(--w-fill);color:var(--w-ink3);font-size:14px}
+.nsearch .ic{width:15px;height:15px;color:var(--w-ink2)}
+.av{margin-left:auto;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:var(--w-fill);color:var(--w-ink2);font-size:12.5px;font-weight:600;flex:none}
+.nsearch + .av{margin-left:0}
+.foot{display:flex;justify-content:space-between;gap:24px;padding:20px 64px;border-top:1px solid var(--w-line);background:var(--w-surface);font-size:13px;color:var(--w-ink3)}
+.foot nav{display:flex;gap:20px}
+.pg{padding:28px 64px 56px;display:grid;gap:20px}
+.back{display:inline-flex;align-items:center;gap:4px;font-size:14px;color:var(--w-ink2)}
+.back .ic{width:15px;height:15px}
+.thead{display:flex;justify-content:space-between;align-items:flex-end;gap:24px}
+.thead h1{font-size:36px;letter-spacing:-.025em;line-height:1.1;margin-bottom:6px}
+.acts{display:flex;gap:8px;align-items:center}
+.sh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px}
+.sh h2{font-size:19px}
+.sh span{font-size:14px;color:var(--w-accent)}
+
+/* W1 */
+.home{padding:44px 64px 60px;display:grid;gap:48px}
+.search{display:flex;align-items:center;gap:12px;height:58px;padding:0 18px;border:1px solid var(--w-line2);border-radius:12px;background:var(--w-surface);font-size:17px;color:var(--w-ink3)}
+.search .ic{width:20px;height:20px;color:var(--w-ink2)}
+.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.scard{padding:18px;display:grid;gap:12px;background:var(--w-surface);border:1px solid var(--w-line);border-radius:12px}
+.scard h3{font-size:16px;letter-spacing:-.005em}
+.scard .sub{font-size:13px;color:var(--w-ink3);margin-top:2px}
+.vrow{display:flex;justify-content:space-between;align-items:baseline}
+.vrow .val{font-size:32px;font-weight:500;letter-spacing:-.03em}
+.vrow .val .u{font-size:16px;margin-left:3px;letter-spacing:0}
+.vrow .chg{font-size:14px}
+.wxl{display:flex;align-items:center;gap:6px;font-size:13.5px;color:var(--w-ink2);padding-top:10px;border-top:1px solid var(--w-line)}
+.wxl .ic{width:17px;height:17px}
+.grp{display:grid;gap:14px}
+.grp + .grp{margin-top:26px}
+.tiles{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}
+.tile{padding:14px 16px;display:grid;gap:1px;background:var(--w-surface);border:1px solid var(--w-line);border-radius:10px}
+.tile b{font-size:22px;font-weight:600;color:var(--w-accent);letter-spacing:-.01em;line-height:1.25}
+.tile span{font-size:14.5px;font-weight:500}
+.tile i{font-style:normal;font-size:13px;color:var(--w-ink3)}
+
+/* W2 */
+.tw{background:var(--w-surface);border:1px solid var(--w-line);border-radius:12px;overflow:hidden}
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{font-size:12.5px;font-weight:500;color:var(--w-ink3);text-align:left;padding:11px 18px;border-bottom:1px solid var(--w-line)}
+.tbl th.r,.tbl td.r{text-align:right}
+.tbl th .ic{width:12px;height:12px;vertical-align:-1px;margin-left:2px}
+.tbl td{padding:13px 18px;border-bottom:1px solid var(--w-line);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:0}
+.tbl .nm{font-weight:500}
+.tbl .id{display:block;font-family:var(--f-mono);font-size:11.5px;color:var(--w-ink3);margin-top:1px}
+.tbl .v{font-weight:500}
+.tbl .v .u{font-size:13px;margin-left:2px}
+.tbl .chg{font-size:14px}
+.tbl .heart{color:var(--w-accent);width:16px;height:16px}
+.note{font-size:13.5px;color:var(--w-ink3)}
+
+/* W3 */
+.tabs{display:flex;gap:30px;border-bottom:1px solid var(--w-line)}
+.tabs span{padding:10px 0;font-size:15px;color:var(--w-ink2);position:relative}
+.tabs .on{color:var(--w-ink);font-weight:500}
+.tabs .on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--w-ink)}
+.sgrid{display:grid;grid-template-columns:384px 1fr;gap:40px;align-items:start}
+.lvl{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:8px 0 20px}
+.lvl .k{font-size:14px;color:var(--w-ink2);margin-bottom:10px}
+.lvl .chg{font-size:15px;margin-top:12px}
+.lvl p{font-size:14px;color:var(--w-ink3);margin-top:4px}
+.dl{border-top:1px solid var(--w-line)}
+.dl div{display:flex;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid var(--w-line);font-size:14.5px}
+.dl dt{color:var(--w-ink2)}
+.dl dd{margin:0;font-weight:500}
+.dl dd .chg{font-weight:400;margin-left:8px;font-size:13.5px}
+.cc{padding:18px 20px 16px;display:grid;gap:12px;background:var(--w-surface);border:1px solid var(--w-line);border-radius:12px;min-width:0}
+.cc h2{font-size:15px}
+.wxs{display:flex;align-items:center;gap:28px;padding:14px 20px;background:var(--w-surface);border:1px solid var(--w-line);border-radius:12px;font-size:14.5px;color:var(--w-ink2)}
+.wxs .now{display:flex;align-items:center;gap:8px;color:var(--w-ink);font-weight:500;font-size:16px}
+.wxs .now .ic{width:22px;height:22px;color:var(--w-ink2)}
+.wxs .go{margin-left:auto;color:var(--w-accent);font-weight:500;display:inline-flex;align-items:center;gap:2px}
+.wxs .go .ic{width:15px;height:15px}
+
+/* W4 */
+.pm{display:grid;grid-template-columns:440px 1fr;gap:64px;padding:56px 64px 72px;align-items:start}
+.pm h1{font-size:38px;letter-spacing:-.025em;line-height:1.1}
+.pm .lede{font-size:16px;color:var(--w-ink2);margin:12px 0 24px;max-width:40ch}
+.feat{list-style:none;margin:0 0 28px;padding:0;display:grid;gap:10px;font-size:15px}
+.feat li{display:flex;gap:10px}
+.feat .ic{width:18px;height:18px;color:var(--w-accent);stroke-width:2.2;margin-top:2px}
+.opts{display:grid;gap:10px;margin-bottom:16px}
+.opt{display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid var(--w-line2);border-radius:10px;background:var(--w-surface)}
+.opt.on{border-color:var(--w-accent);box-shadow:0 0 0 1px var(--w-accent)}
+.radio{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--w-line2);flex:none;display:grid;place-items:center}
+.opt.on .radio{border-color:var(--w-accent)}
+.opt.on .radio::after{content:"";width:9px;height:9px;border-radius:50%;background:var(--w-accent)}
+.opt b{font-weight:500}
+.opt .r{margin-left:auto;color:var(--w-ink2);font-size:14px}
+.fine{font-size:13px;color:var(--w-ink3);margin-top:12px}
+.recs{display:grid;grid-template-columns:1fr 1fr;gap:16px;padding-top:12px;border-top:1px solid var(--w-line)}
+.recs div{display:grid;gap:1px;font-size:13px;color:var(--w-ink3)}
+.recs b{font-size:17px;font-weight:500;color:var(--w-ink)}
+
+/* ---------- iPhone ---------- */
+.phone{width:390px;height:844px;border-radius:56px;position:relative;overflow:hidden;
+  box-shadow:0 0 0 11px var(--bezel),0 0 0 12.5px var(--bezel-edge),0 40px 70px -34px rgba(8,28,34,.45)}
+.ios{font-family:var(--f-ios);font-size:15px}
+.island{position:absolute;top:11px;left:50%;width:124px;height:36px;margin-left:-62px;border-radius:20px;background:var(--island);z-index:13}
+.sb{height:54px;display:flex;align-items:center;justify-content:space-between;padding:4px 30px 0 46px;font-weight:600;font-size:16px;position:relative;z-index:7}
+.sb svg{width:74px;height:14px}
+.homeind{position:absolute;bottom:8px;left:50%;width:136px;height:5px;margin-left:-68px;border-radius:3px;background:var(--w-ink);z-index:12}
+.lt{display:flex;justify-content:space-between;align-items:center;padding:4px 20px 0}
+.lt h3{font-size:34px;font-weight:700;letter-spacing:-.025em}
+.lt .lk{font-size:17px;color:var(--w-accent)}
+.srch{margin:10px 16px 0;display:flex;align-items:center;gap:7px;height:38px;padding:0 10px;border-radius:10px;background:var(--w-fill);color:var(--w-ink3);font-size:16px}
+.srch .ic{width:16px;height:16px;color:var(--w-ink2)}
+.st{display:flex;justify-content:space-between;align-items:baseline;padding:22px 20px 8px}
+.st h4{font-size:20px;letter-spacing:-.01em}
+.st span{font-size:15px;color:var(--w-accent)}
+.hs{display:flex;gap:10px;padding:0 16px;overflow:hidden}
+.mc{flex:none;width:226px;padding:14px;display:grid;gap:8px;background:var(--w-surface);border-radius:14px}
+.mc h5{font-size:15px;font-weight:600;line-height:1.25}
+.mc .sub{font-size:12.5px;color:var(--w-ink3);margin-top:1px}
+.mc .vrow .val{font-size:26px}
+.mc .vrow .val .u{font-size:14px}
+.mc .vrow .chg{font-size:13px}
+.group{margin:0 16px;background:var(--w-surface);border-radius:14px;overflow:hidden}
+.row{display:flex;align-items:center;gap:10px;min-height:46px;padding:0 16px;font-size:16px}
+.row + .row{box-shadow:inset 16px 0 0 var(--w-surface),inset 0 1px 0 var(--w-line)}
+.row .rv{margin-left:auto;color:var(--w-ink3);font-size:15px}
+.row .cv{width:14px;height:14px;color:var(--w-ink3);stroke-width:2.2}
+.row .rv + .cv{margin-left:-2px}
+.tbar{position:absolute;left:20px;right:20px;bottom:24px;height:62px;border-radius:31px;background:var(--w-glass);backdrop-filter:blur(18px) saturate(1.5);-webkit-backdrop-filter:blur(18px) saturate(1.5);border:1px solid var(--w-line);display:flex;padding:5px;z-index:6}
+.tbar span{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;font-size:10.5px;font-weight:500;color:var(--w-ink2);border-radius:26px}
+.tbar .ic{width:22px;height:22px}
+.tbar .on{color:var(--w-accent);background:var(--w-fill)}
+.nb{display:flex;align-items:center;gap:8px;height:48px;padding:0 16px;position:relative}
+.cb{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:var(--w-glass);border:1px solid var(--w-line);color:var(--w-ink);flex:none}
+.cb .ic{width:18px;height:18px;stroke-width:2}
+.cb.on{color:var(--w-accent)}
+.nb .ttl{position:absolute;left:64px;right:64px;text-align:center;line-height:1.2}
+.nb .ttl b{display:block;font-size:15px;font-weight:600}
+.nb .ttl span{font-family:var(--f-mono);font-size:11px;color:var(--w-ink3)}
+.nb .r{margin-left:auto;display:flex;gap:8px}
+.nseg{margin:6px 16px 0;display:flex;padding:2px;border-radius:9px;background:var(--w-fill)}
+.nseg > span{flex:1;text-align:center;padding:6px 0;font-size:13px;font-weight:500;color:var(--w-ink2);border-radius:7px}
+.nseg > .on{background:var(--w-surface);color:var(--w-ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+.ialert{margin:10px 16px 0;display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;background:var(--w-warn-bg);color:var(--w-warn-ink);font-size:14px}
+.ialert > .ic{width:17px;height:17px;color:var(--w-warn);stroke-width:2}
+.ialert .cv{margin-left:auto;width:14px;height:14px;stroke-width:2.2}
+.phero{display:flex;justify-content:space-between;align-items:center;padding:18px 20px 16px}
+.phero .k{font-size:14px;color:var(--w-ink2);margin-bottom:8px}
+.phero .big{font-size:54px}
+.phero .big .u{font-size:22px}
+.phero .chg{font-size:15px;margin-top:10px}
+.pc{margin:0 16px;padding:14px 16px 12px;display:grid;gap:10px;background:var(--w-surface);border-radius:14px}
+.pc .hd{display:flex;justify-content:space-between;align-items:center}
+.pc h5{font-size:15px;font-weight:600}
+.gap{height:12px}
+.srow{display:grid;grid-template-columns:1fr auto auto;gap:12px;align-items:center;padding:10px 16px;min-height:62px}
+.srow + .srow{box-shadow:inset 16px 0 0 var(--w-surface),inset 0 1px 0 var(--w-line)}
+.srow b{display:block;font-size:16px;font-weight:500}
+.srow .sub{font-size:13px;color:var(--w-ink3)}
+.srow .val{display:grid;justify-items:end;gap:1px}
+.srow .val b{font-size:17px}
+.srow .val b .u{font-size:13px;margin-left:2px}
+.srow .val .chg{font-size:13px}
+.wxhero{display:flex;align-items:center;gap:14px;padding:20px 20px 16px}
+.wxhero > .ic{width:50px;height:50px;color:var(--w-ink2);stroke-width:1.3}
+.wxhero .t{font-size:56px;font-weight:300;letter-spacing:-.03em;line-height:1}
+.wxhero b{display:block;font-size:17px;font-weight:600}
+.wxhero span{font-size:14px;color:var(--w-ink2)}
+.hrs{display:flex;padding:12px 4px}
+.hr{flex:none;width:58px;display:grid;justify-items:center;gap:6px;font-size:13px;color:var(--w-ink2)}
+.hr .ic{width:22px;height:22px;stroke-width:1.5}
+.hr b{font-size:16px;font-weight:500;color:var(--w-ink)}
+.hr i{font-style:normal;font-size:12px;color:var(--w-accent)}
+.rangebar{flex:1;margin:0 10px}
+/* membership sheet */
+.under{filter:blur(1.5px)}
+.dim{position:absolute;inset:0;background:rgba(3,10,12,.4);z-index:10}
+.sheet{position:absolute;left:0;right:0;top:58px;bottom:0;background:var(--w-bg);border-radius:36px 36px 0 0;z-index:11;padding:10px 0 0;display:grid;gap:16px;align-content:start}
+.grab{width:38px;height:5px;border-radius:3px;background:var(--w-line2);margin:0 auto}
+.sheet .x{position:absolute;right:18px;top:16px;width:32px;height:32px;border-radius:50%;background:var(--w-fill);display:grid;place-items:center;color:var(--w-ink2)}
+.sheet .x .ic{width:15px;height:15px;stroke-width:2.2}
+.shd{padding:16px 24px 0}
+.shd h3{font-size:28px;font-weight:700;letter-spacing:-.02em}
+.shd p{font-size:15px;color:var(--w-ink2);margin-top:6px}
+.sfeat{list-style:none;margin:0;padding:0 24px;display:grid;gap:12px;font-size:15px}
+.sfeat li{display:flex;gap:12px;align-items:flex-start}
+.sfeat .ic{width:20px;height:20px;color:var(--w-accent);margin-top:1px}
+.irow{display:flex;align-items:center;gap:12px;padding:12px 16px;font-size:16px}
+.irow + .irow{box-shadow:inset 46px 0 0 var(--w-surface),inset 0 1px 0 var(--w-line)}
+.irow .radio{width:22px;height:22px}
+.irow.on .radio{border-color:var(--w-accent);background:var(--w-accent)}
+.irow.on .radio::after{content:"";width:8px;height:8px;border-radius:50%;background:var(--w-on-accent)}
+.irow b{font-weight:500;display:block}
+.irow span{font-size:13px;color:var(--w-ink3)}
+.irow .p{margin-left:auto;font-weight:500}
+.cta{margin:0 16px;height:50px;border-radius:14px;background:var(--w-accent);color:var(--w-on-accent);display:grid;place-items:center;font-size:17px;font-weight:600}
+.legal{padding:0 28px;font-size:11.5px;color:var(--w-ink3);text-align:center;line-height:1.45}
+.legal b{display:block;color:var(--w-accent);font-size:14px;font-weight:500;margin-bottom:6px}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="logo" viewBox="0 0 28 28"><rect width="28" height="28" rx="7" style="fill:var(--w-accent)"/><path d="M9.5 6.5h6.5M9.5 10.5h4M9.5 14.5h6.5" style="stroke:var(--w-on-accent)" stroke-width="2.2" stroke-linecap="round" fill="none"/><path d="M4 21.2c2.5 0 2.5-2.2 5-2.2s2.5 2.2 5 2.2 2.5-2.2 5-2.2 2.5 2.2 5 2.2" style="stroke:var(--w-on-accent)" stroke-width="2.2" fill="none" stroke-linecap="round"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M16.5 16.5L21 21"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0 1 12 7.3a4.2 4.2 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/></symbol>
+  <symbol id="i-heart-f" viewBox="0 0 24 24"><path fill="currentColor" d="M12 20s-7.5-4.6-7.5-10.2A4.2 4.2 0 0 1 12 7.3a4.2 4.2 0 0 1 7.5 2.5C19.5 15.4 12 20 12 20z"/></symbol>
+  <symbol id="i-chev-r" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+  <symbol id="i-chev-l" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-chev-d" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+  <symbol id="i-up" viewBox="0 0 24 24"><path d="M12 19V5M5.5 11.5L12 5l6.5 6.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="M12 5v14M5.5 12.5L12 19l6.5-6.5"/></symbol>
+  <symbol id="i-flat" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><path d="M12 3.5v11M8 7.5l4-4 4 4M6 11v8a1.5 1.5 0 0 0 1.5 1.5h9A1.5 1.5 0 0 0 18 19v-8"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/></symbol>
+  <symbol id="i-waves" viewBox="0 0 24 24"><path d="M2.5 9c2.4 0 2.4-2 4.75-2s2.4 2 4.75 2 2.4-2 4.75-2 2.4 2 4.75 2M2.5 15.5c2.4 0 2.4-2 4.75-2s2.4 2 4.75 2 2.4-2 4.75-2 2.4 2 4.75 2"/></symbol>
+  <symbol id="i-warn" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4.5M12 17.4v.1"/></symbol>
+  <symbol id="i-cloud" viewBox="0 0 24 24"><path d="M7 18h10.5a4 4 0 0 0 .3-8A6 6 0 0 0 6.2 10.6 3.7 3.7 0 0 0 7 18z"/></symbol>
+  <symbol id="i-rain" viewBox="0 0 24 24"><path d="M7 14.5h10.5a4 4 0 0 0 .3-8A6 6 0 0 0 6.2 7.1 3.7 3.7 0 0 0 7 14.5z"/><path d="M8.5 17.5l-1 3M12.5 17.5l-1 3M16.5 17.5l-1 3"/></symbol>
+  <symbol id="i-showers" viewBox="0 0 24 24"><circle cx="16.5" cy="6.5" r="2.5"/><path d="M6.5 15h9a3.5 3.5 0 0 0 .3-7A5.2 5.2 0 0 0 5.7 9.4 3 3 0 0 0 6.5 15z"/><path d="M8.5 18l-1 2.5M12.5 18l-1 2.5"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/></symbol>
+  <symbol id="i-partly" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M9 2.3v1.2M3.3 8h1.2M5 4l.8.8M13 4l-.8.8"/><path d="M9.5 20h8a3.6 3.6 0 0 0 .3-7.2 5 5 0 0 0-9.4 1.4A2.9 2.9 0 0 0 9.5 20z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
+  <symbol id="i-history" viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1"/><path d="M3.5 4.5v4h4M12 8v4.2l3 1.8"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><path d="M3.5 18.5l5-6 4 3.5 8-9"/><path d="M3.5 20.5h17"/></symbol>
+  <symbol id="sb" viewBox="0 0 74 14"><g fill="currentColor"><rect x="0" y="9" width="3" height="4" rx="1"/><rect x="5" y="6.5" width="3" height="6.5" rx="1"/><rect x="10" y="4" width="3" height="9" rx="1"/><rect x="15" y="1.5" width="3" height="11.5" rx="1"/></g><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M25.5 5.2a8 8 0 0 1 11 0"/><path d="M28 8a4.4 4.4 0 0 1 6 0"/></g><circle cx="31" cy="11" r="1.4" fill="currentColor"/><rect x="45" y="1.5" width="24" height="11" rx="3.5" fill="none" stroke="currentColor" opacity=".45"/><rect x="47" y="3.5" width="18" height="7" rx="2" fill="currentColor"/><rect x="70.5" y="5" width="1.8" height="4" rx=".9" fill="currentColor" opacity=".45"/></symbol>
+</svg>
+
+<header class="tb">
+  <div class="tb-in">
+    <div class="tb-id"><svg><use href="#logo"/></svg><strong>WaterWays Redesign v2</strong></div>
+    <nav class="tb-nav" aria-label="Sections"><a href="#system">System</a><a href="#website">Website</a><a href="#iphone">iPhone</a><a href="https://claude.ai/artifact/EGVEnBxRQijTYtQ624PXeG" target="_blank" rel="noopener">Version 1</a></nav>
+    <div class="tb-ctl">
+      <div class="cv-seg" role="group" aria-label="Mockup theme"><span>Theme</span><button type="button" id="mk-auto" data-mock-btn="auto" aria-pressed="true">Auto</button><button type="button" id="mk-light" data-mock-btn="light" aria-pressed="false">Light</button><button type="button" id="mk-dark" data-mock-btn="dark" aria-pressed="false">Dark</button></div>
+      <div class="cv-seg" role="group" aria-label="Website zoom"><span>Website</span><button type="button" id="fit-fit" data-fit-btn="fit" aria-pressed="true">Fit</button><button type="button" id="fit-100" data-fit-btn="100" aria-pressed="false">100%</button></div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap canvas" data-mock="auto">
+
+<section class="intro">
+  <h1>WaterWays redesign, version 2</h1>
+  <p>A quieter take on <a href="https://claude.ai/artifact/EGVEnBxRQijTYtQ624PXeG" target="_blank" rel="noopener">version 1</a>, which stays as it was for comparison. Readings are sample data.</p>
+  <ul class="changes">
+    <li>Cut the taglines, eyebrow labels and subtitles. Headings are one or two words.</li>
+    <li>One typeface on the website (IBM Plex Sans) and the iPhone’s own system font in the app.</li>
+    <li>Hairline borders and smaller corners; no shadows, glows, gradient fills or pill badges.</li>
+    <li>The staff gauge shows three numbers: the level now, and the 30-day high and low.</li>
+    <li>Saved stations and the province tiles keep their version 1 layout.</li>
+  </ul>
+</section>
+
+<!-- ============ SYSTEM ============ -->
+<section class="sec" id="system">
+  <h2>System</h2>
+  <div class="board mock">
+    <div class="sysb">
+      <h3>Colour</h3>
+      <div class="sws">
+        <div class="sw"><i style="background:var(--w-accent)"></i><b>Glacier</b><span>Level, links, actions</span></div>
+        <div class="sw"><i style="background:var(--w-flow)"></i><b>Silt</b><span>Flow</span></div>
+        <div class="sw"><i style="background:var(--w-ink)"></i><b>Ink</b><span>Text</span></div>
+        <div class="sw"><i style="background:var(--w-bg)"></i><b>Mist</b><span>Background</span></div>
+        <div class="sw"><i style="background:var(--w-gauge)"></i><b>Gauge red</b><span>Gauge metres</span></div>
+        <div class="sw"><i style="background:var(--w-warn)"></i><b>Alert</b><span>Weather alerts</span></div>
+      </div>
+    </div>
+    <div class="sysb">
+      <h3>Type</h3>
+      <div class="spec"><div style="font-size:36px;font-weight:600;letter-spacing:-.025em;line-height:1.1">Fraser River at Hope</div><span>IBM Plex Sans 600 · titles</span></div>
+      <div class="spec"><div class="big">3.42<span class="u">m</span></div><span>IBM Plex Sans 500 · readings</span></div>
+      <div class="spec"><div style="font-size:15px">Live levels and flows, with the weather at each station.</div><span>IBM Plex Sans 400 · text</span></div>
+      <div class="spec"><div class="mono" style="font-size:14px">08MF005</div><span>IBM Plex Mono · station IDs only</span></div>
+    </div>
+    <div class="sysb">
+      <h3>Staff gauge</h3>
+      <div class="gbox">
+        <span class="ch" data-g="sys"></span>
+        <p>The tag marks the level now. The grey bar beside the gauge runs from the 30-day low to the 30-day high, labelled at each end. No other numbers sit on the gauge.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ WEBSITE ============ -->
+<section class="sec" id="website">
+  <h2>Website</h2>
+
+  <!-- W1 HOME -->
+  <div class="ab">
+    <div class="ab-lab"><code>W1</code><b>Home</b></div>
+    <div class="webfit" data-base="1280">
+      <div class="browser mock">
+        <div class="bbar"><i></i><i></i><i></i><div class="url">water-ways.ca</div></div>
+        <nav class="nav">
+          <div class="wm"><svg><use href="#logo"/></svg>WaterWays</div>
+          <div class="links"><span class="on">Explore</span><span>Saved</span><span>Premium</span></div>
+          <span class="av">KT</span>
+        </nav>
+        <div class="home">
+          <div class="search"><svg class="ic"><use href="#i-search"/></svg>Search rivers, lakes and stations</div>
+
+          <section>
+            <div class="sh"><h2>Saved</h2><span>See all</span></div>
+            <div class="cards">
+              <div class="scard">
+                <div><h3>Fraser River at Hope</h3><div class="sub">British Columbia · 12 min ago</div></div>
+                <div class="vrow"><span class="val">3.42<span class="u">m</span></span><span class="chg"><svg class="ic"><use href="#i-up"/></svg>0.18 m</span></div>
+                <span class="ch" data-sp="3.24,3.42,7" data-w="330" data-h="40"></span>
+                <div class="wxl"><svg class="ic"><use href="#i-rain"/></svg>7° Rain</div>
+              </div>
+              <div class="scard">
+                <div><h3>Bow River at Banff</h3><div class="sub">Alberta · 8 min ago</div></div>
+                <div class="vrow"><span class="val">1.12<span class="u">m</span></span><span class="chg"><svg class="ic"><use href="#i-flat"/></svg>Steady</span></div>
+                <span class="ch" data-sp="1.12,1.12,21" data-w="330" data-h="40"></span>
+                <div class="wxl"><svg class="ic"><use href="#i-cloud"/></svg>−1° Cloudy</div>
+              </div>
+              <div class="scard">
+                <div><h3>Ottawa River at Britannia</h3><div class="sub">Ontario · 21 min ago</div></div>
+                <div class="vrow"><span class="val">58.71<span class="u">m</span></span><span class="chg"><svg class="ic"><use href="#i-down"/></svg>0.04 m</span></div>
+                <span class="ch" data-sp="58.75,58.71,33" data-w="330" data-h="40"></span>
+                <div class="wxl"><svg class="ic"><use href="#i-partly"/></svg>5° Partly cloudy</div>
+              </div>
+            </div>
+          </section>
+
+          <section>
+            <div class="grp">
+              <div class="sh" style="margin:0"><h2>Provinces</h2></div>
+              <div class="tiles">
+                <div class="tile"><b>AB</b><span>Alberta</span><i>412 stations</i></div>
+                <div class="tile"><b>BC</b><span>British Columbia</span><i>438 stations</i></div>
+                <div class="tile"><b>MB</b><span>Manitoba</span><i>236 stations</i></div>
+                <div class="tile"><b>NB</b><span>New Brunswick</span><i>61 stations</i></div>
+                <div class="tile"><b>NL</b><span>Newfoundland and Labrador</span><i>98 stations</i></div>
+                <div class="tile"><b>NS</b><span>Nova Scotia</span><i>34 stations</i></div>
+                <div class="tile"><b>ON</b><span>Ontario</span><i>514 stations</i></div>
+                <div class="tile"><b>PE</b><span>Prince Edward Island</span><i>9 stations</i></div>
+                <div class="tile"><b>QC</b><span>Quebec</span><i>287 stations</i></div>
+                <div class="tile"><b>SK</b><span>Saskatchewan</span><i>241 stations</i></div>
+              </div>
+            </div>
+            <div class="grp">
+              <div class="sh" style="margin:0"><h2>Territories</h2></div>
+              <div class="tiles">
+                <div class="tile"><b>NT</b><span>Northwest Territories</span><i>82 stations</i></div>
+                <div class="tile"><b>NU</b><span>Nunavut</span><i>31 stations</i></div>
+                <div class="tile"><b>YT</b><span>Yukon</span><i>70 stations</i></div>
+              </div>
+            </div>
+          </section>
+        </div>
+        <footer class="foot"><span>Data from Environment and Climate Change Canada and Open-Meteo</span><nav><span>Premium</span><span>iPhone app</span><span>Privacy</span></nav></footer>
+      </div>
+    </div>
+  </div>
+
+  <!-- W2 RIVER -->
+  <div class="ab">
+    <div class="ab-lab"><code>W2</code><b>River</b></div>
+    <div class="webfit" data-base="1280">
+      <div class="browser mock">
+        <div class="bbar"><i></i><i></i><i></i><div class="url">water-ways.ca/rivers/bc/fraser-river</div></div>
+        <nav class="nav">
+          <div class="wm"><svg><use href="#logo"/></svg>WaterWays</div>
+          <div class="links"><span class="on">Explore</span><span>Saved</span><span>Premium</span></div>
+          <div class="nsearch"><svg class="ic"><use href="#i-search"/></svg>Search</div>
+          <span class="av">KT</span>
+        </nav>
+        <div class="pg">
+          <div>
+            <span class="back"><svg class="ic"><use href="#i-chev-l"/></svg>British Columbia</span>
+            <div class="thead" style="margin-top:10px">
+              <div><h1>Fraser River</h1><p class="m2">9 stations · rising at 6 of 8 reporting</p></div>
+              <div class="acts"><span class="btn icon" aria-label="Share"><svg class="ic"><use href="#i-share"/></svg></span><span class="btn"><svg class="ic acc"><use href="#i-heart-f"/></svg>Saved</span></div>
+            </div>
+          </div>
+          <div class="alert"><svg class="ic"><use href="#i-warn"/></svg><span><b>Rainfall warning</b> for the Fraser Canyon until Thursday</span><span class="go">Details<svg class="ic"><use href="#i-chev-r"/></svg></span></div>
+          <div class="tw">
+            <table class="tbl">
+              <thead><tr><th style="width:280px">Station</th><th class="r">Level</th><th>24 h</th><th class="r">Flow</th><th>24 h</th><th>Last 24 hours</th><th>Updated</th><th style="width:40px"></th></tr></thead>
+              <tbody>
+                <tr><td><span class="nm">at Red Pass</span><span class="id">08KA007</span></td><td class="r v">1.21<span class="u">m</span></td><td><span class="chg"><svg class="ic"><use href="#i-flat"/></svg>Steady</span></td><td class="r v">38.4<span class="u">m³/s</span></td><td><span class="chg"><svg class="ic"><use href="#i-flat"/></svg>Steady</span></td><td><span class="ch" data-sp="1.22,1.21,3" data-w="140" data-h="28"></span></td><td class="m3">9 min</td><td></td></tr>
+                <tr><td><span class="nm">at McBride</span><span class="id">08KA005</span></td><td class="r v">1.87<span class="u">m</span></td><td><span class="chg"><svg class="ic"><use href="#i-flat"/></svg>Steady</span></td><td class="r v">182<span class="u">m³/s</span></td><td><span class="chg"><svg class="ic"><use href="#i-flat"/></svg>Steady</span></td><td><span class="ch" data-sp="1.86,1.87,5" data-w="140" data-h="28"></span></td><td class="m3">14 min</td><td></td></tr>
+                <tr><td><span class="nm">at Shelley</span><span class="id">08KB001</span></td><td class="r v">2.34<span class="u">m</span></td><td><span class="chg"><svg class="ic"><use href="#i-up"/></svg>0.04</span></td><td class="r v">612<span class="u">m³/s</span></td><td><span class="chg"><svg class="ic"><use href="#i-up"/></svg>11</span></td><td><span class="ch" data-sp="2.30,2.34,9" data-w="140" data-h="28"></span></td><td class="m3">11 min</td><td></td></tr>
+                <tr><td><span class="nm">at South Fort George</span><span class="id">08KE018</span></td><td class="r v">2.91<span class="u">m</span></td><td><span class="chg"><svg class="ic"><use href="#i-up"/></svg>0.06</span></td><td class="r v">803<span class="u">m³/s</span></td><td><span class="chg"><svg class="ic"><use href="#i-up"/></svg>19</span></td><td><span class="ch" data-sp="2.85,2.91,13" data-w="140" data-h="28"></span></td><td class="m3">16 min</td><td></td></tr>
+                <tr><td><span class="nm">near Marguerite</span><span class="id">08MC018</span></td><td class="r v">2.12<span class="u">m</span></td><td><span class="chg"><svg class="ic"><use href="#i-up"/></svg>0.09</span></td><td class="r v">1,020<span class="u">m³/s</span></td><td><span class="chg"><svg class="ic"><use href="#i-up"/></svg>44</span></td><td><span class="ch" data-sp="2.03,2.12,17" data-w="140" data-h="28"></span></td><td class="m3">13 min</td><td></td></tr>
+                <tr><td><span class="nm">at Texas Creek</span><span class="id">08MF040</span></td><td class="r v">2.66<span class="u">m</span></td><td><span class="chg"><svg class="ic"><use href="#i-up"/></svg>0.15</span></td><td class="r v">1,650<span class="u">m³/s</span></td><td><span class="chg"><svg class="ic"><use href="#i-up"/></svg>118</span></td><td><span class="ch" data-sp="2.51,2.66,19" data-w="140" data-h="28"></span></td><td class="m3">12 min</td><td></td></tr>
+                <tr><td><span class="nm">at Hope</span><span class="id">08MF005</span></td><td class="r v">3.42<span class="u">m</span></td><td><span class="chg"><svg class="ic"><use href="#i-up"/></svg>0.18</span></td><td class="r v">2,140<span class="u">m³/s</span></td><td><span class="chg"><svg class="ic"><use href="#i-up"/></svg>160</span></td><td><span class="ch" data-sp="3.24,3.42,7" data-w="140" data-h="28"></span></td><td class="m3">12 min</td><td><svg class="ic heart" aria-label="Saved"><use href="#i-heart-f"/></svg></td></tr>
+                <tr><td><span class="nm">at Mission</span><span class="id">08MH024</span></td><td class="r v">1.94<span class="u">m</span></td><td><span class="chg"><svg class="ic"><use href="#i-up"/></svg>0.11</span></td><td class="r m3">—</td><td></td><td><span class="ch" data-sp="1.83,1.94,23" data-w="140" data-h="28"></span></td><td class="m3">10 min</td><td></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="note">Not reporting: at Port Mann (08MH126), last reported Sep 28, 2026.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- W3 STATION -->
+  <div class="ab">
+    <div class="ab-lab"><code>W3</code><b>Station</b></div>
+    <div class="webfit" data-base="1280">
+      <div class="browser mock">
+        <div class="bbar"><i></i><i></i><i></i><div class="url">water-ways.ca/stations/08MF005</div></div>
+        <nav class="nav">
+          <div class="wm"><svg><use href="#logo"/></svg>WaterWays</div>
+          <div class="links"><span class="on">Explore</span><span>Saved</span><span>Premium</span></div>
+          <div class="nsearch"><svg class="ic"><use href="#i-search"/></svg>Search</div>
+          <span class="av">KT</span>
+        </nav>
+        <div class="pg">
+          <div>
+            <span class="back"><svg class="ic"><use href="#i-chev-l"/></svg>Fraser River</span>
+            <div class="thead" style="margin-top:10px">
+              <div><h1>Fraser River at Hope</h1><p class="m2"><span class="mono" style="font-size:13px">08MF005</span> · Updated 12 min ago</p></div>
+              <div class="acts"><span class="btn icon" aria-label="Share"><svg class="ic"><use href="#i-share"/></svg></span><span class="btn"><svg class="ic acc"><use href="#i-heart-f"/></svg>Saved</span></div>
+            </div>
+          </div>
+          <div class="alert"><svg class="ic"><use href="#i-warn"/></svg><span><b>Rainfall warning</b> for the Fraser Canyon. 40 to 70 mm expected through Thursday morning.</span><span class="go">Details<svg class="ic"><use href="#i-chev-r"/></svg></span></div>
+          <div class="tabs"><span class="on">Water</span><span>Weather</span><span>History</span><span>Map</span></div>
+          <div class="sgrid">
+            <div>
+              <div class="lvl">
+                <div>
+                  <div class="k">Level</div>
+                  <div class="big">3.42<span class="u">m</span></div>
+                  <div class="chg"><svg class="ic"><use href="#i-up"/></svg>0.18 m in 24 hours</div>
+                  <p>0.22 m above the 30-day average</p>
+                </div>
+                <span class="ch" data-g="station"></span>
+              </div>
+              <dl class="dl" style="margin:0">
+                <div><dt>Flow</dt><dd>2,140 m³/s<span class="chg"><svg class="ic"><use href="#i-up"/></svg>160</span></dd></div>
+                <div><dt>Past 7 days</dt><dd>−0.19 m</dd></div>
+                <div><dt>30-day average</dt><dd>3.20 m</dd></div>
+              </dl>
+            </div>
+            <div class="cc">
+              <div class="vrow" style="align-items:center"><h2>Past 30 days</h2><div class="acts"><span class="seg"><span class="on">Level</span><span>Flow</span></span><span class="seg"><span>1d</span><span>3d</span><span>7d</span><span>14d</span><span class="on">30d</span></span></div></div>
+              <span class="ch" data-c="hopeW"></span>
+            </div>
+          </div>
+          <div class="wxs">
+            <span class="now"><svg class="ic"><use href="#i-rain"/></svg>7° Rain</span>
+            <span>Feels like 4°</span>
+            <span>Wind SW 18 km/h</span>
+            <span>Pressure 1004 hPa, falling</span>
+            <span class="go">Forecast<svg class="ic"><use href="#i-chev-r"/></svg></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- W4 PREMIUM -->
+  <div class="ab">
+    <div class="ab-lab"><code>W4</code><b>Premium</b></div>
+    <div class="webfit" data-base="1280">
+      <div class="browser mock">
+        <div class="bbar"><i></i><i></i><i></i><div class="url">water-ways.ca/premium</div></div>
+        <nav class="nav">
+          <div class="wm"><svg><use href="#logo"/></svg>WaterWays</div>
+          <div class="links"><span>Explore</span><span>Saved</span><span class="on">Premium</span></div>
+          <div class="nsearch"><svg class="ic"><use href="#i-search"/></svg>Search</div>
+          <span class="av">KT</span>
+        </nav>
+        <div class="pm">
+          <div>
+            <h1>WaterWays Premium</h1>
+            <p class="lede">Every year on record for every station, and your saved rivers on the web and iPhone.</p>
+            <ul class="feat">
+              <li><svg class="ic"><use href="#i-check"/></svg>Archived levels and flows</li>
+              <li><svg class="ic"><use href="#i-check"/></svg>This year against a typical year</li>
+              <li><svg class="ic"><use href="#i-check"/></svg>Record highs and lows</li>
+              <li><svg class="ic"><use href="#i-check"/></svg>Saved rivers and stations</li>
+            </ul>
+            <div class="opts">
+              <div class="opt on"><span class="radio"></span><b>Yearly</b><span class="r">$30 a year</span></div>
+              <div class="opt"><span class="radio"></span><b>Monthly</b><span class="r">$4 a month</span></div>
+            </div>
+            <span class="btn pri" style="width:100%;height:44px;font-size:15px">Continue</span>
+            <p class="fine">Cancel anytime. Premium stays active until the end of the period you’ve paid for.</p>
+          </div>
+          <div class="cc" style="padding:20px 22px">
+            <div class="vrow" style="align-items:center"><h2>Fraser River at Hope · flow by month</h2><span class="seg"><span>Timeline</span><span class="on">Typical year</span></span></div>
+            <span class="ch" data-c="typW"></span>
+            <div class="legend"><span><i class="f"></i>2026</span><span><i class="d"></i>Typical</span><span><i class="b"></i>Range since 1912</span></div>
+            <div class="recs">
+              <div>Highest<b>15,200 m³/s</b>May 31, 1948</div>
+              <div>Lowest<b>340 m³/s</b>Jan 8, 1916</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ IPHONE ============ -->
+<section class="sec" id="iphone">
+  <h2>iPhone</h2>
+  <div class="phones">
+
+    <!-- P1 -->
+    <div class="pcol">
+      <div class="ab-lab"><code>P1</code><b>Explore</b></div>
+      <div class="pfit" data-base="418"><div class="slot"><div class="phone mock ios">
+        <div class="island"></div>
+        <div class="sb"><span>9:41</span><svg><use href="#sb"/></svg></div>
+        <div class="lt"><h3>Explore</h3></div>
+        <div class="srch"><svg class="ic"><use href="#i-search"/></svg>Search</div>
+        <div class="st"><h4>Saved</h4><span>See all</span></div>
+        <div class="hs">
+          <div class="mc">
+            <div><h5>Fraser River at Hope</h5><div class="sub">12 min ago</div></div>
+            <div class="vrow"><span class="val">3.42<span class="u">m</span></span><span class="chg"><svg class="ic"><use href="#i-up"/></svg>0.18</span></div>
+            <span class="ch" data-sp="3.24,3.42,7" data-w="198" data-h="32"></span>
+          </div>
+          <div class="mc">
+            <div><h5>Thompson River near Spences Bridge</h5><div class="sub">9 min ago</div></div>
+            <div class="vrow"><span class="val">1.36<span class="u">m</span></span><span class="chg"><svg class="ic"><use href="#i-up"/></svg>0.06</span></div>
+            <span class="ch" data-sp="1.30,1.36,27" data-w="198" data-h="32"></span>
+          </div>
+        </div>
+        <div class="st"><h4>Provinces</h4></div>
+        <div class="group">
+          <div class="row">Alberta<span class="rv">412</span><svg class="ic cv"><use href="#i-chev-r"/></svg></div>
+          <div class="row">British Columbia<span class="rv">438</span><svg class="ic cv"><use href="#i-chev-r"/></svg></div>
+          <div class="row">Manitoba<span class="rv">236</span><svg class="ic cv"><use href="#i-chev-r"/></svg></div>
+          <div class="row">New Brunswick<span class="rv">61</span><svg class="ic cv"><use href="#i-chev-r"/></svg></div>
+          <div class="row">Newfoundland and Labrador<span class="rv">98</span><svg class="ic cv"><use href="#i-chev-r"/></svg></div>
+          <div class="row">Nova Scotia<span class="rv">34</span><svg class="ic cv"><use href="#i-chev-r"/></svg></div>
+          <div class="row">Ontario<span class="rv">514</span><svg class="ic cv"><use href="#i-chev-r"/></svg></div>
+        </div>
+        <div class="tbar"><span class="on"><svg class="ic"><use href="#i-waves"/></svg>Explore</span><span><svg class="ic"><use href="#i-heart"/></svg>Saved</span><span><svg class="ic"><use href="#i-user"/></svg>Account</span></div>
+        <div class="homeind"></div>
+      </div></div></div>
+    </div>
+
+    <!-- P2 -->
+    <div class="pcol">
+      <div class="ab-lab"><code>P2</code><b>River</b></div>
+      <div class="pfit" data-base="418"><div class="slot"><div class="phone mock ios">
+        <div class="island"></div>
+        <div class="sb"><span>9:41</span><svg><use href="#sb"/></svg></div>
+        <div class="nb"><span class="cb"><svg class="ic"><use href="#i-chev-l"/></svg></span><div class="r"><span class="cb"><svg class="ic"><use href="#i-share"/></svg></span><span class="cb on"><svg class="ic"><use href="#i-heart-f"/></svg></span></div></div>
+        <div class="lt"><h3>Fraser River</h3></div>
+        <p class="m2" style="padding:2px 20px 0;font-size:15px">9 stations · rising at 6</p>
+        <div class="ialert"><svg class="ic"><use href="#i-warn"/></svg><span>Rainfall warning until Thursday</span><svg class="ic cv"><use href="#i-chev-r"/></svg></div>
+        <div class="gap"></div>
+        <div class="group">
+          <div class="srow"><div><b>at Hope</b><span class="sub">12 min ago</span></div><span class="ch" data-sp="3.24,3.42,7" data-w="56" data-h="26"></span><div class="val"><b>3.42<span class="u">m</span></b><span class="chg"><svg class="ic"><use href="#i-up"/></svg>0.18</span></div></div>
+          <div class="srow"><div><b>at Texas Creek</b><span class="sub">12 min ago</span></div><span class="ch" data-sp="2.51,2.66,19" data-w="56" data-h="26"></span><div class="val"><b>2.66<span class="u">m</span></b><span class="chg"><svg class="ic"><use href="#i-up"/></svg>0.15</span></div></div>
+          <div class="srow"><div><b>at Mission</b><span class="sub">10 min ago</span></div><span class="ch" data-sp="1.83,1.94,23" data-w="56" data-h="26"></span><div class="val"><b>1.94<span class="u">m</span></b><span class="chg"><svg class="ic"><use href="#i-up"/></svg>0.11</span></div></div>
+          <div class="srow"><div><b>near Marguerite</b><span class="sub">13 min ago</span></div><span class="ch" data-sp="2.03,2.12,17" data-w="56" data-h="26"></span><div class="val"><b>2.12<span class="u">m</span></b><span class="chg"><svg class="ic"><use href="#i-up"/></svg>0.09</span></div></div>
+          <div class="srow"><div><b>at South Fort George</b><span class="sub">16 min ago</span></div><span class="ch" data-sp="2.85,2.91,13" data-w="56" data-h="26"></span><div class="val"><b>2.91<span class="u">m</span></b><span class="chg"><svg class="ic"><use href="#i-up"/></svg>0.06</span></div></div>
+          <div class="srow"><div><b>at Shelley</b><span class="sub">11 min ago</span></div><span class="ch" data-sp="2.30,2.34,9" data-w="56" data-h="26"></span><div class="val"><b>2.34<span class="u">m</span></b><span class="chg"><svg class="ic"><use href="#i-up"/></svg>0.04</span></div></div>
+          <div class="srow"><div><b>at McBride</b><span class="sub">14 min ago</span></div><span class="ch" data-sp="1.86,1.87,5" data-w="56" data-h="26"></span><div class="val"><b>1.87<span class="u">m</span></b><span class="chg"><svg class="ic"><use href="#i-flat"/></svg>Steady</span></div></div>
+        </div>
+        <div class="tbar"><span class="on"><svg class="ic"><use href="#i-waves"/></svg>Explore</span><span><svg class="ic"><use href="#i-heart"/></svg>Saved</span><span><svg class="ic"><use href="#i-user"/></svg>Account</span></div>
+        <div class="homeind"></div>
+      </div></div></div>
+    </div>
+
+    <!-- P3 -->
+    <div class="pcol">
+      <div class="ab-lab"><code>P3</code><b>Station · Water</b></div>
+      <div class="pfit" data-base="418"><div class="slot"><div class="phone mock ios">
+        <div class="island"></div>
+        <div class="sb"><span>9:41</span><svg><use href="#sb"/></svg></div>
+        <div class="nb"><span class="cb"><svg class="ic"><use href="#i-chev-l"/></svg></span><div class="ttl"><b>Fraser River at Hope</b><span>08MF005</span></div><div class="r"><span class="cb on"><svg class="ic"><use href="#i-heart-f"/></svg></span></div></div>
+        <div class="nseg"><span class="on">Water</span><span>Weather</span><span>History</span><span>Map</span></div>
+        <div class="ialert"><svg class="ic"><use href="#i-warn"/></svg><span>Rainfall warning until Thursday</span><svg class="ic cv"><use href="#i-chev-r"/></svg></div>
+        <div class="phero">
+          <div>
+            <div class="k">Level · 12 min ago</div>
+            <div class="big">3.42<span class="u">m</span></div>
+            <div class="chg"><svg class="ic"><use href="#i-up"/></svg>0.18 m in 24 hours</div>
+          </div>
+          <span class="ch" data-g="phone"></span>
+        </div>
+        <div class="pc">
+          <div class="hd"><h5>Past 30 days</h5><span class="seg"><span>1d</span><span>7d</span><span class="on">30d</span></span></div>
+          <span class="ch" data-c="hopeP"></span>
+        </div>
+        <div class="gap"></div>
+        <div class="group">
+          <div class="row">Flow<span class="rv" style="color:var(--w-ink)">2,140 m³/s</span></div>
+          <div class="row">Past 7 days<span class="rv" style="color:var(--w-ink)">−0.19 m</span></div>
+          <div class="row">30-day average<span class="rv" style="color:var(--w-ink)">3.20 m</span></div>
+        </div>
+        <div class="tbar"><span class="on"><svg class="ic"><use href="#i-waves"/></svg>Explore</span><span><svg class="ic"><use href="#i-heart"/></svg>Saved</span><span><svg class="ic"><use href="#i-user"/></svg>Account</span></div>
+        <div class="homeind"></div>
+      </div></div></div>
+    </div>
+
+    <!-- P4 -->
+    <div class="pcol">
+      <div class="ab-lab"><code>P4</code><b>Station · Weather</b></div>
+      <div class="pfit" data-base="418"><div class="slot"><div class="phone mock ios">
+        <div class="island"></div>
+        <div class="sb"><span>9:41</span><svg><use href="#sb"/></svg></div>
+        <div class="nb"><span class="cb"><svg class="ic"><use href="#i-chev-l"/></svg></span><div class="ttl"><b>Fraser River at Hope</b><span>08MF005</span></div><div class="r"><span class="cb on"><svg class="ic"><use href="#i-heart-f"/></svg></span></div></div>
+        <div class="nseg"><span>Water</span><span class="on">Weather</span><span>History</span><span>Map</span></div>
+        <div class="wxhero"><svg class="ic"><use href="#i-rain"/></svg><span class="t">7°</span><div><b>Rain</b><span>Feels like 4° · H 8° L 4°</span></div></div>
+        <div class="group"><div class="hrs">
+          <div class="hr"><span>Now</span><svg class="ic"><use href="#i-rain"/></svg><b>7°</b><i>90%</i></div>
+          <div class="hr"><span>4 PM</span><svg class="ic"><use href="#i-rain"/></svg><b>7°</b><i>95%</i></div>
+          <div class="hr"><span>5 PM</span><svg class="ic"><use href="#i-rain"/></svg><b>7°</b><i>90%</i></div>
+          <div class="hr"><span>6 PM</span><svg class="ic"><use href="#i-rain"/></svg><b>6°</b><i>85%</i></div>
+          <div class="hr"><span>7 PM</span><svg class="ic"><use href="#i-rain"/></svg><b>6°</b><i>80%</i></div>
+          <div class="hr"><span>8 PM</span><svg class="ic"><use href="#i-showers"/></svg><b>6°</b><i>70%</i></div>
+        </div></div>
+        <div class="gap"></div>
+        <div class="pc">
+          <div class="hd"><h5>Pressure</h5><span class="m2" style="font-size:14px">1004 hPa, falling</span></div>
+          <span class="ch" data-c="press"></span>
+        </div>
+        <div class="gap"></div>
+        <div class="group">
+          <div class="row">Wind<span class="rv" style="color:var(--w-ink)">SW 18 km/h</span></div>
+          <div class="row">Rain, past 3 hours<span class="rv" style="color:var(--w-ink)">6.2 mm</span></div>
+          <div class="row">Humidity<span class="rv" style="color:var(--w-ink)">94%</span></div>
+        </div>
+        <div class="tbar"><span class="on"><svg class="ic"><use href="#i-waves"/></svg>Explore</span><span><svg class="ic"><use href="#i-heart"/></svg>Saved</span><span><svg class="ic"><use href="#i-user"/></svg>Account</span></div>
+        <div class="homeind"></div>
+      </div></div></div>
+    </div>
+
+    <!-- P5 -->
+    <div class="pcol">
+      <div class="ab-lab"><code>P5</code><b>Station · History</b></div>
+      <div class="pfit" data-base="418"><div class="slot"><div class="phone mock ios">
+        <div class="island"></div>
+        <div class="sb"><span>9:41</span><svg><use href="#sb"/></svg></div>
+        <div class="nb"><span class="cb"><svg class="ic"><use href="#i-chev-l"/></svg></span><div class="ttl"><b>Fraser River at Hope</b><span>08MF005</span></div><div class="r"><span class="cb on"><svg class="ic"><use href="#i-heart-f"/></svg></span></div></div>
+        <div class="nseg"><span>Water</span><span>Weather</span><span class="on">History</span><span>Map</span></div>
+        <div class="nseg" style="margin-top:12px"><span>Timeline</span><span class="on">Typical year</span></div>
+        <div class="gap"></div>
+        <div class="pc">
+          <div class="hd"><h5>Flow by month</h5><span class="seg"><span>Level</span><span class="on">Flow</span></span></div>
+          <span class="ch" data-c="typP"></span>
+          <div class="legend" style="gap:14px;font-size:12px"><span><i class="f"></i>2026</span><span><i class="d"></i>Typical</span><span><i class="b"></i>Since 1912</span></div>
+        </div>
+        <div class="st" style="padding-top:20px"><h4>Records</h4></div>
+        <div class="group">
+          <div class="row">Highest<span class="rv" style="color:var(--w-ink)">15,200 m³/s · 1948</span></div>
+          <div class="row">Lowest<span class="rv" style="color:var(--w-ink)">340 m³/s · 1916</span></div>
+        </div>
+        <div class="tbar"><span class="on"><svg class="ic"><use href="#i-waves"/></svg>Explore</span><span><svg class="ic"><use href="#i-heart"/></svg>Saved</span><span><svg class="ic"><use href="#i-user"/></svg>Account</span></div>
+        <div class="homeind"></div>
+      </div></div></div>
+    </div>
+
+    <!-- P6 -->
+    <div class="pcol">
+      <div class="ab-lab"><code>P6</code><b>Saved</b></div>
+      <div class="pfit" data-base="418"><div class="slot"><div class="phone mock ios">
+        <div class="island"></div>
+        <div class="sb"><span>9:41</span><svg><use href="#sb"/></svg></div>
+        <div class="lt"><h3>Saved</h3><span class="lk">Edit</span></div>
+        <div class="nseg" style="margin-top:12px"><span>Rivers</span><span class="on">Stations</span></div>
+        <div class="gap"></div>
+        <div class="group">
+          <div class="srow"><div><b>Fraser River at Hope</b><span class="sub">7° Rain · 12 min ago</span></div><span class="ch" data-sp="3.24,3.42,7" data-w="50" data-h="26"></span><div class="val"><b>3.42<span class="u">m</span></b><span class="chg"><svg class="ic"><use href="#i-up"/></svg>0.18</span></div></div>
+          <div class="srow"><div><b>Thompson River near Spences Bridge</b><span class="sub">6° Rain · 9 min ago</span></div><span class="ch" data-sp="1.30,1.36,27" data-w="50" data-h="26"></span><div class="val"><b>1.36<span class="u">m</span></b><span class="chg"><svg class="ic"><use href="#i-up"/></svg>0.06</span></div></div>
+          <div class="srow"><div><b>Bow River at Banff</b><span class="sub">−1° Cloudy · 8 min ago</span></div><span class="ch" data-sp="1.12,1.12,21" data-w="50" data-h="26"></span><div class="val"><b>1.12<span class="u">m</span></b><span class="chg"><svg class="ic"><use href="#i-flat"/></svg>Steady</span></div></div>
+          <div class="srow"><div><b>Ottawa River at Britannia</b><span class="sub">5° Partly cloudy · 21 min ago</span></div><span class="ch" data-sp="58.75,58.71,33" data-w="50" data-h="26"></span><div class="val"><b>58.71<span class="u">m</span></b><span class="chg"><svg class="ic"><use href="#i-down"/></svg>0.04</span></div></div>
+        </div>
+        <div class="tbar"><span><svg class="ic"><use href="#i-waves"/></svg>Explore</span><span class="on"><svg class="ic"><use href="#i-heart-f"/></svg>Saved</span><span><svg class="ic"><use href="#i-user"/></svg>Account</span></div>
+        <div class="homeind"></div>
+      </div></div></div>
+    </div>
+
+    <!-- P7 -->
+    <div class="pcol">
+      <div class="ab-lab"><code>P7</code><b>Premium sheet</b></div>
+      <div class="pfit" data-base="418"><div class="slot"><div class="phone mock ios">
+        <div class="island"></div>
+        <div class="under">
+          <div class="sb"><span>9:41</span><svg><use href="#sb"/></svg></div>
+          <div class="nb"><span class="cb"><svg class="ic"><use href="#i-chev-l"/></svg></span></div>
+          <div class="nseg"><span>Water</span><span>Weather</span><span class="on">History</span><span>Map</span></div>
+        </div>
+        <div class="dim"></div>
+        <div class="sheet">
+          <div class="grab"></div>
+          <span class="x"><svg class="ic"><use href="#i-x"/></svg></span>
+          <div class="shd"><h3>WaterWays Premium</h3><p>Every year on record for Fraser River at Hope and every other station.</p></div>
+          <ul class="sfeat">
+            <li><svg class="ic"><use href="#i-history"/></svg>Archived levels and flows</li>
+            <li><svg class="ic"><use href="#i-chart"/></svg>This year against a typical year</li>
+            <li><svg class="ic"><use href="#i-heart"/></svg>Saved rivers and stations, synced with the website</li>
+          </ul>
+          <div class="group">
+            <div class="irow on"><span class="radio"></span><div><b>Yearly</b><span>$2.50 a month</span></div><span class="p">$30.00</span></div>
+            <div class="irow"><span class="radio"></span><div><b>Monthly</b></div><span class="p">$4.00</span></div>
+          </div>
+          <div class="cta">Continue</div>
+          <div class="legal"><b>Restore purchases</b>Renews automatically unless cancelled at least 24 hours before the end of the current period. Manage or cancel anytime in your Apple account settings.</div>
+        </div>
+        <div class="homeind"></div>
+      </div></div></div>
+    </div>
+
+  </div>
+</section>
+</main>
+
+<script>
+(function(){
+  var uid = 0;
+  function rng(seed){ var s = seed|0; return function(){ s = s + 0x6D2B79F5 | 0; var t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  // keys [[x 0..1, value]...] eased between keys, plus a little correlated noise; the ends stay exact
+  function sample(keys, n, noise, seed){
+    var r = rng(seed), e = 0, out = [];
+    for (var i = 0; i < n; i++){
+      var x = i/(n-1), k = 0;
+      while (k < keys.length-2 && x > keys[k+1][0]) k++;
+      var a = keys[k], b = keys[k+1], t = b[0] === a[0] ? 0 : Math.min(1, Math.max(0, (x-a[0])/(b[0]-a[0])));
+      var v = a[1] + (b[1]-a[1]) * (1-Math.cos(Math.PI*t))/2;
+      e = e*0.82 + (r()-0.5)*noise;
+      out.push(i === 0 || i === n-1 ? v : v + e);
+    }
+    return out;
+  }
+  function f1(v){ return v.toFixed(1); }
+  function poly(pts){ return 'M' + pts.map(function(p){ return f1(p[0]) + ',' + f1(p[1]); }).join('L'); }
+  function smooth(pts){
+    var d = 'M' + f1(pts[0][0]) + ',' + f1(pts[0][1]);
+    for (var i = 0; i < pts.length-1; i++){
+      var p0 = pts[i-1] || pts[i], p1 = pts[i], p2 = pts[i+1], p3 = pts[i+2] || p2;
+      d += 'C' + f1(p1[0]+(p2[0]-p0[0])/6) + ',' + f1(p1[1]+(p2[1]-p0[1])/6) + ' ' + f1(p2[0]-(p3[0]-p1[0])/6) + ',' + f1(p2[1]-(p3[1]-p1[1])/6) + ' ' + f1(p2[0]) + ',' + f1(p2[1]);
+    }
+    return d;
+  }
+  function open(w, h, label){ return '<svg viewBox="0 0 '+w+' '+h+'" width="'+w+'" height="'+h+'" role="img" aria-label="'+label+'">'; }
+  function hline(x1, x2, y, cls){ return '<line x1="'+f1(x1)+'" x2="'+f1(x2)+'" y1="'+f1(y)+'" y2="'+f1(y)+'" class="'+cls+'"/>'; }
+
+  // 30 days at Hope, eight readings a day: low Oct 19, peak Nov 3, rising again now
+  var hope = sample([[0,3.10],[.1,3.02],[.2,2.95],[.233,2.88],[.3,2.93],[.367,3.20],[.433,3.28],[.533,3.12],[.633,3.05],[.7,3.30],[.733,3.71],[.8,3.52],[.867,3.30],[.933,3.18],[.967,3.24],[1,3.42]], 241, 0.012, 11);
+  var TYP = {
+    typ:[910,860,960,1820,5600,8300,6200,3600,2300,1900,1650,1120],
+    lo:[560,520,560,900,2600,4700,3200,1700,1150,980,820,640],
+    hi:[1900,1700,2600,4300,10400,14800,11600,7400,4700,4100,3900,2600],
+    y26:[1020,930,1080,2300,6900,9200,6600,3300,2050,1720,1980]
+  };
+  var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+  function hydro(o){
+    var v = o.vals, n = v.length, W = o.w-o.pl-o.pr, H = o.h-o.pt-o.pb;
+    var X = function(i){ return o.pl + W*i/(n-1); }, Y = function(x){ return o.pt + H*(1-(x-o.min)/(o.max-o.min)); };
+    var s = open(o.w, o.h, o.label);
+    o.ticks.forEach(function(t){ s += hline(o.pl, o.pl+W, Y(t), 'c-grid') + '<text x="'+(o.pl-8)+'" y="'+f1(Y(t)+3.5)+'" text-anchor="end" class="c-ax">'+t.toFixed(1)+'</text>'; });
+    o.xl.forEach(function(xl){ s += '<text x="'+f1(o.pl + W*xl[0])+'" y="'+(o.h-4)+'" text-anchor="'+(xl[0] < .02 ? 'start' : xl[0] > .98 ? 'end' : 'middle')+'" class="c-ax">'+xl[1]+'</text>'; });
+    s += hline(o.pl, o.pl+W, Y(3.20), 'c-avg');
+    s += '<path d="'+poly(v.map(function(y, i){ return [X(i), Y(y)]; }))+'" fill="none" style="stroke:var(--w-accent)" stroke-width="1.8" stroke-linejoin="round"/>';
+    s += '<circle cx="'+f1(X(n-1))+'" cy="'+f1(Y(v[n-1]))+'" r="4" style="fill:var(--w-accent)" class="c-dot"/>';
+    return s + '</svg>';
+  }
+
+  function typical(o){
+    var W = o.w-o.pl-o.pr, H = o.h-o.pt-o.pb;
+    var X = function(i){ return o.pl + W*i/11; }, Y = function(x){ return o.pt + H*(1-x/16000); };
+    var s = open(o.w, o.h, 'Monthly flow at Hope: 2026 against the typical month and the range since 1912');
+    o.ticks.forEach(function(t){ s += hline(o.pl, o.pl+W, Y(t), 'c-grid') + '<text x="'+(o.pl-8)+'" y="'+f1(Y(t)+3.5)+'" text-anchor="end" class="c-ax">'+(o.k ? (t ? t/1000+'k' : '0') : t.toLocaleString('en-CA'))+'</text>'; });
+    MONTHS.forEach(function(m, i){ if (o.k && i % 2) return; s += '<text x="'+f1(X(i))+'" y="'+(o.h-4)+'" text-anchor="'+(i === 0 ? 'start' : i === 11 ? 'end' : 'middle')+'" class="c-ax">'+m+'</text>'; });
+    var hi = TYP.hi.map(function(v, i){ return [X(i), Y(v)]; }), lo = TYP.lo.map(function(v, i){ return [X(i), Y(v)]; }).reverse();
+    s += '<path d="'+smooth(hi)+'L'+smooth(lo).slice(1)+'Z" class="c-band"/>';
+    s += '<path d="'+smooth(TYP.typ.map(function(v, i){ return [X(i), Y(v)]; }))+'" class="c-typ"/>';
+    var yr = TYP.y26.map(function(v, i){ return [X(i), Y(v)]; }), e = yr[yr.length-1];
+    s += '<path d="'+smooth(yr)+'" fill="none" style="stroke:var(--w-flow)" stroke-width="2" stroke-linecap="round"/>';
+    s += '<circle cx="'+f1(e[0])+'" cy="'+f1(e[1])+'" r="4" style="fill:var(--w-flow)" class="c-dot"/>';
+    return s + '</svg>';
+  }
+
+  function pressure(o){
+    var v = sample([[0,1015.8],[.2,1015.0],[.35,1012.6],[.47,1007.0],[.5,1004.2],[.6,999.4],[.69,998.6],[.8,1003.5],[1,1011.0]], 97, 0.25, 5);
+    var W = o.w-o.pl-o.pr, H = o.h-o.pt-o.pb, min = 996, max = 1018;
+    var X = function(i){ return o.pl + W*i/96; }, Y = function(x){ return o.pt + H*(1-(x-min)/(max-min)); };
+    var s = open(o.w, o.h, 'Pressure over the past 48 hours and the next 48: 1004 hPa now and falling, lowest near 999 tomorrow');
+    [1000, 1010].forEach(function(t){ s += hline(o.pl, o.pl+W, Y(t), 'c-grid') + '<text x="'+(o.pl-6)+'" y="'+f1(Y(t)+3.5)+'" text-anchor="end" class="c-ax">'+t+'</text>'; });
+    s += '<path d="'+poly(v.slice(48).map(function(y, i){ return [X(i+48), Y(y)]; }))+'" class="c-fc"/>';
+    s += '<path d="'+poly(v.slice(0, 49).map(function(y, i){ return [X(i), Y(y)]; }))+'" fill="none" style="stroke:var(--w-accent)" stroke-width="1.8" stroke-linejoin="round"/>';
+    var nx = X(48);
+    s += '<line x1="'+f1(nx)+'" x2="'+f1(nx)+'" y1="'+o.pt+'" y2="'+(o.pt+H)+'" class="c-now"/><circle cx="'+f1(nx)+'" cy="'+f1(Y(v[48]))+'" r="4" style="fill:var(--w-accent)" class="c-dot"/>';
+    [[0,'48 h ago','start'],[.5,'Now','middle'],[1,'In 48 h','end']].forEach(function(l){ s += '<text x="'+f1(o.pl+W*l[0])+'" y="'+(o.h-2)+'" text-anchor="'+l[2]+'" class="c-ax">'+l[1]+'</text>'; });
+    return s + '</svg>';
+  }
+
+  function spark(el){
+    var p = el.dataset.sp.split(',').map(Number), a = p[0], b = p[1], w = +el.dataset.w, h = +el.dataset.h;
+    var v = sample([[0,a],[.4,a+(b-a)*.18],[.75,a+(b-a)*.6],[1,b]], 40, Math.max(Math.abs(b-a)*.14, .008), p[2]);
+    var lo = Math.min.apply(null, v), hi = Math.max.apply(null, v), span = Math.max(hi-lo, .06), mid = (hi+lo)/2, pad = 3;
+    var pts = v.map(function(y, i){ return [pad + (w-2*pad)*i/(v.length-1), pad + (h-2*pad)*(1-((y-mid)/span+.5))]; }), e = pts[pts.length-1];
+    el.innerHTML = open(w, h, 'Past 24 hours, ' + a.toFixed(2) + ' to ' + b.toFixed(2) + ' m')
+      + '<path d="'+poly(pts)+'" fill="none" style="stroke:var(--w-ink2)" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>'
+      + '<circle cx="'+f1(e[0])+'" cy="'+f1(e[1])+'" r="2.4" style="fill:var(--w-ink)"/></svg>';
+  }
+
+  // Staff gauge: E marks on the plate with one red numeral per metre, a tag for the level now on the left,
+  // and the 30-day range as a bar on the right with its two ends labelled.
+  function gauge(o){
+    var P = o.plate, tw = o.tag, ox = tw + 7, pt = 10, H = o.h - 20, bx = ox + P + 9, w = bx + 4 + 10 + o.lab;
+    var Y = function(v){ return pt + H*(1-(v-o.min)/(o.max-o.min)); }, pxcm = H/((o.max-o.min)*100);
+    var cid = 'gc' + (uid++), half = P/2;
+    var s = open(w, o.h, 'Staff gauge: ' + o.value.toFixed(2) + ' m now; 30-day high ' + o.high.toFixed(2) + ' m, low ' + o.low.toFixed(2) + ' m');
+    s += '<defs><clipPath id="'+cid+'"><rect x="'+ox+'" y="'+pt+'" width="'+P+'" height="'+H+'" rx="2"/></clipPath></defs>';
+    s += '<rect x="'+ox+'" y="'+pt+'" width="'+P+'" height="'+H+'" rx="2" class="g-plate"/><g clip-path="url(#'+cid+')">';
+    for (var d = Math.floor(o.min*10); d < o.max*10; d++){
+      var v0 = d/10, left = d % 2 === 0, metre = d % 10 === 0, cls = metre ? 'g-mr' : 'g-mk';
+      var x0 = left ? ox+3 : ox+half+1, x1 = left ? ox+half-1 : ox+P-3;
+      var bar = function(x, ww, a, b){ return '<rect x="'+f1(x)+'" y="'+f1(Y(b))+'" width="'+f1(ww)+'" height="'+f1(Math.max(.9, Y(a)-Y(b)))+'" class="'+cls+'"/>'; };
+      if (pxcm >= 1.5){
+        var sw = Math.max(1.6, (x1-x0)*.24);
+        s += bar(left ? x1-sw : x0, sw, v0, v0+.05);
+        s += bar(x0, x1-x0, v0, v0+.01) + bar(x0, x1-x0, v0+.02, v0+.03) + bar(x0, x1-x0, v0+.04, v0+.05);
+      } else {
+        s += bar(x0, x1-x0, v0, v0+.05);
+      }
+      if (metre) s += '<text x="'+f1(left ? ox+half*1.5 : ox+half*.5)+'" y="'+f1(Y(v0+.025)+o.fs*.36)+'" text-anchor="middle" class="g-m" style="font-size:'+o.fs+'px">'+(d/10)+'</text>';
+    }
+    var wy = Y(o.value);
+    s += '<rect x="'+ox+'" y="'+f1(wy)+'" width="'+P+'" height="'+f1(pt+H-wy)+'" class="g-water"/>' + hline(ox, ox+P, wy, 'g-surf') + '</g>';
+    s += hline(ox+P, bx-1, wy, 'g-lead');
+    s += '<rect x="0" y="'+f1(wy-10.5)+'" width="'+tw+'" height="21" rx="4" class="g-tag"/><path d="M'+tw+','+f1(wy-4)+'L'+(tw+5)+','+f1(wy)+'L'+tw+','+f1(wy+4)+'Z" class="g-tag"/>';
+    s += '<text x="'+f1(tw/2)+'" y="'+f1(wy+4.2)+'" text-anchor="middle" class="g-tagt" style="font-size:12px">'+o.value.toFixed(2)+'</text>';
+    var yh = Y(o.high), yl = Y(o.low);
+    s += '<rect x="'+bx+'" y="'+f1(yh)+'" width="4" height="'+f1(yl-yh)+'" rx="2" class="g-bar"/>';
+    s += '<text x="'+(bx+12)+'" y="'+f1(yh+4)+'" class="g-lab">High <tspan class="g-labv">'+o.high.toFixed(2)+'</tspan></text>';
+    s += '<text x="'+(bx+12)+'" y="'+f1(yl+4)+'" class="g-lab">Low <tspan class="g-labv">'+o.low.toFixed(2)+'</tspan></text>';
+    return s + '</svg>';
+  }
+
+  var base = { value: 3.42, low: 2.88, high: 3.71, min: 2.7, max: 3.9 };
+  var G = {
+    sys:     { h: 280, plate: 40, tag: 42, lab: 64, fs: 15 },
+    station: { h: 240, plate: 36, tag: 42, lab: 64, fs: 14 },
+    phone:   { h: 196, plate: 30, tag: 40, lab: 60, fs: 12, min: 2.75, max: 3.85 }
+  };
+  Object.keys(G).forEach(function(k){ G[k] = Object.assign({}, base, G[k]); });
+  var C = {
+    hopeW: function(){ return hydro({ w: 686, h: 290, pl: 34, pr: 8, pt: 10, pb: 24, vals: hope, min: 2.8, max: 3.8, ticks: [3.0,3.2,3.4,3.6],
+      xl: [[0,'Oct 12'],[7/30,'Oct 19'],[14/30,'Oct 26'],[21/30,'Nov 2'],[1,'Nov 11']], label: 'Water level over the past 30 days, from a low of 2.88 m on Oct 19 to a high of 3.71 m on Nov 3; 3.42 m now' }); },
+    hopeP: function(){ return hydro({ w: 326, h: 150, pl: 30, pr: 6, pt: 6, pb: 22, vals: hope, min: 2.8, max: 3.8, ticks: [3.0,3.4,3.8],
+      xl: [[0,'Oct 12'],[.5,'Oct 27'],[1,'Now']], label: 'Water level over the past 30 days; 3.42 m now' }); },
+    typW: function(){ return typical({ w: 600, h: 260, pl: 48, pr: 8, pt: 8, pb: 24, ticks: [0,4000,8000,12000,16000] }); },
+    typP: function(){ return typical({ w: 326, h: 200, pl: 28, pr: 6, pt: 6, pb: 22, ticks: [0,8000,16000], k: true }); },
+    press: function(){ return pressure({ w: 326, h: 100, pl: 34, pr: 6, pt: 6, pb: 18 }); }
+  };
+
+  document.querySelectorAll('[data-g]').forEach(function(el){ el.innerHTML = gauge(G[el.dataset.g]); });
+  document.querySelectorAll('[data-c]').forEach(function(el){ el.innerHTML = C[el.dataset.c](); });
+  document.querySelectorAll('[data-sp]').forEach(spark);
+
+  // Canvas controls
+  var canvas = document.querySelector('.canvas'), fitMode = 'fit';
+  function store(k, v){ try { localStorage.setItem(k, v); } catch (e) {} }
+  function read(k){ try { return localStorage.getItem(k); } catch (e) { return null; } }
+  function press(attr, val){ document.querySelectorAll('['+attr+']').forEach(function(b){ b.setAttribute('aria-pressed', String(b.getAttribute(attr) === val)); }); }
+  function setMock(m){ canvas.dataset.mock = m; press('data-mock-btn', m); store('ww2-mock', m); }
+  function fitAll(){
+    document.querySelectorAll('[data-base]').forEach(function(el){
+      var z = (fitMode === '100' && el.classList.contains('webfit')) ? 1 : Math.min(1, el.clientWidth / +el.dataset.base);
+      el.firstElementChild.style.zoom = z;
+    });
+  }
+  document.querySelectorAll('[data-mock-btn]').forEach(function(b){ b.addEventListener('click', function(){ setMock(b.dataset.mockBtn); }); });
+  document.querySelectorAll('[data-fit-btn]').forEach(function(b){ b.addEventListener('click', function(){ fitMode = b.dataset.fitBtn; press('data-fit-btn', fitMode); store('ww2-fit', fitMode); fitAll(); }); });
+  var m = read('ww2-mock'); if (m === 'light' || m === 'dark' || m === 'auto') setMock(m);
+  var f = read('ww2-fit'); if (f === '100' || f === 'fit') { fitMode = f; press('data-fit-btn', f); }
+  fitAll();
+  if (window.ResizeObserver) new ResizeObserver(fitAll).observe(canvas); else window.addEventListener('resize', fitAll);
+})();
+</script>
