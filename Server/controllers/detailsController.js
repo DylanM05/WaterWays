@@ -330,7 +330,9 @@ exports.getRiversByProvince = async (req, res) => {
 
   const cachedBody = waterDataCache.get(cacheKey);
   if (cachedBody) {
+    // Cached JSON text, explicitly served as JSON; Helmet also sets nosniff.
     res.type('application/json');
+    // nosemgrep: javascript.express.security.audit.xss.direct-response-write.direct-response-write
     return res.send(cachedBody);
   }
 
@@ -348,7 +350,9 @@ exports.getRiversByProvince = async (req, res) => {
 
     const body = JSON.stringify(groupedRivers);
     waterDataCache.set(cacheKey, body, RIVERS_CACHE_TTL_SECONDS);
+    // Cached JSON text, explicitly served as JSON; Helmet also sets nosniff.
     res.type('application/json');
+    // nosemgrep: javascript.express.security.audit.xss.direct-response-write.direct-response-write
     res.send(body);
   } catch (error) {
     console.error('Error fetching rivers by province:', error);
@@ -362,7 +366,9 @@ exports.getProvinceCounts = async (req, res) => {
 
   const cachedBody = waterDataCache.get(cacheKey);
   if (cachedBody) {
+    // Cached JSON text, explicitly served as JSON; Helmet also sets nosniff.
     res.type('application/json');
+    // nosemgrep: javascript.express.security.audit.xss.direct-response-write.direct-response-write
     return res.send(cachedBody);
   }
 
@@ -386,7 +392,9 @@ exports.getProvinceCounts = async (req, res) => {
 
     const body = JSON.stringify(counts);
     waterDataCache.set(cacheKey, body, RIVERS_CACHE_TTL_SECONDS);
+    // Cached JSON text, explicitly served as JSON; Helmet also sets nosniff.
     res.type('application/json');
+    // nosemgrep: javascript.express.security.audit.xss.direct-response-write.direct-response-write
     res.send(body);
   } catch (error) {
     console.error('Error counting stations by province:', error);
@@ -657,7 +665,9 @@ exports.getWaterData = async (req, res) => {
 
   const cachedBody = waterSeriesCache.get(cacheKey);
   if (cachedBody) {
+    // Cached JSON text, explicitly served as JSON; Helmet also sets nosniff.
     res.type('application/json');
+    // nosemgrep: javascript.express.security.audit.xss.direct-response-write.direct-response-write
     return res.send(cachedBody);
   }
 
@@ -722,7 +732,9 @@ exports.getWaterData = async (req, res) => {
     })));
     if (listed || records.length) waterSeriesCache.set(cacheKey, body, WATER_DATA_CACHE_TTL_SECONDS);
 
+    // Cached JSON text, explicitly served as JSON; Helmet also sets nosniff.
     res.type('application/json');
+    // nosemgrep: javascript.express.security.audit.xss.direct-response-write.direct-response-write
     return res.send(body);
   } catch (error) {
     console.error('Error fetching water data:', error);

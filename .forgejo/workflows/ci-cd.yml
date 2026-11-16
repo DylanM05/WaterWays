@@ -1,16 +1,113 @@
-name: CI/CD Pipeline
+name: CI/CD
 
+# This runner has production Docker access. Only trusted repository writers may
+# execute code here. Do not add pull_request / pull_request_target until CI has
+# its own isolated runner. Branch pushes cover same-repository PR commits.
 on:
   push:
-    branches:
-      - main
+    branches: ['**']
+  schedule:
+    - cron: '23 8 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: waterways-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  deploy:
+  quality:
+    name: Tests and code quality
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: https://github.com/actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: https://github.com/actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
+      - name: Install locked dependencies
+        run: |
+          npm ci --prefix Server --ignore-scripts --no-audit --no-fund
+          npm ci --prefix WaterWays --ignore-scripts --no-audit --no-fund
+      - name: Lint server
+        run: npm run lint --prefix Server -- --max-warnings=0
+      - name: Lint website
+        # Five existing Fast Refresh warnings; adding more fails the check.
+        run: npm run lint --prefix WaterWays -- --max-warnings=5
+      - name: Server regression tests
+        env:
+          ENABLE_SCHEDULER: 'false'
+        run: npm test --prefix Server
+      - name: Website production build
+        run: npm run build --prefix WaterWays
+      - name: Audit server dependencies (including development tools)
+        if: ${{ !cancelled() }}
+        run: npm audit --prefix Server --audit-level=high
+      - name: Audit website dependencies (including development tools)
+        if: ${{ !cancelled() }}
+        run: npm audit --prefix WaterWays --audit-level=high
 
+  security:
+    name: Secrets and static security
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: https://github.com/actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install verified scanners
+        run: bash .forgejo/scripts/install-tools.sh
+      - name: Validate workflow and shell syntax
+        run: |
+          # actionlint understands GitHub syntax; normalize Forgejo action URLs only.
+          sed 's#https://github.com/actions/#actions/#g' .forgejo/workflows/ci-cd.yml | actionlint -shellcheck= -
+          for script in .forgejo/scripts/*.sh; do bash -n "$script"; done
+      - name: Scan tracked files and new commit history for secrets
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: bash .forgejo/scripts/scan-secrets.sh
+      - name: Scan source for risky code
+        if: ${{ !cancelled() }}
+        run: bash .forgejo/scripts/scan-code.sh
+      - name: Scan dependency locks and Docker configuration
+        if: ${{ !cancelled() }}
+        run: |
+          trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1 \
+            --skip-dirs .git --skip-dirs node_modules --skip-dirs WaterWays/node_modules \
+            --skip-dirs Server/node_modules --skip-dirs WaterWays/dist .
+
+  containers:
+    name: Container build and vulnerabilities
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [quality, security]
+    steps:
+      - uses: https://github.com/actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - name: Install verified scanners
+        run: bash .forgejo/scripts/install-tools.sh
+      - name: Build and scan both images with public test settings
+        run: bash .forgejo/scripts/check-images.sh
+
+  deploy:
+    name: Deploy production
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    needs: [quality, security, containers]
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    steps:
+      - uses: https://github.com/actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: https://github.com/actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '22'
       - name: Install docker-compose
         run: |
           apt-get update -qq
@@ -28,6 +125,8 @@ jobs:
           install -m 0755 /tmp/docker-compose /usr/local/bin/docker-compose
           docker-compose version
 
+      - name: Install verified image scanner
+        run: bash .forgejo/scripts/install-tools.sh
       - name: Set environment variables
         env:
           VITE_PUBLIC_CLERK_PUBLISHABLE_KEY_SECRET: ${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}
@@ -41,6 +140,7 @@ jobs:
           CLIENT_ENV_FILE_SECRET: ${{ secrets.CLIENT_ENV_FILE }}
           SERVER_ENV_FILE_SECRET: ${{ secrets.SERVER_ENV_FILE }}
         run: |
+          umask 077
           printf '%s\n' "$CLIENT_ENV_FILE_SECRET" > ./WaterWays/.env
           printf '%s\n' "$SERVER_ENV_FILE_SECRET" > ./Server/.env
           # The database address has its own secret, so it can't go missing from the env file.
@@ -54,6 +154,11 @@ jobs:
         run: |
           # Runs before the old containers are stopped, so a deploy missing these leaves the current
           # version running. Prints names only: the values are secrets.
+          # Vite publishes every VITE_* variable referenced by client code.
+          if grep -Eq '^VITE_.*(SECRET|PRIVATE_KEY|PASSWORD)[A-Z_]*=' ./WaterWays/.env; then
+            echo '::error::Client env contains a private credential under a VITE_ name. Remove it from CLIENT_ENV_FILE.'
+            exit 1
+          fi
           missing=0
           for name in MONGO_URI CLERK_SECRET_KEY CLERK_PUBLISHABLE_KEY STRIPE_SECRET_KEY; do
             if ! grep -q "^${name}=." ./Server/.env; then
@@ -65,31 +170,27 @@ jobs:
           echo "Client settings present: $(grep -oE '^[A-Za-z_][A-Za-z0-9_]*=' ./WaterWays/.env | tr -d '=' | sort | tr '\n' ' ')"
           exit $missing
 
-      - name: Run server tests
+      - name: Build and scan production images before replacing containers
         run: |
-          # Before anything is rebuilt or stopped, so a failing test leaves the running version up.
-          cd Server
-          node --version
-          npm ci --no-audit --no-fund
-          npm test
-
-      - name: Build images
+          docker-compose -p waterways build --pull
+          trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 waterways-server
+          trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 waterways-client
+      - name: Refuse deployment of an outdated commit
         run: |
-          docker-compose build --no-cache
-
-      - name: Stop and remove old containers
+          curl --fail --silent --show-error --max-time 30 \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" \
+            | node -e 'let d=""; process.stdin.on("data",c=>d+=c).on("end",()=>{if(JSON.parse(d).commit.id!==process.env.GITHUB_SHA){console.error("main has moved; deploy its newer run instead");process.exit(1)}})'
+      - name: Deploy and require healthy containers
+        run: docker-compose -p waterways up -d --remove-orphans --wait --wait-timeout 150
+      - name: Verify database connectivity
         run: |
-          docker-compose -p waterways down --remove-orphans || true
-          docker stop waterways-server-1 waterways-client-1 2>/dev/null || true
-          docker rm waterways-server-1 waterways-client-1 2>/dev/null || true
-
-      - name: Deploy
-        run: |
-          docker-compose up -d
-
-      - name: Show logs
-        run: |
-          sleep 15
-          docker-compose logs server | grep -i "mongodb\|stripe\|error\|running" | head -20
-          # Reports whether the server reached the database, without printing any settings.
-          docker exec waterways-server-1 wget -qO- http://localhost:42069/health || echo "Server health check failed"
+          docker-compose -p waterways exec -T server node -e '
+            fetch("http://127.0.0.1:42069/health").then(async r => {
+              const h = await r.json();
+              if (!r.ok || h.database !== "connected") throw new Error("Database readiness check failed");
+              console.log("Server and database are healthy");
+            }).catch(e => { console.error(e.message); process.exit(1); });'
+      - name: Remove temporary deployment settings
+        if: ${{ always() }}
+        run: rm -f Server/.env WaterWays/.env

@@ -13,12 +13,16 @@
     "compact:storage": "node scripts/compactStorage.js",
     "drop:unused-storage": "node scripts/dropUnusedStorage.js",
     "migrate:river-favorites": "node scripts/migrateRiverFavoriteNames.js",
-    "test": "node --test test/*.test.js"
+    "test": "node --test test/*.test.js",
+    "lint": "eslint ."
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@eslint/js": "9.39.1",
+    "eslint": "9.39.1",
+    "globals": "15.15.0",
     "nodemon": "^3.1.9"
   },
   "dependencies": {

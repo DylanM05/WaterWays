@@ -5,7 +5,11 @@ ENV NODE_ENV=production
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci --omit=dev
+# npm/Yarn and download caches are build tools, unnecessary in the runtime image.
+RUN npm ci --omit=dev \
+    && npm cache clean --force \
+    && rm -rf /root/.npm /usr/local/lib/node_modules/npm /opt/yarn-* \
+       /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/yarn /usr/local/bin/yarnpkg
 
 COPY . .
 

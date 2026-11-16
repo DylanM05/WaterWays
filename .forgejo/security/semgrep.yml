@@ -1,0 +1,15 @@
+rules:
+  - id: no-dynamic-code-execution
+    languages: [javascript, typescript]
+    message: Avoid eval and Function constructors; use data parsing or explicit functions.
+    severity: ERROR
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+  - id: no-disabled-tls-verification
+    languages: [javascript, typescript]
+    message: TLS certificate verification must remain enabled.
+    severity: ERROR
+    pattern-either:
+      - pattern: "{..., rejectUnauthorized: false, ...}"
+      - pattern: process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0"
