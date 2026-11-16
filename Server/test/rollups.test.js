@@ -4,7 +4,7 @@ const assert = require('node:assert/strict');
 const StationData = require('../models/StationData');
 const StationArchive = require('../models/StationArchive');
 const { dailyFromHourly, hourlyFromReadings, readingsWithHourly } = require('../utilities/rollups');
-const { rollupHourlyToDaily, rollupRawToHourly } = require('../utilities/scheduler');
+const { rollupDailyToMonthly, rollupHourlyToDaily, rollupRawToHourly } = require('../utilities/scheduler');
 const { fakeModel } = require('./helpers');
 
 const MINUTE = 60 * 1000;
@@ -132,4 +132,32 @@ test('the History tab builds days 8–30 from hourly figures', async () => {
   const expected = Math.round(mean(dayOfReadings().map(r => r.water_level)) * 1000) / 1000;
   assert.equal(body.points[0].average, expected);
   assert.equal(body.points[0].high, 4);
+});
+
+test('every roll-up query starts with a station, so no date-only index is needed', async () => {
+  raw.push(...dayOfReadings(START), ...dayOfReadings(START, '05BH004'));
+  archive.push({ station_id: '08MF005', period: 'daily', date_time: new Date(START - 400 * DAY), water_level: 1 });
+  const queries = [];
+  const watch = (model, method) => {
+    const original = model[method];
+    model[method] = (filter, ...rest) => { queries.push({ method, filter }); return original.call(model, filter, ...rest); };
+    return () => { model[method] = original; };
+  };
+  // The fake model has no aggregation, so the monthly stage's pipeline is recorded and answered here.
+  StationArchive.aggregate = pipeline => {
+    queries.push({ method: 'aggregate', filter: pipeline[0].$match });
+    return { cursor: () => (async function* () {})() };
+  };
+  const restore = [watch(StationData, 'find'), watch(StationData, 'deleteMany'), watch(StationArchive, 'find'), watch(StationArchive, 'deleteMany')];
+  try {
+    await rollupRawToHourly(new Date(START + DAY));
+    await rollupHourlyToDaily(new Date(START + DAY));
+    await rollupDailyToMonthly(new Date(START));
+  } finally {
+    restore.forEach(undo => undo());
+    delete StationArchive.aggregate;
+  }
+  assert.ok(queries.length >= 6);
+  for (const { method, filter } of queries) assert.equal(typeof filter.station_id, 'string', `${method} ${JSON.stringify(filter)}`);
+  assert.equal(archive.some(figure => figure.period === 'daily' && figure.date_time < new Date(START)), false, 'old days deleted after their month is written');
 });

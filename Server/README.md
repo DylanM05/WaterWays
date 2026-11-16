@@ -45,7 +45,7 @@ Readings come from Environment Canada's real-time API every 10 minutes (`utiliti
 | 30 days to 12 months | daily figures | `stationarchives`, `period: 'daily'` |
 | older | monthly means | `stationarchives`, `period: 'monthly'` |
 
-The roll-up works one station at a time. It only deletes readings after their figures are stored, and it never overwrites existing figures. Charts get hourly rows with their min and max, so highs and lows stay exact. After a large deletion, run `npm run compact:storage` to give the space back to the drive.
+The roll-up works one station at a time, so its queries use the station indexes. It only deletes readings after their figures are stored, and it never overwrites existing figures. Charts get hourly rows with their min and max, so highs and lows stay exact. After a large deletion, run `npm run compact:storage` to give the space back to the drive.
 
 ## Scripts
 
@@ -61,8 +61,9 @@ Run these from `Server`. They use the database in `Server/.env`.
 | `npm run audit:lifetime-premium` | Read-only: lifetime grants and invite links not made by an admin. |
 | `npm run report:storage` | Read-only: collection sizes and where storage settles. |
 | `npm run compact:storage` | Releases disk space after big deletions. |
+| `npm run drop:unused-storage [-- --apply]` | Drops indexes and collections nothing uses any more: two date indexes only the old network-wide nightly roll-up used, a TTL index on a field no reading has, the empty `stationdatas_archive_daily` and the old visit log (`uservisits`). Run it after deploying the station-by-station roll-up. |
 
-The catalogue sync, the cleanup and the river migration only report without `--apply`; the backfills and `compact:storage` write when run. Every script that writes prints the database host and name (never the credentials) before it connects.
+The catalogue sync, the cleanups and the river migration only report without `--apply`; the backfills and `compact:storage` write when run. Every script that writes prints the database host and name (never the credentials) before it connects.
 
 ## Endpoints
 
