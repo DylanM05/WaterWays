@@ -1,0 +1,12 @@
+[extend]
+useDefault = true
+
+# These exact values are public Clerk publishable keys, never signing secrets.
+# One is the existing auth-test fixture; the other encodes example.clerk.accounts.dev$.
+[[allowlists]]
+description = "Public Clerk keys used by auth tests and CI builds"
+regexTarget = "secret"
+regexes = [
+  '''^pk_live_Y2xlcmsud2F0ZXItd2F5cy5jYSQ$''',
+  '''^pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk$''',
+]
