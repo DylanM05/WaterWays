@@ -70,7 +70,9 @@ jobs:
       - name: Scan dependency locks and Docker configuration
         if: ${{ !cancelled() }}
         run: |
-          trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1             --skip-dirs .git --skip-dirs node_modules --skip-dirs WaterWays/node_modules             --skip-dirs Server/node_modules --skip-dirs WaterWays/dist .
+          trivy fs --scanners vuln,misconfig --severity HIGH,CRITICAL --exit-code 1 \
+            --skip-dirs .git --skip-dirs node_modules --skip-dirs WaterWays/node_modules \
+            --skip-dirs Server/node_modules --skip-dirs WaterWays/dist .
 
   containers:
     name: Container build and vulnerabilities
@@ -120,9 +122,6 @@ jobs:
 
       - name: Install verified image scanner
         run: bash .forgejo/scripts/install-tools.sh
-      - name: Refuse deployment of an outdated commit
-        run: |
-          curl --fail --silent --show-error --max-time 30             -H "Authorization: token $GITHUB_TOKEN"             "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main"             | node -e 'let d=""; process.stdin.on("data",c=>d+=c).on("end",()=>{if(JSON.parse(d).commit.id!==process.env.GITHUB_SHA){console.error("main has moved; deploy its newer run instead");process.exit(1)}})'
       - name: Set environment variables
         env:
           VITE_PUBLIC_CLERK_PUBLISHABLE_KEY_SECRET: ${{ secrets.VITE_PUBLIC_CLERK_PUBLISHABLE_KEY }}
@@ -171,6 +170,12 @@ jobs:
           docker-compose -p waterways build --pull
           trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 waterways-server
           trivy image --image-src docker --scanners vuln --severity HIGH,CRITICAL --exit-code 1 waterways-client
+      - name: Refuse deployment of an outdated commit
+        run: |
+          curl --fail --silent --show-error --max-time 30 \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/branches/main" \
+            | node -e 'let d=""; process.stdin.on("data",c=>d+=c).on("end",()=>{if(JSON.parse(d).commit.id!==process.env.GITHUB_SHA){console.error("main has moved; deploy its newer run instead");process.exit(1)}})'
       - name: Deploy and require healthy containers
         run: docker-compose -p waterways up -d --remove-orphans --wait --wait-timeout 150
       - name: Verify database connectivity
