@@ -21,7 +21,7 @@ In production these come from the Forgejo secrets `SERVER_ENV_FILE` and `MONGO_U
 | `MONGO_URI` (or `MONGODB_URI`) | yes | The database. Without it the server starts but logs that it has no database. |
 | `CLERK_SECRET_KEY`, `CLERK_PUBLISHABLE_KEY` | yes | Sign-in (`@clerk/express`). |
 | `STRIPE_SECRET_KEY` | yes | Website memberships. The server won't start without it. |
-| `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID`, `STRIPE_ANUAL_PRICE_ID` | for Stripe | Checkout and Stripe webhooks. |
+| `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_ID`, `STRIPE_ANUAL_PRICE_ID` | for Stripe | Checkout and Stripe webhooks. Subscriptions on these prices, or on other prices of the same product (a replaced price, say), grant premium; if either price is unset, or Stripe can't be asked which product they belong to, any subscription does. |
 | `FRONTEND_URL` | for Stripe and invites | Links back to the website. |
 | `CLERK_WEBHOOK_SIGNING_SECRET` | for account deletion | Verifies Clerk's `user.deleted` webhook (`POST /clerk/webhook`). |
 | `APPLE_APP_ID` | for App Store purchases | Numeric app ID; without it only sandbox purchases verify. |
@@ -29,7 +29,9 @@ In production these come from the Forgejo secrets `SERVER_ENV_FILE` and `MONGO_U
 | `APPLE_ALLOW_UNSIGNED_TESTING` | never in production | Accepts unsigned Xcode StoreKit purchases on a local server (ignored when `NODE_ENV=production`). |
 | `OPEN_METEO_API_KEY` | before charging | Switches weather to Open-Meteo's paid (commercial) API. The free API is non-commercial only. |
 | `SENTRY_DSN`, `SENTRY_ENVIRONMENT` | no | Error reporting (`utilities/monitoring.js`). Nothing is sent without a DSN. |
-| `LOGGING_API_KEY` | for visitor stats | Protects `GET /l/daily`, `/weekly`, `/all` and `/stats`. |
+| `OPEN_METEO_CALLS_PER_HOUR`, `OPEN_METEO_CALLS_PER_DAY` | no | Budgets for Open-Meteo calls across the server (defaults 4,000 an hour and 9,000 a day, just under the free tier's limits). Past either, or for a minute after a failed call, the last forecast (up to 6 hours old) is served instead. |
+| `NODE_ENV` | `production` in production (set by the Dockerfile) | `production` stops accepting the localhost web origins (CORS and Clerk's `azp` check) and ignores `APPLE_ALLOW_UNSIGNED_TESTING`. |
+| `EXTRA_CORS_ORIGINS` | no | More web origins, comma separated (for example a preview build). |
 | `ENABLE_SCHEDULER` | no | `false` turns off the background jobs (water sync, roll-ups, Stripe sync). |
 
 ## Water data
@@ -53,13 +55,14 @@ Run these from `Server`. They use the database in `Server/.env`.
 |---|---|
 | `npm run backfill:hydrometric-history -- <id\|--all>` | Imports historical monthly means (HYDAT). |
 | `npm run backfill:provisional-daily -- <id\|--all> [--dry-run]` | Fills the recent months HYDAT doesn't cover yet, from Water Office's 18-month provisional data. |
-| `npm run stations:catalogue [-- --apply --remove-discontinued --add-reporting --remove-dead]` | Compares stations with Environment Canada's catalogue. Its options correct names and coordinates, record real-time flags, remove discontinued stations, add unlisted stations that are reporting, and remove uncatalogued stations that have never had any data. |
+| `npm run stations:catalogue [-- --apply [--remove-discontinued] [--add-reporting] [--remove-dead]]` | Compares stations with Environment Canada's catalogue. `--apply` corrects names and coordinates and records real-time flags; with it, the other options remove discontinued stations, add unlisted stations that are reporting, and remove uncatalogued stations that have never had any data. Without `--apply` they only say what they would do. |
+| `npm run clean:implausible-readings [-- --apply]` | Clears stored sentinel readings (such as -99999). |
 | `npm run migrate:river-favorites [-- --apply]` | Renames saved rivers to the current river names (run after catalogue renames). |
 | `npm run audit:lifetime-premium` | Read-only: lifetime grants and invite links not made by an admin. |
 | `npm run report:storage` | Read-only: collection sizes and where storage settles. |
 | `npm run compact:storage` | Releases disk space after big deletions. |
 
-Without their write option, scripts only report.
+The catalogue sync, the cleanup and the river migration only report without `--apply`; the backfills and `compact:storage` write when run. Every script that writes prints the database host and name (never the credentials) before it connects.
 
 ## Endpoints
 
@@ -82,7 +85,9 @@ Successful public responses are cacheable for a short time (`middleware/cacheCon
 
 **Admin:** `/inv/generate`, `/inv/list`.
 
-**Webhooks:** `POST /subscription/webhook` (Stripe), `POST /clerk/webhook` (Clerk), `POST /sub/apple/notifications` (App Store). Stripe only sends the events selected for the endpoint in its dashboard. Select `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid` and `invoice.payment_failed`. Anything missed is picked up by the 6-hourly sync.
+**Webhooks:** `POST /subscription/webhook` (Stripe), `POST /clerk/webhook` (Clerk), `POST /sub/apple/notifications` (App Store). Stripe only sends the events selected for the endpoint in its dashboard. Select `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed` and `charge.dispute.created`. Anything missed is picked up by the 6-hourly sync, except disputes: a chargeback cancels the subscription straight away only if `charge.dispute.created` is selected (inquiries and refunds don't cancel). A Stripe event that fails to process answers 500, so Stripe retries it; event types the server doesn't track answer 200.
+
+**Stripe API version:** every request uses `2025-04-30.basil`, pinned in `utilities/stripe.js` so that upgrading the `stripe` package doesn't change what Stripe returns. Change it only together with the code that reads Stripe objects. Webhook payloads use the version set on the endpoint in the Stripe dashboard instead; the handler reads only the event's `customer` (and, for checkouts, `client_reference_id` and `metadata.userId`; for disputes, `charge` and `status`), then fetches the subscription through the pinned client, so the endpoint's version doesn't change what's stored.
 
 ## Environment Canada API notes
 
@@ -114,3 +119,5 @@ Pushing to `subscription` runs `.forgejo/workflows/ci-cd.yml`:
 4. Build, then replace the containers.
 
 A failure at step 2 or 3 leaves the running version untouched.
+
+The server image is `node:22-alpine` with `NODE_ENV=production`, installs from the lockfile (`npm ci --omit=dev`) and runs as the unprivileged `node` user, which owns `/app/logs`. Settings reach the container as environment variables from `Server/.env` (docker-compose `env_file`); `.env`, `logs/`, `test/`, the `*-report.txt` files and the Markdown docs are kept out of the image (`.dockerignore`). The workflow installs a pinned docker-compose release and checks its SHA-256.

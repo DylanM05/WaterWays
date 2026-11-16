@@ -115,34 +115,58 @@ async function persistVerifiedTransaction(transaction, userId, account) {
   const expiresAt = transaction.expiresDate ? new Date(transaction.expiresDate) : null;
   const revocationDate = transaction.revocationDate ? new Date(transaction.revocationDate) : null;
   const purchaseDate = transaction.purchaseDate ? new Date(transaction.purchaseDate) : null;
-  // Apple keeps one original transaction ID per subscriber, across renewals, plan changes and resubscribing
-  // after a refund, so the newest purchase decides access, not the latest expiry. Updates to the stored
-  // transaction itself (such as its refund) always apply; older transactions arriving late are ignored.
-  const sameTransaction = existingOwner?.transactionId === transaction.transactionId;
-  const newerPurchase = !existingOwner?.purchaseDate || (purchaseDate && purchaseDate > existingOwner.purchaseDate);
-  const shouldApply = !existingOwner || sameTransaction || newerPurchase;
+  const signedDate = transaction.signedDate ? new Date(transaction.signedDate) : null;
+  const fields = {
+    userId,
+    originalTransactionId: transaction.originalTransactionId,
+    transactionId: transaction.transactionId,
+    productId: transaction.productId,
+    appAccountToken: account.appAccountToken,
+    purchaseDate,
+    signedDate,
+    expiresAt,
+    revocationDate,
+    environment: transaction.environment
+  };
 
-  if (shouldApply) {
+  // First purchase: insert only, so a notification that stored the row first is never overwritten.
+  if (!existingOwner) {
     await AppleSubscription.findOneAndUpdate(
       { originalTransactionId: transaction.originalTransactionId },
-      {
-        $set: {
-          userId,
-          originalTransactionId: transaction.originalTransactionId,
-          transactionId: transaction.transactionId,
-          productId: transaction.productId,
-          appAccountToken: account.appAccountToken,
-          purchaseDate,
-          expiresAt,
-          revocationDate,
-          environment: transaction.environment
-        }
-      },
+      { $setOnInsert: fields },
       { upsert: true, new: true, runValidators: true }
     );
+    return true;
   }
 
-  return shouldApply;
+  // Updates to the stored transaction itself apply only when signed no earlier than what is stored, and
+  // never clear a refund, so replaying a saved pre-refund payload or a late notification can't restore access.
+  if (existingOwner.transactionId === transaction.transactionId) {
+    if (!revocationDate) delete fields.revocationDate;
+    const result = await AppleSubscription.updateOne(
+      {
+        originalTransactionId: transaction.originalTransactionId,
+        transactionId: transaction.transactionId,
+        userId,
+        signedDate: existingOwner.signedDate ? { $lte: signedDate } : null
+      },
+      { $set: fields },
+      { runValidators: true }
+    );
+    return result.matchedCount > 0;
+  }
+
+  // Apple keeps one original transaction ID per subscriber, across renewals, plan changes and resubscribing
+  // after a refund, so the newest purchase decides access, not the latest expiry; older transactions arriving
+  // late are ignored. The filter pins the row that was read, so a concurrent newer write wins.
+  const newerPurchase = !existingOwner.purchaseDate || (purchaseDate && purchaseDate > existingOwner.purchaseDate);
+  if (!newerPurchase) return false;
+  const result = await AppleSubscription.updateOne(
+    { originalTransactionId: transaction.originalTransactionId, transactionId: existingOwner.transactionId, userId },
+    { $set: fields },
+    { runValidators: true }
+  );
+  return result.matchedCount > 0;
 }
 
 /**

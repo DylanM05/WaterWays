@@ -114,29 +114,96 @@ test('batch readings reject empty and oversized requests', async () => {
   assert.equal((await api.request(`/details/latest-water-data?ids=${ids}`)).status, 400);
 });
 
-test('visits are logged once per device per day, and only for real visitor IDs', async () => {
-  const UserVisit = require('../models/UserVisits');
-  const visits = fakeModel(UserVisit);
-  const app = express();
-  app.use(express.json());
-  app.use('/l', require('../routes/LoggingRoute'));
-  const logging = await serve(app);
+test('station IDs that aren\'t station numbers are rejected before any lookup', async () => {
+  const axios = require('axios');
+  const originalGet = axios.get;
+  let upstreamCalls = 0;
+  axios.get = async () => { upstreamCalls++; return { data: { features: [] } }; };
   try {
-    const id = '3b241101-e2bb-4255-8caf-4136c566a962';
-    for (let visit = 0; visit < 3; visit++) {
-      assert.equal((await logging.request('/l/u', { method: 'POST', body: { userId: id } })).status, 200);
+    for (const path of [
+      '/details/water-data/abc/7',
+      `/details/water-data/${'A'.repeat(11)}/7`,
+      '/details/water-data/08MF005%20OR%201/7',
+      '/details/weather/08-MF-005',
+      '/details/weather/hourly/x',
+      '/details/coordinates/%24where',
+      '/details/latest-water-data/1234',
+      '/details/water-history/abc'
+    ]) {
+      const response = await api.request(path);
+      assert.equal(response.status, 400, path);
+      assert.equal(response.body.error, 'Invalid station ID', path);
     }
-    assert.equal(visits.length, 1);
-    assert.equal(visits[0].userId, id);
-    assert.match(visits[0].day, /^\d{4}-\d{2}-\d{2}$/);
+    assert.equal(upstreamCalls, 0);
 
-    for (const userId of [undefined, '', 'not-a-uuid', { $gt: '' }, 'x'.repeat(5000)]) {
-      assert.equal((await logging.request('/l/u', { method: 'POST', body: { userId } })).status, 400, JSON.stringify(userId)?.slice(0, 20));
-    }
-    assert.equal(visits.length, 1);
+    // Lower case is accepted and looked up as the upper-case station number.
+    assert.equal((await api.request('/details/latest-water-data/08mf005')).body.water_level, 3.61);
+    assert.deepEqual(Object.keys((await api.request('/details/latest-water-data?ids=08mf005,08MF005')).body), ['08MF005']);
+
+    // In a batch, an id that can't be a station number is skipped, so one odd saved id can't empty the list.
+    const batch = await api.request('/details/latest-water-data?ids=08MF005,not-a-station,%24ne');
+    assert.equal(batch.status, 200);
+    assert.deepEqual(Object.keys(batch.body), ['08MF005']);
+    assert.deepEqual((await api.request('/details/latest-water-data?ids=not-a-station')).body, {});
+    assert.equal((await api.request(`/details/latest-water-data?ids=${Array(101).fill('08MF005').join(',')}`)).status, 400);
   } finally {
-    await logging.close();
+    axios.get = originalGet;
   }
+});
+
+test('the Environment Canada fallback only runs for listed stations', async () => {
+  const axios = require('axios');
+  const originalGet = axios.get;
+  fakeModel(require('../models/StationArchive'));
+  const fetched = [];
+  axios.get = async (url, { params }) => { fetched.push(params.STATION_NUMBER); return { data: { features: [] } }; };
+  try {
+    const unknown = await api.request('/details/water-data/09ZZ999/7');
+    assert.equal(unknown.status, 200);
+    assert.deepEqual(unknown.body, []);
+    assert.deepEqual(fetched, [], 'no upstream call for a station that isn\'t listed');
+
+    // A listed station with no stored readings is still filled from the API, once per cooldown.
+    await api.request('/details/water-data/08MC018/7');
+    await api.request('/details/water-data/08MC018/8');
+    assert.deepEqual(fetched, ['08MC018']);
+  } finally {
+    axios.get = originalGet;
+  }
+});
+
+test('river lists only answer for real provinces, without a database lookup otherwise', async () => {
+  const originalFind = StationCoordinates.find;
+  let lookups = 0;
+  StationCoordinates.find = (...args) => { lookups++; return originalFind(...args); };
+  try {
+    for (const province of ['zz', 'bc%20', 'constructor', 'x'.repeat(200)]) {
+      const response = await api.request(`/details/rivers/${province}`);
+      assert.equal(response.status, 400, province);
+      assert.equal(response.headers['cache-control'], undefined, 'errors are not cacheable');
+    }
+    assert.equal(lookups, 0);
+    assert.equal((await api.request('/details/rivers/mb')).status, 200);
+    assert.equal(lookups, 1);
+  } finally {
+    StationCoordinates.find = originalFind;
+  }
+});
+
+test('archived figures leave out database bookkeeping', async () => {
+  const StationArchive = require('../models/StationArchive');
+  const { getArchivedWaterData } = require('../controllers/detailsController');
+  fakeModel(StationArchive, [{
+    _id: 'abc', __v: 0, source: 'hydat', createdAt: new Date(), updatedAt: new Date(),
+    station_id: '08MF005', period: 'daily', date_time: new Date('2026-09-30T00:00:00Z'),
+    water_level: 3.2, water_level_min: 3.1, water_level_max: 3.3, sample_count: 288
+  }]);
+  let sent;
+  await getArchivedWaterData({ params: { id: '08MF005', period: 'daily' }, query: {} }, { json: body => { sent = body; } });
+  assert.deepEqual(sent, [{
+    station_id: '08MF005', period: 'daily', date_time: '2026-09-30 00:00:00',
+    water_level: 3.2, water_level_min: 3.1, water_level_max: 3.3, sample_count: 288
+  }]);
 });
 
 test('official records are premium, like History', async () => {
@@ -158,7 +225,8 @@ test('alerts for a station are public and briefly cacheable', async () => {
   assert.equal(response.status, 200);
   assert.deepEqual(response.body.alerts.map(alert => alert.name), ['rainfall warning']);
   assert.equal(response.headers['cache-control'], 'public, max-age=300');
-  assert.equal((await api.request('/details/alerts/NOPE')).status, 404);
+  assert.equal((await api.request('/details/alerts/09ZZ999')).status, 404);
+  assert.equal((await api.request('/details/alerts/NOPE')).status, 400, 'not a station number');
 });
 
 test('batch readings can include when silent stations last reported', async () => {
@@ -227,5 +295,26 @@ test('a trend that fails leaves out only that trend, not the readings', async ()
     assert.deepEqual(response.body.trends, {}, 'no trend for the station that failed');
   } finally {
     StationData.find = originalFind;
+  }
+});
+
+test('per-station results are cached for listed stations only, so made-up ids can\'t fill the cache', async () => {
+  const StationArchive = require('../models/StationArchive');
+  fakeModel(StationArchive, []);
+  let lookups = 0;
+  const originalFindOne = StationArchive.findOne;
+  StationArchive.findOne = (...args) => { lookups++; return originalFindOne(...args); };
+  try {
+    const lastReported = id => api.request(`/details/latest-water-data?ids=${id}&includeLastReported=true`);
+    await lastReported('09ZZ999');
+    await lastReported('09ZZ999');
+    assert.equal(lookups, 6, 'an unlisted id is looked up each time (three tiers, twice)');
+
+    lookups = 0;
+    await lastReported('02DD999');
+    await lastReported('02DD999');
+    assert.equal(lookups, 3, 'a listed, silent station is cached after the first look');
+  } finally {
+    StationArchive.findOne = originalFindOne;
   }
 });

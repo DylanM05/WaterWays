@@ -1,6 +1,7 @@
 require('dotenv').config({ path: require('path').join(__dirname, '..', '.env') });
 
 const mongoose = require('mongoose');
+const { logMongoTarget } = require('../utilities/mongoTarget');
 
 // MongoDB reuses space freed by deleted readings for new data, but doesn't give it back to the drive on its
 // own. compact rewrites a collection's files to release it. Run this once after the nightly roll-up has
@@ -16,6 +17,7 @@ async function onDisk(db, name) {
 async function main() {
   const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
   if (!mongoUri) throw new Error('Set MONGO_URI or MONGODB_URI before compacting.');
+  logMongoTarget(mongoUri);
   await mongoose.connect(mongoUri);
   const db = mongoose.connection.db;
 

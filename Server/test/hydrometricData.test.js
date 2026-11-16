@@ -4,6 +4,7 @@ const assert = require('node:assert/strict');
 const axios = require('axios');
 const StationData = require('../models/StationData');
 const StationArchive = require('../models/StationArchive');
+const StationCoordinates = require('../models/StationCoordinates');
 const {
   fetchRealtimeData,
   fillRecentGaps,
@@ -37,6 +38,8 @@ let archive;
 beforeEach(() => {
   stored = fakeModel(StationData);
   archive = fakeModel(StationArchive);
+  // The water-data endpoint only asks the API about listed stations.
+  fakeModel(StationCoordinates, ['COVERED1', 'MISSING1', 'CACHED1', 'CLAMP1', 'TIERED1', 'GAP1'].map(station_id => ({ station_id })));
   console.error = () => {};
 });
 

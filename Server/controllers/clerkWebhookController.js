@@ -1,5 +1,5 @@
 const { verifyWebhook } = require('@clerk/express/webhooks');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const { stripe } = require('../utilities/stripe');
 const Admin = require('../models/Admin');
 const AppleSubscription = require('../models/AppleSubscription');
 const AppleSubscriptionAccount = require('../models/AppleSubscriptionAccount');
@@ -8,7 +8,6 @@ const Favorite = require('../models/Favorite');
 const InviteLink = require('../models/InviteLink');
 const LifetimePremium = require('../models/LifetimePremium');
 const UserSettings = require('../models/UserSettings');
-const UserVisit = require('../models/UserVisits');
 
 const BILLABLE_STATUSES = ['active', 'trialing', 'past_due', 'unpaid', 'incomplete'];
 
@@ -29,7 +28,6 @@ async function deleteUserData(userId) {
     CustomerMap.deleteMany({ userId }),
     Favorite.deleteMany({ userId }),
     UserSettings.deleteMany({ userId }),
-    UserVisit.deleteMany({ userId }),
     LifetimePremium.deleteMany({ userId }),
     Admin.deleteMany({ userId }),
     AppleSubscription.deleteMany({ userId }),

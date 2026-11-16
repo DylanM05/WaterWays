@@ -60,7 +60,7 @@ function query(getDocs, { single = false } = {}) {
 /**
  * Replaces a model's static query methods with an in-memory store and returns the store's documents.
  * Supports the filters and updates the controllers use: equality, $gt/$lt/$ne/$in/$nin/$exists, $set and
- * $setOnInsert, upserts, and deleteMany.
+ * $setOnInsert, upserts, deleteMany, and a few aggregation stages.
  */
 function fakeModel(Model, documents = []) {
   // Stored documents get a save() like Mongoose documents; changes are already in place, so it just resolves.
@@ -120,6 +120,10 @@ function fakeModel(Model, documents = []) {
       if (index !== -1) docs.splice(index, 1);
       return { deletedCount: index === -1 ? 0 : 1 };
     },
+    findOneAndDelete: async (filter) => {
+      const index = docs.findIndex(doc => matches(doc, filter));
+      return index === -1 ? null : docs.splice(index, 1)[0];
+    },
     // Supports the updateOne operations the sync and backfill scripts send.
     bulkWrite: async (operations) => {
       let upsertedCount = 0;
@@ -176,13 +180,14 @@ async function serve(app) {
     req.end();
   });
 
-  return { request, close: () => new Promise(resolve => server.close(resolve)) };
+  return { base, request, close: () => new Promise(resolve => server.close(resolve)) };
 }
 
 /**
  * Makes Clerk's SDK verify session tokens against a local key (CLERK_JWT_KEY), so sign-in is checked by
  * Clerk's real code without network access. Call before requiring the auth middleware. Returns a function
- * that signs a session token; pass `key` to sign with a different (untrusted) key.
+ * that signs a session token; pass `key` to sign with a different (untrusted) key, and `header` to change
+ * the JWT header (Clerk's session tokens carry the session-token category, `cat`).
  */
 function clerkTestTokens() {
   const { publicKey, privateKey } = crypto.generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -190,10 +195,10 @@ function clerkTestTokens() {
   process.env.CLERK_SECRET_KEY = 'sk_live_test_only';
   process.env.CLERK_JWT_KEY = publicKey.export({ type: 'spki', format: 'pem' });
 
-  return function sessionToken(claims = {}, key = privateKey) {
+  return function sessionToken(claims = {}, key = privateKey, header = {}) {
     const now = Math.floor(Date.now() / 1000);
     const encode = value => Buffer.from(JSON.stringify(value)).toString('base64url');
-    const unsigned = `${encode({ alg: 'RS256', typ: 'JWT' })}.${encode({
+    const unsigned = `${encode({ alg: 'RS256', typ: 'JWT', cat: 'cl_B7d4PD111AAA', ...header })}.${encode({
       iss: 'https://clerk.water-ways.ca', sub: 'user_a', sid: 'sess_1', iat: now - 5, nbf: now - 5, exp: now + 60, ...claims
     })}`;
     return `${unsigned}.${crypto.sign('RSA-SHA256', Buffer.from(unsigned), key).toString('base64url')}`;

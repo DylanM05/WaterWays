@@ -6,7 +6,8 @@ const LifetimePremium = require('../models/LifetimePremium');
 exports.generateInviteLink = async (req, res) => {
   try {
     const userId = req.userId;
-    const code = crypto.randomBytes(6).toString('hex');
+    // 128 bits: a code is a permanent premium grant, so it must not be guessable.
+    const code = crypto.randomBytes(16).toString('hex');
     const inviteLink = await InviteLink.create({
       code,
       createdBy: userId
@@ -44,7 +45,8 @@ exports.redeemInviteLink = async (req, res) => {
     if (!code || typeof code !== 'string') {
       return res.status(400).json({ error: 'Invalid invite code format' });
     }
-    if (!code.match(/^[0-9a-f]{12}$/i)) {
+    // 32 hex characters; 12 for codes issued before the longer ones, until they expire (30 days).
+    if (!/^(?:[0-9a-f]{12}|[0-9a-f]{32})$/i.test(code)) {
       return res.status(400).json({ error: 'Invalid invite code format' });
     }
     const existingLifetime = await LifetimePremium.findOne({ userId });

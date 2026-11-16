@@ -7,6 +7,7 @@ const StationData = require('../models/StationData');
 const StationArchive = require('../models/StationArchive');
 const { cleanReadings } = require('../utilities/waterQuality');
 const { dailyFromHourly, hourlyFromReadings } = require('../utilities/rollups');
+const { logMongoTarget } = require('../utilities/mongoTarget');
 
 // The historical archive (HYDAT) lags by over a year and the real-time API keeps only 30 days, so
 // the months in between were missing from History. Water Office serves five-minute data (provisional,
@@ -149,6 +150,7 @@ async function main() {
 
     const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
     if (!mongoUri) throw new Error('Set MONGO_URI or MONGODB_URI before running the backfill.');
+    logMongoTarget(mongoUri, { apply: !dryRun });
     await mongoose.connect(mongoUri);
 
     // Water Office only has stations with a real-time feed; the catalogue marks the others realtime: false.

@@ -1,12 +1,12 @@
 const axios = require('axios');
-const NodeCache = require('node-cache');
 const StationArchive = require('../models/StationArchive');
 const StationData = require('../models/StationData');
+const { boundedCache } = require('../utilities/boundedCache');
 const { cleanReadings, plausibleDischarge, plausibleLevel } = require('../utilities/waterQuality');
 const { dailyFromHourly } = require('../utilities/rollups');
 
 // Archives only change once a day, so an hour of caching costs little freshness.
-const historyCache = new NodeCache({ stdTTL: 3600 });
+const historyCache = boundedCache({ stdTTL: 3600, maxKeys: 5000 });
 
 const METRICS = ['water_level', 'discharge'];
 const INTERVALS = ['day', 'week', 'month', 'year', 'season'];
@@ -204,8 +204,11 @@ exports.getWaterHistory = async (req, res) => {
   const today = new Date(`${dayKey(new Date())}T00:00:00.000Z`);
   const to = req.query.to ? parseDay(req.query.to) : today;
   const dailyInterval = interval === 'day' || interval === 'week';
-  const defaultFrom = dailyInterval && to ? new Date(to.getTime() - 365 * DAY_MS) : new Date(Date.UTC(1900, 0, 1));
-  const from = req.query.from ? parseDay(req.query.from) : defaultFrom;
+  const earliest = new Date(Date.UTC(1900, 0, 1));
+  const defaultFrom = dailyInterval && to ? new Date(to.getTime() - 365 * DAY_MS) : earliest;
+  // Nothing is archived before 1900, so earlier starts all share one cache entry.
+  const parsedFrom = req.query.from ? parseDay(req.query.from) : defaultFrom;
+  const from = parsedFrom && parsedFrom < earliest ? earliest : parsedFrom;
   if (!to || !from) {
     return res.status(400).json({ error: 'from and to must be dates formatted YYYY-MM-DD' });
   }
@@ -271,7 +274,7 @@ exports.getWaterHistory = async (req, res) => {
 // Official yearly extremes from Environment Canada (HYDAT): each year's highest and lowest instantaneous
 // water level and flow, with the date. HYDAT is updated about once a year, so a day of caching is plenty.
 const ANNUAL_PEAKS_URL = 'https://api.weather.gc.ca/collections/hydrometric-annual-peaks/items';
-const recordsCache = new NodeCache({ stdTTL: 24 * 60 * 60 });
+const recordsCache = boundedCache({ stdTTL: 24 * 60 * 60, maxKeys: 5000 });
 const PEAK_METRICS = { 'Water Level': 'water_level', Discharge: 'discharge' };
 
 function median(values) {

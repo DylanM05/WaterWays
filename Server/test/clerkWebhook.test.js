@@ -12,14 +12,17 @@ require.cache[stripePath] = {
   id: stripePath,
   filename: stripePath,
   loaded: true,
-  exports: () => ({
-    subscriptions: {
-      cancel: async (id) => {
-        if (cancelError) throw cancelError;
-        cancelled.push(id);
+  // A constructor, like the real package (`new Stripe(key, config)`).
+  exports: function FakeStripe() {
+    return {
+      subscriptions: {
+        cancel: async (id) => {
+          if (cancelError) throw cancelError;
+          cancelled.push(id);
+        }
       }
-    }
-  })
+    };
+  }
 };
 
 const { test, before, beforeEach, after } = require('node:test');
@@ -28,7 +31,7 @@ const express = require('express');
 const { fakeModel, serve } = require('./helpers');
 const { handleClerkWebhook } = require('../controllers/clerkWebhookController');
 
-const MODELS = ['Admin', 'AppleSubscription', 'AppleSubscriptionAccount', 'CustomerMap', 'Favorite', 'LifetimePremium', 'UserSettings', 'UserVisits'];
+const MODELS = ['Admin', 'AppleSubscription', 'AppleSubscriptionAccount', 'CustomerMap', 'Favorite', 'LifetimePremium', 'UserSettings'];
 let stores;
 let invites;
 let api;

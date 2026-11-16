@@ -8,9 +8,33 @@ const { splitStationName } = require('../utilities/riverNames');
 const { formatDate, formatDateTime, formatTime } = require('../utilities/dateFormat');
 const { HOUR_MS, readingsWithHourly } = require('../utilities/rollups');
 const { activeAlertFeatures, alertsAt } = require('../utilities/weatherAlerts');
+const { boundedCache } = require('../utilities/boundedCache');
+const { PROVINCES, normalizeStationId } = require('../utilities/stationIds');
 require('dotenv').config();
-const NodeCache = require('node-cache');
-const waterDataCache = new NodeCache({ stdTTL: 900 }); // 15 minutes cache TTL
+// River lists, and latest readings, trends and last-reported dates for ~2,200 stations.
+const waterDataCache = boundedCache({ stdTTL: 900, maxKeys: 20000 }); // 15 minutes cache TTL
+// Chart series are large (up to a few hundred KB for 30 days), so they're also capped at 64 MB in all.
+const waterSeriesCache = boundedCache({ stdTTL: 900, maxKeys: 2500, maxBytes: 64 * 1024 * 1024 });
+
+// Listed station numbers, read from the catalogue when first needed and again every 30 minutes. Results
+// for other well-formed ids aren't cached, so made-up ids can't fill the caches.
+const LISTED_STATIONS_REFRESH_MS = 30 * 60 * 1000;
+let listedStations = { ids: null, loadedAt: 0, loading: null };
+
+async function isListedStation(stationId) {
+  if (!listedStations.ids || Date.now() - listedStations.loadedAt > LISTED_STATIONS_REFRESH_MS) {
+    listedStations.loading = listedStations.loading || StationCoordinates.distinct('station_id')
+      .then(ids => { listedStations = { ids: new Set(ids), loadedAt: Date.now(), loading: null }; })
+      .catch(error => {
+        listedStations.loading = null;
+        // An older list is still good enough; without one there's nothing to go on.
+        if (!listedStations.ids) throw error;
+        console.error('Could not refresh the listed stations:', error.message);
+      });
+    await listedStations.loading;
+  }
+  return listedStations.ids.has(stationId);
+}
 
 
 exports.getCoordinates = async (req, res) => {
@@ -67,8 +91,35 @@ const getCompassDirection = (degree) => {
 };
 
 // A station page asks for current, pressure, hourly and weekly weather at once, and forecasts change slowly.
-const weatherCache = new NodeCache({ stdTTL: 15 * 60 });
+// A forecast is fresh for 15 minutes, and kept for a few hours more to serve when Open-Meteo can't be called.
+const WEATHER_FRESH_MS = 15 * 60 * 1000;
+// Two kinds per station; only listed stations get this far.
+const weatherCache = boundedCache({ stdTTL: 6 * 60 * 60, maxKeys: 10000 });
+// After a failed call, a station's forecast isn't asked for again for a minute.
+const weatherFailures = boundedCache({ stdTTL: 60, maxKeys: 10000 });
 const weatherRequests = new Map();
+
+// Budgets on Open-Meteo calls for the whole server, so one client asking for many stations can't use up the
+// API quota: token buckets refilled evenly over an hour and over a day. The defaults sit just under the free
+// tier's 5,000 calls an hour and 10,000 a day.
+const callBudget = (calls, periodMs) => ({ calls, periodMs, tokens: calls, updatedAt: Date.now() });
+const openMeteoBudgets = [
+  callBudget(Number.parseInt(process.env.OPEN_METEO_CALLS_PER_HOUR, 10) || 4000, HOUR_MS),
+  callBudget(Number.parseInt(process.env.OPEN_METEO_CALLS_PER_DAY, 10) || 9000, 24 * HOUR_MS)
+];
+
+function takeOpenMeteoCall(now = Date.now()) {
+  for (const budget of openMeteoBudgets) {
+    budget.tokens = Math.min(budget.calls, budget.tokens + ((now - budget.updatedAt) / budget.periodMs) * budget.calls);
+    budget.updatedAt = now;
+  }
+  if (openMeteoBudgets.some(budget => budget.tokens < 1)) return false;
+  for (const budget of openMeteoBudgets) budget.tokens -= 1;
+  return true;
+}
+
+// Just the message and status: an AxiosError's config holds the request's params, including the API key.
+const describeError = error => `${error.message}${error.response?.status ? ` (status ${error.response.status})` : ''}`;
 
 // The free Open-Meteo API is for non-commercial use; OPEN_METEO_API_KEY switches to a paid plan.
 const OPEN_METEO_URL = process.env.OPEN_METEO_API_KEY
@@ -97,13 +148,19 @@ class StationNotFoundError extends Error {}
 async function getStationWeather(stationId, kind) {
   const key = `${kind}:${stationId}`;
   const cached = weatherCache.get(key);
-  if (cached) return cached;
+  if (cached && Date.now() - cached.fetchedAt < WEATHER_FRESH_MS) return cached.data;
 
   // Requests for the same station that arrive together share one upstream call.
   if (!weatherRequests.has(key)) {
     const request = (async () => {
       const coordinates = await StationCoordinates.findOne({ station_id: stationId }).lean();
       if (!coordinates) throw new StationNotFoundError();
+
+      // Out of budget, or the last call just failed: the previous forecast if there is one, without calling out.
+      if (weatherFailures.has(key) || !takeOpenMeteoCall()) {
+        if (cached) return cached.data;
+        throw new Error('Open-Meteo is over budget or failing');
+      }
 
       const params = {
         latitude: parseFloat(coordinates.latitude),
@@ -112,9 +169,16 @@ async function getStationWeather(stationId, kind) {
       };
       if (process.env.OPEN_METEO_API_KEY) params.apikey = process.env.OPEN_METEO_API_KEY;
 
-      const { data } = await axios.get(OPEN_METEO_URL, { params, timeout: 10000 });
-      weatherCache.set(key, data);
-      return data;
+      try {
+        const { data } = await axios.get(OPEN_METEO_URL, { params, timeout: 10000 });
+        weatherCache.set(key, { data, fetchedAt: Date.now() });
+        return data;
+      } catch (error) {
+        weatherFailures.set(key, true);
+        if (!cached) throw error;
+        console.error(`Open-Meteo request failed; serving the previous forecast: ${describeError(error)}`);
+        return cached.data;
+      }
     })().finally(() => weatherRequests.delete(key));
     weatherRequests.set(key, request);
   }
@@ -125,7 +189,7 @@ function sendWeatherError(res, error, message) {
   if (error instanceof StationNotFoundError) {
     return res.status(404).json({ error: 'Coordinates not found' });
   }
-  console.error(`${message}:`, error);
+  console.error(`${message}: ${describeError(error)}`);
   return res.status(500).json({ error: message });
 }
 
@@ -259,6 +323,9 @@ exports.getWeatherAlerts = async (req, res) => {
 
 exports.getRiversByProvince = async (req, res) => {
   const province = req.params.province.toUpperCase();
+  if (!PROVINCES.has(province)) {
+    return res.status(400).json({ error: 'Unknown province' });
+  }
   const cacheKey = `rivers-${province}`;
 
   const cachedBody = waterDataCache.get(cacheKey);
@@ -457,7 +524,7 @@ async function lastReportedDate(stationId) {
       break;
     }
   }
-  waterDataCache.set(cacheKey, date, LAST_REPORTED_CACHE_TTL_SECONDS);
+  if (date || await isListedStation(stationId)) waterDataCache.set(cacheKey, date, LAST_REPORTED_CACHE_TTL_SECONDS);
   return date;
 }
 
@@ -519,19 +586,22 @@ async function findTrend(stationId) {
   return trend;
 }
 
-// GET /details/latest-water-data?ids=A,B,C returns { stationId: reading }; stations without data are left out.
+// GET /details/latest-water-data?ids=A,B,C returns { stationId: reading }; stations without data, and ids that
+// can't be station numbers, are left out.
 // With includeLastReported=true or includeTrend=true it returns { readings, lastReported, trends? }:
 // - lastReported (with includeLastReported) gives the date ("2026-09-30"), or just the month ("2024-08") when
 //   only monthly means remain, of the newest stored figure for each station without a recent reading.
 // - trends (with includeTrend) gives each station with readings its last day, as findTrend describes.
 exports.getLatestWaterDataBatch = async (req, res) => {
-  const ids = [...new Set(String(req.query.ids || '').split(',').map(id => id.trim()).filter(Boolean))];
-  if (!ids.length) {
+  const requested = String(req.query.ids || '').split(',').map(id => id.trim()).filter(Boolean);
+  if (!requested.length) {
     return res.status(400).json({ error: 'ids is required' });
   }
-  if (ids.length > MAX_BATCH_STATIONS) {
+  if (requested.length > MAX_BATCH_STATIONS) {
     return res.status(400).json({ error: `At most ${MAX_BATCH_STATIONS} stations per request` });
   }
+  // One odd saved id shouldn't empty a whole Saved screen, so it's just skipped.
+  const ids = [...new Set(requested.map(normalizeStationId).filter(Boolean))];
 
   try {
     const readings = await Promise.all(ids.map(findLatestReading));
@@ -575,8 +645,9 @@ const WATER_DATA_CACHE_TTL_SECONDS = 2 * 60;
 // If the stored history starts this long after the requested start, fill it from the API.
 const COVERAGE_TOLERANCE_MS = 6 * 60 * 60 * 1000;
 // Some stations genuinely have less history upstream; don't refetch them on every request.
-const API_FALLBACK_COOLDOWN_MS = 6 * 60 * 60 * 1000;
-const apiFallbackAttempts = new Map();
+const API_FALLBACK_COOLDOWN_SECONDS = 6 * 60 * 60;
+// Only listed stations are fetched, so this holds at most one entry per station.
+const apiFallbackAttempts = boundedCache({ stdTTL: API_FALLBACK_COOLDOWN_SECONDS, maxKeys: 5000 });
 
 exports.getWaterData = async (req, res) => {
   const stationId = req.params.id;
@@ -584,7 +655,7 @@ exports.getWaterData = async (req, res) => {
   const days = Number.isFinite(parsedDays) ? Math.min(Math.max(1, parsedDays), 30) : 1;
   const cacheKey = `water-data-${stationId}-${days}`;
 
-  const cachedBody = waterDataCache.get(cacheKey);
+  const cachedBody = waterSeriesCache.get(cacheKey);
   if (cachedBody) {
     res.type('application/json');
     return res.send(cachedBody);
@@ -615,9 +686,10 @@ exports.getWaterData = async (req, res) => {
 
     const firstStored = records[0]?.date_time;
     const missingHistory = !firstStored || firstStored - startDate > COVERAGE_TOLERANCE_MS;
-    const lastAttempt = apiFallbackAttempts.get(stationId) || 0;
-    if (missingHistory && Date.now() - lastAttempt > API_FALLBACK_COOLDOWN_MS) {
-      apiFallbackAttempts.set(stationId, Date.now());
+    // Only for listed stations, so unknown IDs never reach Environment Canada or get readings stored.
+    const listed = await isListedStation(stationId);
+    if (missingHistory && listed && !apiFallbackAttempts.has(stationId)) {
+      apiFallbackAttempts.set(stationId, true);
       try {
         // Only the stretch before the earliest stored reading; what's stored (including hourly figures) is kept.
         const gapEnd = firstStored || endDate;
@@ -648,7 +720,7 @@ exports.getWaterData = async (req, res) => {
         discharge_max: record.discharge_max
       })
     })));
-    waterDataCache.set(cacheKey, body, WATER_DATA_CACHE_TTL_SECONDS);
+    if (listed || records.length) waterSeriesCache.set(cacheKey, body, WATER_DATA_CACHE_TTL_SECONDS);
 
     res.type('application/json');
     return res.send(body);
@@ -657,6 +729,9 @@ exports.getWaterData = async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch water data' });
   }
 };
+
+const ARCHIVE_FIELDS = ['station_id', 'period', 'date_time', 'water_level', 'water_level_min', 'water_level_max',
+  'discharge', 'discharge_min', 'discharge_max', 'sample_count'];
 
 exports.getArchivedWaterData = async (req, res) => {
   const { id: stationId, period } = req.params;
@@ -682,9 +757,11 @@ exports.getArchivedWaterData = async (req, res) => {
     const records = await StationArchive.find(filter)
       .sort({ date_time: -1 })
       .limit(limit)
+      .select(`-_id ${ARCHIVE_FIELDS.join(' ')}`)
       .lean();
+    // The figures only, not database bookkeeping (_id, __v, source, timestamps).
     return res.json(records.map(record => ({
-      ...record,
+      ...Object.fromEntries(ARCHIVE_FIELDS.filter(field => record[field] !== undefined).map(field => [field, record[field]])),
       date_time: record.date_time.toISOString().slice(0, 19).replace('T', ' ')
     })));
   } catch (error) {

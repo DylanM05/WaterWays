@@ -22,13 +22,20 @@ before(async () => {
   const app = express();
   app.use(express.json());
   app.use('/inv', require('../routes/inviteRoutes'));
+  app.use('/admin', require('../routes/adminRoutes'));
   api = await serve(app);
 });
 
 after(() => api.close());
 
 beforeEach(() => {
-  fakeModel(Admin, [{ userId: 'user_admin', status: true }, { userId: 'user_former_admin', status: false }]);
+  fakeModel(Admin, [
+    { userId: 'user_admin', status: true },
+    { userId: 'user_former_admin', status: false },
+    // The unique index is on {userId, status}, so one user can have both rows: the false one wins.
+    { userId: 'user_revoked', status: true },
+    { userId: 'user_revoked', status: false }
+  ]);
   invites = fakeModel(InviteLink, [{ code: CODE, createdBy: 'user_admin', isRedeemed: false, redeemedBy: null }]);
   lifetime = fakeModel(LifetimePremium);
   InviteLink.create = async (doc) => {
@@ -47,6 +54,19 @@ test('only admins can create invite links', async () => {
   assert.equal(created.status, 200);
   assert.equal(invites.length, 2);
   assert.equal(invites[1].createdBy, 'user_admin');
+  assert.match(invites[1].code, /^[0-9a-f]{32}$/);
+});
+
+test('a user with both an admin row and a revoked row is not an admin', async () => {
+  assert.equal((await api.request('/inv/generate', { method: 'POST', headers: as('user_revoked') })).status, 403);
+  assert.equal((await api.request('/inv/list', { headers: as('user_revoked') })).status, 403);
+  assert.equal(invites.length, 1);
+
+  assert.deepEqual((await api.request('/admin/check', { headers: as('user_revoked') })).body, { isAdmin: false });
+  assert.deepEqual((await api.request('/admin/check', { headers: as('user_former_admin') })).body, { isAdmin: false });
+  assert.deepEqual((await api.request('/admin/check', { headers: as('user_member') })).body, { isAdmin: false });
+  assert.deepEqual((await api.request('/admin/check', { headers: as('user_admin') })).body, { isAdmin: true });
+  assert.equal((await api.request('/admin/check')).status, 401);
 });
 
 test('only admins can list invite links', async () => {
@@ -94,9 +114,24 @@ test('a failed grant releases the code', async () => {
   assert.equal(invites[0].redeemedBy, null);
 });
 
+test('new 32-character codes redeem, as do the older 12-character ones', async () => {
+  const created = await api.request('/inv/generate', { method: 'POST', headers: as('user_admin') });
+  const code = invites[1].code;
+  assert.equal(created.status, 200);
+  const redeemed = await api.request('/inv/redeem', { method: 'POST', headers: as('user_member'), body: { code } });
+  assert.equal(redeemed.status, 200);
+  assert.equal(invites[1].redeemedBy, 'user_member');
+
+  const old = await api.request('/inv/redeem', { method: 'POST', headers: as('user_other'), body: { code: CODE } });
+  assert.equal(old.status, 200);
+  assert.equal(invites[0].redeemedBy, 'user_other');
+});
+
 test('malformed codes are rejected', async () => {
-  const response = await api.request('/inv/redeem', { method: 'POST', headers: as('user_member'), body: { code: 'x'.repeat(12) } });
-  assert.equal(response.status, 400);
+  for (const code of ['x'.repeat(12), 'a'.repeat(11), 'a'.repeat(13), 'a'.repeat(31), 'a'.repeat(33), 'a'.repeat(64)]) {
+    const response = await api.request('/inv/redeem', { method: 'POST', headers: as('user_member'), body: { code } });
+    assert.equal(response.status, 400, code);
+  }
 });
 
 test('the lifetime audit flags grants and invite links that did not come from an admin', async () => {

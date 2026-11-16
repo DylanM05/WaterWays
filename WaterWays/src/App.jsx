@@ -4,7 +4,6 @@ import AppShell from './components/layout/AppShell';
 import Home from './pages/home';
 import ProtectedRoute from './components/utility/ProtectedRoute';
 import Spinner from './components/spinners/Spinner';
-import useTrackUser from './components/utility/useTrackUser';
 
 // Loaded on first visit so the home page doesn't download the charts, settings and admin code.
 const Province = lazy(() => import('./pages/Province'));
@@ -23,8 +22,6 @@ const page = (element) => <Suspense fallback={<Spinner />}>{element}</Suspense>;
 function App() {
   // The last province's rivers, kept so a river opened from its province page needn't be looked up again.
   const [rivers, setRivers] = useState({});
-
-  useTrackUser();
 
   // The theme comes from the ThemeProvider in main.jsx, which SettingsProvider also reads, so theme changes
   // here are saved to the account.

@@ -3,71 +3,36 @@ require('dotenv').config();
 const { Sentry, enabled: monitoringEnabled } = require('./utilities/monitoring');
 
 const express = require('express');
-const cors = require('cors');
+const mongoose = require('mongoose');
+const helmet = require('helmet');
 const compression = require('compression');
 const { connectWithRetry, databaseState } = require('./utilities/database');
 const detailsRoute = require('./routes/DetailsRoute');
 const searchRoute = require('./routes/SearchRoute');
 const settingsRoute = require('./routes/settingsRoutes');
-const { lenientLimiter } = require('./utilities/ratelimiter');
-const loggingRoute = require('./routes/LoggingRoute');
+const { lenientLimiter, webhookLimiter } = require('./utilities/ratelimiter');
+const { corsMiddleware } = require('./utilities/origins');
+const { errorHandler, notFound } = require('./middleware/errorHandler');
 const favoritesRoutes = require('./routes/favoritesRoutes');
 const subscriptionRoutes = require('./routes/subscriptionRoutes');
 const inviteRoutes = require('./routes/inviteRoutes');
 const adminRoutes = require('./routes/adminRoutes');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI;
 
 const app = express();
 
+app.disable('x-powered-by');
+// The website reads this JSON API from another origin, so resources may be read cross-origin (CORS still decides who).
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 app.use(compression());
 
-app.use((req, res, next) => {
-  if (req.originalUrl === '/subscription/webhook') {
-    let rawBody = '';
-    req.on('data', (chunk) => {
-      rawBody += chunk.toString();
-    });
-    req.on('end', () => {
-      req.rawBody = rawBody;
-      next();
-    });
-  } else {
-    next();
-  }
-});
-
-// Now define webhook route with special handling
-app.post('/subscription/webhook', async (req, res) => {
-  
-  const signature = req.headers['stripe-signature'];
-  
-  try {
-    const event = stripe.webhooks.constructEvent(
-      req.rawBody, 
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
-    // Every event goes through processWebhookEvent, which ignores types it doesn't track, so cancellations,
-    // renewals and failed payments update memberships right away instead of at the next 6-hourly sync.
-    const subscriptionController = require('./controllers/subscriptionController');
-    const success = await subscriptionController.processWebhookEvent(event);
-    if (!success) {
-      console.error(`❌ Failed to process webhook ${event.type}`);
-    }
-    
-    return res.json({ received: true });
-  } catch (err) {
-    console.error('❌ Webhook Error:', err.message);
-    return res.status(400).json({ 
-      error: 'Webhook validation failed'
-      });
-  }
-});
+// Stripe signs the exact request body, so this route reads it raw (capped at 1 MB), before express.json().
+const stripeWebhook = require('./controllers/stripeWebhookController');
+app.post('/subscription/webhook', webhookLimiter, stripeWebhook.readBody, stripeWebhook.handleStripeWebhook);
 
 // Clerk (Svix) signs the exact request body, so this route must read it raw, before express.json().
-app.post('/clerk/webhook', express.raw({ type: 'application/json' }), require('./controllers/clerkWebhookController').handleClerkWebhook);
+app.post('/clerk/webhook', webhookLimiter, express.raw({ type: 'application/json' }), require('./controllers/clerkWebhookController').handleClerkWebhook);
 
 app.set('trust proxy', 1);
 
@@ -88,46 +53,14 @@ if (!mongoUri) {
   });
 }
 
-app.use(express.json());
-const allowedOrigins = [
-  'https://water-ways.ca',
-  'https://waterways.dylansserver.top',
-  'https://backend.water-ways.ca',
-  // The redesign's test build.
-  'https://beta.water-ways.ca',
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://localhost',
-  'https://localhost',
-  'capacitor://localhost',
-  'ionic://localhost',
-  // More origins, comma separated, without a code change (for example a preview build's address).
-  ...(process.env.EXTRA_CORS_ORIGINS || '').split(',').map(origin => origin.trim()).filter(Boolean)
-];
-
-app.use(cors({
-  origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
-// Handle preflight requests
-app.options('*', cors());
+// CORS first, so even a 429 or a 400 for malformed JSON reaches the website's code instead of a CORS error.
+app.use(corsMiddleware);
 // The one general limit for every route below; routes add stricter limiters where needed.
 app.use(lenientLimiter);
+app.use(express.json());
 app.use('/details', detailsRoute);
 app.use('/search', searchRoute);
 app.use('/s', settingsRoute);
-app.use('/l', loggingRoute);
 app.use('/u/favorites', favoritesRoutes);
 app.use('/sub', subscriptionRoutes);
 app.use('/inv', inviteRoutes)
@@ -139,10 +72,25 @@ app.get('/health', (req, res) => {
   res.status(200).json({ status: 'ok', database: mongoUri ? databaseState() : 'not configured' });
 });
 
+app.use(notFound);
+
 // Reports errors that reach Express without being handled by a route.
 if (monitoringEnabled) Sentry.setupExpressErrorHandler(app);
 
+// Last: a plain JSON error for anything unhandled, never a stack trace.
+app.use(errorHandler);
+
 const port = 42069;
-app.listen(port, '0.0.0.0', () => {
+const server = app.listen(port, '0.0.0.0', () => {
   console.log(`Server is running on http://0.0.0.0:${port}`);
 });
+
+// docker stop sends SIGTERM: stop taking requests, let the ones in progress finish, close the database
+// connection, then exit. If that takes more than 10 seconds, exit anyway.
+function shutdown(signal) {
+  console.log(`${signal} received; shutting down`);
+  setTimeout(() => process.exit(1), 10000).unref();
+  server.close(() => mongoose.connection.close().finally(() => process.exit(0)));
+}
+process.once('SIGTERM', shutdown);
+process.once('SIGINT', shutdown);

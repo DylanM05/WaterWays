@@ -1,4 +1,4 @@
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const { stripe } = require('../utilities/stripe');
 const CustomerMap = require('../models/CustomerMap');
 const LifetimePremium = require('../models/LifetimePremium');
 const AppleSubscription = require('../models/AppleSubscription');
@@ -18,6 +18,73 @@ async function primaryEmail(userId) {
     return null;
   }
 }
+
+// Subscriptions that can still be charged or cancelled, best first: active/trialing, then past_due.
+const LIVE_STATUSES = ['active', 'trialing', 'past_due'];
+const statusRank = status => (['active', 'trialing'].includes(status) ? 0 : status === 'past_due' ? 1 : 2);
+
+const productId = product => (product && typeof product === 'object' ? product.id : product);
+
+// The Premium products, found from the two configured prices and kept per pair of price settings.
+let premiumProducts = { key: null, products: null };
+
+// What counts as Premium: a subscription on one of the configured prices, or on any price of the same
+// product, so subscribers keep Premium when a price is replaced. null means every subscription counts:
+// either price setting is missing, or Stripe couldn't be asked (it is asked again next time). Neither
+// should lock subscribers out.
+async function premiumRule() {
+  const prices = [process.env.STRIPE_PRICE_ID, process.env.STRIPE_ANUAL_PRICE_ID];
+  if (!prices.every(Boolean)) return null;
+  const key = prices.join(',');
+  if (premiumProducts.key !== key) {
+    try {
+      const found = await Promise.all(prices.map(price => stripe.prices.retrieve(price)));
+      premiumProducts = { key, products: new Set(found.map(price => productId(price.product)).filter(Boolean)) };
+    } catch (error) {
+      console.warn('Could not look up the Premium products in Stripe, so every subscription counts for now:', error.message);
+      return null;
+    }
+  }
+  return { prices, products: premiumProducts.products };
+}
+
+function isPremiumSubscription(subscription, rule) {
+  if (!rule) return true;
+  return (subscription.items?.data || []).some(item =>
+    rule.prices.includes(item.price?.id) || rule.products.has(productId(item.price?.product)));
+}
+
+// The customer's Premium subscription that decides membership, or null. A newer incomplete subscription
+// (an abandoned second checkout) must not hide an older active one, so all of them are ranked.
+async function bestSubscription(customerId) {
+  const subscriptions = await stripe.subscriptions.list({
+    customer: customerId,
+    limit: 100,
+    status: 'all',
+    expand: ['data.default_payment_method'],
+  });
+  const rule = await premiumRule();
+  const premium = (subscriptions?.data || []).filter(subscription => {
+    if (isPremiumSubscription(subscription, rule)) return true;
+    console.warn(`Ignoring subscription ${subscription.id} (${subscription.status}): not a Premium price`);
+    return false;
+  });
+  premium.sort((a, b) => statusRank(a.status) - statusRank(b.status) || (b.created || 0) - (a.created || 0));
+  return premium[0] || null;
+}
+
+// When the paid period ends, in Unix seconds, or null. Since API version 2025-03-31.basil it is on each
+// subscription item; older versions (a webhook endpoint pinned to one, say) put it on the subscription.
+function periodEnd(subscription) {
+  const itemEnd = subscription?.items?.data?.[0]?.current_period_end;
+  if (typeof itemEnd === 'number' && itemEnd) return itemEnd;
+  const subscriptionEnd = subscription?.current_period_end;
+  if (typeof subscriptionEnd === 'number' && subscriptionEnd) return subscriptionEnd;
+  return null;
+}
+
+// Stripe rejects metadata values over 500 characters, which would make cancelling fail.
+const cancellationReason = reason => (reason == null ? '' : String(reason)).slice(0, 500);
 
 // One handler per plan; priceSetting names the env variable holding the Stripe price ID.
 const checkoutSession = (priceSetting) => async (req, res) => {
@@ -52,6 +119,15 @@ const checkoutSession = (priceSetting) => async (req, res) => {
       }
     } else {
       stripeCustomerId = customerMap.stripeCustomerId;
+
+      // A second checkout would bill the user twice.
+      const current = await bestSubscription(stripeCustomerId);
+      if (current && ['active', 'trialing'].includes(current.status)) {
+        return res.status(409).json({
+          error: 'You already have Premium. Manage it from Settings.',
+          code: 'already_subscribed'
+        });
+      }
     }
 
     // Create checkout session
@@ -151,59 +227,43 @@ exports.checkSubscriptionStatus = async (req, res) => {
   }
 };
 
-exports.handleWebhook = async (req, res) => {
-  console.log('⭐ Webhook received!', req.headers['stripe-signature']);
-  
-  const signature = req.headers['stripe-signature'];
-  
-  if (!signature) {
-    console.error('❌ No Stripe signature found in webhook request');
-    return res.status(400).send('Webhook Error: Missing Stripe signature');
+// A chargeback: Stripe keeps the subscription running, so cancel it now and sync. An inquiry
+// (status warning_*) isn't a chargeback yet and may be resolved, so it is only logged.
+async function handleDispute(dispute) {
+  if (String(dispute.status || '').startsWith('warning_')) {
+    console.log(`Dispute ${dispute.id} is an inquiry (${dispute.status}); subscription left as it is`);
+    return true;
   }
-  
-  let event;
-  
-  try {
-    if (!Buffer.isBuffer(req.body)) {
-      console.error('❌ Request body is not a Buffer! Type:', typeof req.body);
-      console.error('Request body preview:', typeof req.body === 'string' ? req.body.substring(0, 100) : 'Not a string');
-      return res.status(400).send('Webhook Error: Request body is not raw');
-    }
-    
-    console.log('🔍 Attempting to construct event with signature:', signature.substring(0, 20) + '...');
-    
-    event = stripe.webhooks.constructEvent(
-      req.body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
-    
-    console.log('✅ Successfully constructed event of type:', event.type);
-    console.log('📦 Event data summary:', JSON.stringify({
-      id: event.id,
-      type: event.type,
-      object_id: event.data.object.id,
-      customer: event.data.object.customer
-    }));
-
-  } catch (err) {
-    console.error('❌ Webhook signature verification failed:', err.message);
-    console.error('Webhook secret being used:', process.env.STRIPE_WEBHOOK_SECRET ? '(set)' : '(not set)');
-    return res.status(400).send(`Webhook Error: ${err.message}`);
+  const chargeId = typeof dispute.charge === 'string' ? dispute.charge : dispute.charge?.id;
+  if (!chargeId) {
+    console.error(`❌ Dispute ${dispute.id} has no charge`);
+    return true;
+  }
+  const charge = await stripe.charges.retrieve(chargeId);
+  const customerId = typeof charge.customer === 'string' ? charge.customer : charge.customer?.id;
+  if (!customerId) {
+    console.log(`Dispute ${dispute.id}: charge ${chargeId} has no customer; nothing to cancel`);
+    return true;
   }
 
-  try {
-    const success = await exports.processWebhookEvent(event);
-    if (!success) {
-      console.error('❌ Error processing webhook event');
-    }
-
-    return res.status(200).json({ received: true });
-  } catch (err) {
-    console.error('❌ Unhandled error in webhook processing:', err);
-    return res.status(500).send('Webhook processing error');
+  const subscriptions = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 100 });
+  for (const subscription of subscriptions.data.filter(candidate => LIVE_STATUSES.includes(candidate.status))) {
+    await stripe.subscriptions.cancel(subscription.id);
+    console.log(`Cancelled subscription ${subscription.id} after dispute ${dispute.id}`);
   }
-};
+  await exports.syncStripeDataToDB(customerId);
+  return true;
+}
+
+// A checkout may only bind a Stripe customer to the user it was created for: the customer this server
+// created for them (metadata.userId), or the one already stored for them. Payment Links and pricing
+// tables let the buyer choose client_reference_id, so that alone proves nothing.
+async function customerBelongsToUser(customerId, userId) {
+  const existing = await CustomerMap.findOne({ userId });
+  if (existing && existing.stripeCustomerId === customerId) return true;
+  const customer = await stripe.customers.retrieve(customerId);
+  return Boolean(customer && !customer.deleted && customer.metadata?.userId === userId);
+}
 
 exports.processWebhookEvent = async (event) => {
   const allowedEvents = [
@@ -211,7 +271,7 @@ exports.processWebhookEvent = async (event) => {
     'customer.subscription.created',
     'customer.subscription.updated',
     'customer.subscription.deleted',
-    'customer.subscription.paused', 
+    'customer.subscription.paused',
     'customer.subscription.resumed',
     'customer.subscription.pending_update_applied',
     'customer.subscription.trial_will_end',
@@ -221,79 +281,47 @@ exports.processWebhookEvent = async (event) => {
     'payment_intent.succeeded',
     'payment_intent.payment_failed',
     'payment_intent.canceled',
+    'charge.dispute.created',
   ];
-  
+
   console.log(`📝 Processing webhook event: ${event.type}`);
-  
+
   // Skip processing if the event isn't one we're tracking
   if (!allowedEvents.includes(event.type)) {
     console.log(`⏭️ Skipping event type: ${event.type} (not in allowed list)`);
     return true;
   }
-  
+
   try {
-    // For subscription creations, ensure we process and save the current_period_end
-    if (event.type === 'customer.subscription.created') {
-      console.log('Processing new subscription creation');
-      const subscription = event.data.object;
-      const customerId = subscription.customer;
-      
-      if (customerId) {
-        // Ensure customer mapping exists
-        const customerMap = await CustomerMap.findOne({ stripeCustomerId: customerId });
-        
-        if (customerMap) {
-          console.log(`Found customer mapping for new subscription, updating details`);
-          
-          // Update subscription details including current period end
-          customerMap.subscriptionId = subscription.id;
-          customerMap.subscriptionStatus = subscription.status;
-          customerMap.cancelAtPeriodEnd = subscription.cancel_at_period_end || false;
-          
-          // Get plan info
-          const priceId = subscription.items?.data?.[0]?.price?.id;
-          const priceName = subscription.items?.data?.[0]?.price?.nickname;
-          customerMap.plan = priceName || 'standard';
-          
-          // Save current period end
-          let periodEnd;
-          if (subscription.items?.data?.[0]?.current_period_end) {
-            periodEnd = subscription.items.data[0].current_period_end;
-          } else if (subscription.current_period_end) {
-            periodEnd = subscription.current_period_end;
-          }
-          
-          if (periodEnd) {
-            customerMap.currentPeriodEnd = new Date(periodEnd * 1000);
-            console.log(`Setting current period end for new subscription: ${customerMap.currentPeriodEnd}`);
-          }
-          
-          await customerMap.save();
-          console.log(`Successfully updated subscription details for new subscription`);
-        }
-      }
+    // A dispute names the charge, not the customer.
+    if (event.type === 'charge.dispute.created') {
+      return await handleDispute(event.data.object);
     }
-    
+
     // Get customer ID from the event
     const { customer: customerId } = event.data.object;
-    
+
     if (!customerId || typeof customerId !== 'string') {
-      console.error(`❌ Missing or invalid customer ID in webhook event type: ${event.type}`);
-      console.error('Event data object:', JSON.stringify(event.data.object, null, 2));
-      return false;
+      // Nothing to sync (a payment without a customer, say), and a retry can't change that, so it counts as
+      // handled. Only the event's id and type: the object can hold emails and billing details.
+      console.warn(`⏭️ No customer in webhook event ${event.id} (${event.type}); nothing to sync`);
+      return true;
     }
-    
+
     // For checkout.session.completed events, create customer mapping if it doesn't exist
     if (event.type === 'checkout.session.completed') {
       const session = event.data.object;
       const userId = session.client_reference_id || session.metadata?.userId;
-      
-      if (userId) {
+
+      if (userId && !(await customerBelongsToUser(customerId, userId))) {
+        // Not retried; the sync below only touches whoever already owns this customer.
+        console.error(`❌ Checkout ${session.id}: customer ${customerId} doesn't belong to user ${userId}; mapping left as it is`);
+      } else if (userId) {
         console.log(`Creating or updating customer mapping for userId: ${userId}, stripeCustomerId: ${customerId}`);
-        
+
         // Try to find existing mapping
         let customerMap = await CustomerMap.findOne({ userId });
-        
+
         if (customerMap) {
           // Update existing mapping
           customerMap.stripeCustomerId = customerId;
@@ -310,12 +338,12 @@ exports.processWebhookEvent = async (event) => {
         }
       }
     }
-    
+
     console.log(`🔄 Syncing data for customer: ${customerId}`);
-    
+
     // Use our centralized sync function
     await exports.syncStripeDataToDB(customerId);
-    
+
     console.log(`✅ Successfully processed webhook event: ${event.type} for customer: ${customerId}`);
     return true;
   } catch (err) {
@@ -337,22 +365,17 @@ exports.syncStripeDataToDB = async (customerId) => {
     }
 
     // Fetch latest subscription data from Stripe with error handling
-    let subscriptions;
+    let subscription;
     try {
-      subscriptions = await stripe.subscriptions.list({
-        customer: customerId,
-        limit: 1,
-        status: "all",
-        expand: ["data.default_payment_method"],
-      });
+      subscription = await bestSubscription(customerId);
     } catch (stripeError) {
       // Leave the stored membership as it is: a Stripe outage must not downgrade paying members.
       console.error('Error fetching subscriptions from Stripe:', stripeError);
       throw stripeError;
     }
 
-    if (!subscriptions || subscriptions.data.length === 0) {
-      // No subscription found
+    if (!subscription) {
+      // No Premium subscription found
       console.log(`No subscriptions found for customer: ${customerId}`);
       customerMap.subscriptionStatus = "none";
       customerMap.subscriptionId = null;
@@ -362,8 +385,6 @@ exports.syncStripeDataToDB = async (customerId) => {
       return customerMap;
     }
 
-    // Get the latest subscription
-    const subscription = subscriptions.data[0];
     console.log(`Found subscription: ${subscription.id}, status: ${subscription.status}`);
     
     // Update customer mapping with latest data - with safe property access
@@ -371,23 +392,9 @@ exports.syncStripeDataToDB = async (customerId) => {
       customerMap.subscriptionId = subscription.id;
       customerMap.subscriptionStatus = subscription.status;
       
-      // First check for the correct location of current_period_end
-      let periodEnd;
-      
-      // Check in subscription.items.data[0].current_period_end (where it actually is)
-      if (subscription.items?.data?.[0]?.current_period_end && 
-          typeof subscription.items.data[0].current_period_end === 'number') {
-        periodEnd = subscription.items.data[0].current_period_end;
-      } 
-      // Also check in subscription.current_period_end as fallback
-      else if (subscription.current_period_end && 
-               typeof subscription.current_period_end === 'number') {
-        periodEnd = subscription.current_period_end;
-      }
-      
-      // If we found a period end time, convert it to a Date object
-      if (periodEnd) {
-        customerMap.currentPeriodEnd = new Date(periodEnd * 1000);
+      const end = periodEnd(subscription);
+      if (end) {
+        customerMap.currentPeriodEnd = new Date(end * 1000);
         console.log(`Setting current period end: ${customerMap.currentPeriodEnd}`);
       } else {
         console.log('No valid current_period_end found in subscription data');
@@ -435,41 +442,11 @@ exports.handleSubscriptionSuccess = async (req, res) => {
     
     // Sync latest subscription data from Stripe
     try {
-      // Get subscriptions directly to access period_end
-      const subscriptions = await stripe.subscriptions.list({
-        customer: customerMap.stripeCustomerId,
-        status: 'active',
-        limit: 1,
-        expand: ['data.default_payment_method']
-      });
-      
       const updatedCustomer = await exports.syncStripeDataToDB(customerMap.stripeCustomerId);
-      
-      // Extract and format the current period end date for the response
-      let periodEndDate = null;
-      
-      if (subscriptions.data.length > 0) {
-        const subscription = subscriptions.data[0];
-        
-        try {
-          // First look in subscription.items.data[0].current_period_end
-          let periodEnd;
-          if (subscription.items?.data?.[0]?.current_period_end) {
-            periodEnd = subscription.items.data[0].current_period_end;
-          } 
-          // Fallback to subscription.current_period_end
-          else if (subscription.current_period_end) {
-            periodEnd = subscription.current_period_end;
-          }
-          
-          if (periodEnd && typeof periodEnd === 'number') {
-            periodEndDate = new Date(periodEnd * 1000).toISOString();
-          }
-        } catch (dateError) {
-          console.error('Error formatting subscription period end date:', dateError);
-        }
-      }
-      
+
+      // The period end of the subscription the sync picked
+      const periodEndDate = updatedCustomer?.currentPeriodEnd ? new Date(updatedCustomer.currentPeriodEnd).toISOString() : null;
+
       // Return information about the subscription status
       return res.json({ 
         success: true,
@@ -489,9 +466,8 @@ exports.handleSubscriptionSuccess = async (req, res) => {
     }
   } catch (error) {
     console.error('Error handling subscription success:', error);
-    res.status(500).json({ 
-      error: 'Failed to process subscription success',
-      details: error.message
+    res.status(500).json({
+      error: 'Failed to process subscription success'
     });
   }
 };
@@ -509,7 +485,7 @@ exports.cancelSubscription = async (req, res) => {
       });
     }
     
-    const { reason } = req.body;
+    const reason = cancellationReason(req.body?.reason);
     console.log(`Cancellation reason: ${reason}`);
     
     // Find customer mapping to get Stripe customer ID
@@ -526,24 +502,17 @@ exports.cancelSubscription = async (req, res) => {
     
     console.log(`Fetching subscriptions for Stripe customer ID: ${customerMap.stripeCustomerId}`);
     
-    // Find active subscriptions for this customer
+    // The same subscription the sync uses for membership
     try {
-      const subscriptions = await stripe.subscriptions.list({
-        customer: customerMap.stripeCustomerId,
-        status: 'active',
-        limit: 1
-      });
-      
-      console.log(`Found ${subscriptions.data.length} active subscriptions`);
-      
-      if (subscriptions.data.length === 0) {
-        return res.status(404).json({ 
+      const subscription = await bestSubscription(customerMap.stripeCustomerId);
+
+      if (!subscription || !LIVE_STATUSES.includes(subscription.status)) {
+        return res.status(404).json({
           success: false,
           error: 'No active subscription found'
         });
       }
-      
-      const subscription = subscriptions.data[0];
+
       console.log(`Found subscription ID: ${subscription.id}`);
       
       // Cancel the subscription at period end instead of immediately
@@ -563,8 +532,9 @@ exports.cancelSubscription = async (req, res) => {
       let periodEndDate;
       try {
         // Safely convert the Unix timestamp to a JavaScript Date
-        if (subscription.current_period_end && typeof subscription.current_period_end === 'number') {
-          periodEndDate = new Date(subscription.current_period_end * 1000).toISOString();
+        const end = periodEnd(subscription);
+        if (end) {
+          periodEndDate = new Date(end * 1000).toISOString();
         } else {
           periodEndDate = null;
         }
@@ -581,18 +551,16 @@ exports.cancelSubscription = async (req, res) => {
       });
     } catch (stripeError) {
       console.error('Stripe API error during cancellation:', stripeError);
-      return res.status(500).json({ 
+      return res.status(500).json({
         success: false,
-        error: 'Error from payment provider',
-        details: stripeError.message
+        error: 'Error from payment provider'
       });
     }
   } catch (error) {
     console.error('Error cancelling subscription:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: 'Failed to cancel subscription',
-      details: error.message
+      error: 'Failed to cancel subscription'
     });
   }
 };
@@ -614,19 +582,28 @@ exports.reactivateSubscription = async (req, res) => {
     const customerMap = await CustomerMap.findOne({ userId });
     console.log(`Found customer mapping:`, customerMap ? 'yes' : 'no');
     
-    if (!customerMap || !customerMap.stripeCustomerId || !customerMap.subscriptionId) {
+    if (!customerMap || !customerMap.stripeCustomerId) {
       console.log(`No active subscription found for user: ${userId}`);
-      return res.status(404).json({ 
+      return res.status(404).json({
         success: false,
         error: 'No subscription found to reactivate'
       });
     }
-    
-    // Reactivate the subscription by setting cancel_at_period_end to false
-    console.log(`Reactivating subscription ID: ${customerMap.subscriptionId}`);
-    
+
     try {
-      const updatedSubscription = await stripe.subscriptions.update(customerMap.subscriptionId, {
+      // The same subscription the sync uses for membership
+      const subscription = await bestSubscription(customerMap.stripeCustomerId);
+      if (!subscription || !LIVE_STATUSES.includes(subscription.status)) {
+        console.log(`No active subscription found for user: ${userId}`);
+        return res.status(404).json({
+          success: false,
+          error: 'No subscription found to reactivate'
+        });
+      }
+
+      // Reactivate the subscription by setting cancel_at_period_end to false
+      console.log(`Reactivating subscription ID: ${subscription.id}`);
+      const updatedSubscription = await stripe.subscriptions.update(subscription.id, {
         cancel_at_period_end: false
       });
       
@@ -643,18 +620,16 @@ exports.reactivateSubscription = async (req, res) => {
       });
     } catch (stripeError) {
       console.error('Stripe API error during reactivation:', stripeError);
-      return res.status(500).json({ 
+      return res.status(500).json({
         success: false,
-        error: 'Error from payment provider',
-        details: stripeError.message
+        error: 'Error from payment provider'
       });
     }
   } catch (error) {
     console.error('Error reactivating subscription:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: 'Failed to reactivate subscription',
-      details: error.message
+      error: 'Failed to reactivate subscription'
     });
   }
 };
@@ -703,10 +678,12 @@ exports.createBillingPortalSession = async (req, res) => {
     */
   } catch (error) {
     console.error('Error creating billing portal session:', error);
-    res.status(500).json({ 
+    // The website shows a "not set up yet" message for this one Stripe error, so it keeps a fixed marker.
+    const notConfigured = /No configuration provided|configuration has not been created/.test(error.message || '');
+    res.status(500).json({
       success: false,
       error: 'Failed to create billing portal session',
-      details: error.message
+      ...(notConfigured && { details: 'No configuration provided' })
     });
   }
 };

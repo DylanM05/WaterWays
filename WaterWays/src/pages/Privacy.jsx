@@ -26,10 +26,6 @@ const Privacy = () => (
     <Section title="Without an account">
       <ul>
         <li>
-          <strong>Visit counts (website):</strong> your browser keeps a random ID, and the site records one visit per ID per day.
-          This counts how many people use the site. It isn't linked to your name or account, and we don't store your IP address with it.
-        </li>
-        <li>
           <strong>Analytics (website):</strong> the website uses PostHog to see which pages are used and where things go wrong.
           PostHog receives the pages you view, your browser and device type, and an approximate location worked out from your IP address.
         </li>
